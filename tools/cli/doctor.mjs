@@ -151,7 +151,7 @@ const PROVIDER_LABELS = {
   cursor:   'Cursor',
   opencode: 'OpenCode',
   warp:     'Warp',
-  windsurf: 'Windsurf',
+  devin: 'Devin Desktop',
   openclaw: 'OpenClaw',
   openhuman: 'OpenHuman',
   omp: 'Oh My Pi',
@@ -175,7 +175,7 @@ const PROVIDER_AGENT_DIRS = {
   cursor:   '.cursor/agents',
   opencode: '.opencode/agent',
   warp:     '.warp/agents',
-  windsurf: '.windsurf/agents',
+  devin: '.windsurf/agents',
   openhuman: '.agents/agents',
   omp: '.omp/agents',
   pi: '.pi',
@@ -590,13 +590,13 @@ function resolveProviderPath(p) {
 }
 
 async function detectDeployedProviders(config) {
-  const detected = [...(config?.providers ?? [])];
+  const detected = [...new Set((config?.providers ?? []).map(name => ['windsurf', 'devin-desktop', 'devin-local', 'cascade'].includes(name) ? 'devin' : name))];
   for (const [name, dir] of Object.entries(PROVIDER_AGENT_DIRS)) {
     if (!detected.includes(name) && await fileExists(path.join(process.cwd(), dir))) detected.push(name);
   }
-  // Aggregated providers (Windsurf / Hermes) leave a project-root AGENTS.md.
-  if (await fileExists(path.join(process.cwd(), 'AGENTS.md')) && !detected.includes('windsurf')) {
-    detected.push('windsurf');
+  // Aggregated providers (Devin Desktop / Hermes) leave a project-root AGENTS.md.
+  if (await fileExists(path.join(process.cwd(), 'AGENTS.md')) && !detected.includes('devin')) {
+    detected.push('devin');
   }
   return detected;
 }

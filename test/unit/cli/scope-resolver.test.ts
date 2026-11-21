@@ -354,7 +354,7 @@ describe('rejectOpenClawProjectScope (#1156)', () => {
 
 describe('USER_SCOPE_PATHS coverage', () => {
   it('covers all 14 supported providers', () => {
-    const expected = ['claude', 'codex', 'pi', 'copilot', 'cursor', 'opencode', 'warp', 'windsurf', 'hermes', 'openclaw', 'openhuman', 'factory', 'grokbot', 'muse'];
+    const expected = ['claude', 'codex', 'pi', 'copilot', 'cursor', 'opencode', 'warp', 'devin', 'hermes', 'openclaw', 'openhuman', 'factory', 'grokbot', 'muse'];
     for (const p of expected) {
       expect(USER_SCOPE_PATHS[p], `${p} should have user-scope paths`).toBeDefined();
     }

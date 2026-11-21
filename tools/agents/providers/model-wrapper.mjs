@@ -40,7 +40,7 @@ export function withModelWrapper(provider, translate) {
       resolveWrapperPin(provider, wrapper, { catalog, override, effort });
     // Legacy translators read a single tools line; normalize YAML lists before mapping.
     const toolList = parsed.metadata.tools;
-    const normalized = Array.isArray(toolList) && ['antigravity', 'copilot', 'factory', 'windsurf'].includes(provider)
+    const normalized = Array.isArray(toolList) && ['antigravity', 'copilot', 'factory', 'devin'].includes(provider)
       ? content.replace(/^tools:[^\n]*(?:\n[ \t]+- [^\n]*)*/m,
         `tools: ${provider === 'antigravity' ? `[${toolList.join(', ')}]` : JSON.stringify(toolList)}`)
       : content;

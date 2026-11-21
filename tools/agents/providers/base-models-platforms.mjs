@@ -72,10 +72,10 @@ export function loadModelConfig(srcRoot) {
       config[provider] = Object.fromEntries(Object.entries(catalog.providers[provider].roles)
         .map(([role, entry]) => [role, { model: entry.id }]));
     }
-    // Windsurf's catalog currently has only "inherited" placeholders. Until it
-    // supplies concrete IDs, use Factory's API pins, matching shipped Windsurf.
-    config.windsurf = Object.fromEntries(Object.entries(config.factory).map(([role, entry]) => {
-      const id = catalog.providers.windsurf?.roles?.[role]?.id;
+    // Devin Desktop's catalog currently has only "inherited" placeholders. Until it
+    // supplies concrete IDs, use Factory's API pins, matching shipped Devin Desktop.
+    config.devin = Object.fromEntries(Object.entries(config.factory).map(([role, entry]) => {
+      const id = catalog.providers.devin?.roles?.[role]?.id;
       return [role, { model: typeof id === 'string' && id.trim() && id !== 'inherited' ? id : entry.model }];
     }));
     config.shorthand = { inherit: 'inherit' };
@@ -97,11 +97,12 @@ export function loadModelConfig(srcRoot) {
   ]) {
     const layer = readConfig(loc.path);
     if (layer) {
-      config = mergeModelConfig(config, layer, loc.path);
+      // Deprecated provider key remains readable in pre-buyout models.json files.
+      config = mergeModelConfig(config, layer.windsurf && !layer.devin ? { ...layer, devin: layer.windsurf } : layer, loc.path);
       sources.push(`${loc.label} (${loc.path})`);
     }
   }
-  return { ...config, _source: sources.join(' ← ') };
+  return { ...config, devin: config.devin ?? config.windsurf, windsurf: config.devin ?? config.windsurf, _source: sources.join(' ← ') };
 }
 
 
@@ -195,7 +196,8 @@ export function skillMatchesProvider(content, provider) {
   if (!platforms) return true; // No restriction
 
   const platformName = PROVIDER_TO_PLATFORM[provider] || provider;
-  return platforms.includes(platformName) || platforms.includes(provider);
+  return platforms.includes(platformName) || platforms.includes(provider)
+    || (['devin', 'windsurf'].includes(provider) && platforms.some(name => ['devin', 'windsurf'].includes(name)));
 }
 
 

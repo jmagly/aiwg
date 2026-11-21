@@ -327,7 +327,7 @@ describe('bridgeAll', () => {
   });
 
   it('skips providers whose ProviderDefinition declares no hook bridge adapter', async () => {
-    const results = await bridgeAll([SAMPLE_HOOK], ['windsurf'], { projectPath: tmpDir });
+    const results = await bridgeAll([SAMPLE_HOOK], ['devin'], { projectPath: tmpDir });
     expect(results[0].skipped).toBe(true);
     expect(results[0].skipReason).toContain('no translator registered');
   });

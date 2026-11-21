@@ -68,7 +68,7 @@ aiwg status --probe --json | jq '{migration: .workspace.migration, isFrameworkSc
 **Pass criteria — provider-dependent.** The migration/scoped probe is a *project-local* signal; it does not apply uniformly across providers.
 
 *Project-local providers* (claude-code, codex, copilot, cursor, factory,
-opencode, omp, pi, warp, windsurf) deploy into the project and migrate a
+opencode, omp, pi, warp, devin) deploy into the project and migrate a
 framework-scoped `.aiwg/` workspace:
 - `aiwg use` exits 0.
 - `migration.status` is `"completed"` (not `"partial"`) on a fresh workspace (regression check for #1516).
@@ -268,13 +268,13 @@ aiwg show skill aiwg-utils-quickref --body | head -10         # quickref reachab
 | Skills also need a cross-agent mirror at `.agents/skills/` | Both locations populated by deploy | `ls .agents/skills/ \| wc -l` ≥ 1 |
 | OpenCode does not enforce frontmatter strictly; AIWG ships it anyway for portability | Files retain frontmatter even when not required | `head -5 .opencode/agent/$(ls .opencode/agent/ \| head -1)` shows `---` frontmatter |
 
-### 7-H. Windsurf
+### 7-H. Devin Desktop
 
 | Gap (vendor side) | AIWG normalization | Verification |
 |---|---|---|
-| Windsurf reads `AGENTS.md` + `.windsurf/rules/` natively; there's no native agents picker, so agent reachability must be normalized | `aiwg use --provider windsurf` deploys agents to `.windsurf/agents/*.soul.md` (+ `.aiwg-manifest.json`) and emits a **lean discover-first `AGENTS.md` bridge** (not an inlined agent dump) | `ls .windsurf/agents/*.soul.md \| wc -l` ≥ 1 **AND** `grep -c 'aiwg-managed' AGENTS.md` == 1 (regenerated lean bridge present). Agents are reachable via `.windsurf/agents/` + the `.agents/skills/` mirror + `aiwg discover`/`aiwg show` — NOT via an obsolete inlined `^## Agent: ` block |
+| Devin Desktop reads `AGENTS.md` + `.windsurf/rules/` natively; there's no native agents picker, so agent reachability must be normalized | `aiwg use --provider devin` deploys agents to `.windsurf/agents/*.soul.md` (+ `.aiwg-manifest.json`) and emits a **lean discover-first `AGENTS.md` bridge** (not an inlined agent dump) | `ls .windsurf/agents/*.soul.md \| wc -l` ≥ 1 **AND** `grep -c 'aiwg-managed' AGENTS.md` == 1 (regenerated lean bridge present). Agents are reachable via `.windsurf/agents/` + the `.agents/skills/` mirror + `aiwg discover`/`aiwg show` — NOT via an obsolete inlined `^## Agent: ` block |
 | Commands deploy to `.windsurf/workflows/` (not `commands/`) | Provider adapter uses correct path name | `ls .windsurf/workflows/ \| wc -l` ≥ 1 |
-| Rules use `.windsurf/rules/*.md` with Windsurf-specific frontmatter | Generated with correct frontmatter | `head -8 .windsurf/rules/$(ls .windsurf/rules/ \| head -1)` shows expected frontmatter |
+| Rules use `.windsurf/rules/*.md` with Devin Desktop-specific frontmatter | Generated with correct frontmatter | `head -8 .windsurf/rules/$(ls .windsurf/rules/ \| head -1)` shows expected frontmatter |
 | Skills get `.windsurf/skills/` AND `.agents/skills/` mirror | Both populated | Both directories present |
 
 ### 7-I. OpenClaw

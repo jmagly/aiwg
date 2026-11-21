@@ -7,7 +7,7 @@ description: Regenerate AGENTS.md with vendor-neutral content for multi-platform
 
 # Regenerate AGENTS.md
 
-Regenerate the AGENTS.md file, analyzing current project state while preserving team directives and organizational requirements. Supports Windsurf and Factory AI (both use AGENTS.md as context file).
+Regenerate the AGENTS.md file, analyzing current project state while preserving team directives and organizational requirements. Supports Devin Desktop and Factory AI (both use AGENTS.md as context file).
 
 **Hook file approach (default):** Generates `AIWG-windsurf.md` or `AIWG-factory.md` (per `--provider`) and adds directive to AGENTS.md. @-link support unverified — defaults to section-style until confirmed (see #444).
 
@@ -242,7 +242,7 @@ Use natural language to request workflows:
 - Claude Code: CLAUDE.md
 - GitHub Copilot: .github/copilot-instructions.md
 - Cursor: .cursorrules
-- Windsurf: .windsurfrules
+- Devin Desktop: .windsurfrules
 - Warp: WARP.md
 
 ---
@@ -316,7 +316,7 @@ AGENTS.md serves as a fallback for platforms without dedicated context files:
 | Claude Code | CLAUDE.md | AGENTS.md |
 | GitHub Copilot | .github/copilot-instructions.md | AGENTS.md |
 | Cursor | .cursorrules | AGENTS.md |
-| Windsurf | .windsurfrules | AGENTS.md |
+| Devin Desktop | .windsurfrules | AGENTS.md |
 | Warp | WARP.md | AGENTS.md |
 | Factory AI | .factory/README.md | AGENTS.md |
 | OpenCode | .opencode/README.md | AGENTS.md |
@@ -345,7 +345,7 @@ AGENTS.md serves as a fallback for platforms without dedicated context files:
 | `/aiwg-regenerate-claude` | CLAUDE.md (Claude Code) |
 | `/aiwg-regenerate-copilot` | copilot-instructions.md (GitHub Copilot) |
 | `/aiwg-regenerate-cursorrules` | .cursorrules (Cursor) |
-| `/aiwg-regenerate-windsurfrules` | .windsurfrules (Windsurf) |
+| `/aiwg-regenerate-windsurfrules` | .windsurfrules (Devin Desktop) |
 | `/aiwg-regenerate-warp` | WARP.md (Warp Terminal) |
 | `/aiwg-regenerate-factory` | .factory/README.md (Factory AI) |
 | `/aiwg-regenerate-agents` | AGENTS.md (Multi-vendor) |

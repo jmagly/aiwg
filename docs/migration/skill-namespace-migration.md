@@ -108,12 +108,12 @@ This is **idempotent**: a skill named `aiwg-sync` with `namespace: aiwg` keeps t
 
 ## Platform Deployment Paths
 
-| Platform | New skill path | Windsurf (1-level limit) |
+| Platform | New skill path | Devin Desktop (1-level limit) |
 |----------|---------------|--------------------------|
 | Claude Code | `.claude/skills/aiwg/{slug}/SKILL.md` | N/A |
 | Cursor | `.cursor/skills/aiwg/{slug}/SKILL.md` | N/A |
 | OpenCode | `.opencode/skills/aiwg/{slug}/SKILL.md` | N/A |
-| Windsurf | `.windsurf/skills/{slug}/SKILL.md` | flat — no subdir |
+| Devin Desktop | `.windsurf/skills/{slug}/SKILL.md` | flat — no subdir |
 | Universal | `.agents/skills/aiwg/{slug}/SKILL.md` | N/A |
 
 ---

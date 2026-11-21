@@ -11,7 +11,7 @@ const read = file => fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
 export const inlineStartup = {
   codex: 'AGENTS.md', flue: 'AGENTS.md', pi: 'AGENTS.md', hermes: 'AGENTS.md', warp: 'WARP.md',
   copilot: '.github/copilot-instructions.md', factory: 'AGENTS.md', opencode: 'AGENTS.md',
-  windsurf: 'AGENTS.md', antigravity: 'AGENTS.md', muse: 'AGENTS.md',
+  devin: 'AGENTS.md', antigravity: 'AGENTS.md', muse: 'AGENTS.md',
   omp: '.omp/AGENTS.md', 'grok-build': 'AGENTS.md',
 };
 function section(content, owner, body) {

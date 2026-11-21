@@ -37,4 +37,4 @@ or command interface so it can connect AIWG to the current project.
 | `aiwg.agent-reference.provider.omp` | Oh My Pi | [Operational reference](omp.md) |
 | `aiwg.agent-reference.provider.pi` | Pi Coding Agent (pi.dev) | [Operational reference](pi.md) |
 | `aiwg.agent-reference.provider.warp` | Warp | [Operational reference](warp.md) |
-| `aiwg.agent-reference.provider.windsurf` | Devin Desktop (`devin`; Windsurf compatibility adapter) | [Operational reference](windsurf.md) |
+| `aiwg.agent-reference.provider.windsurf` | Devin Desktop (`devin`; legacy path compatibility adapter) | [Operational reference](windsurf.md) |

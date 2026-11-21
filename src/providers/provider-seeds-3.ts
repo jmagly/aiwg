@@ -127,10 +127,10 @@ export const BUILT_IN_SEEDS_3: BuiltInSeed[] = [
     matrixRef: 'warp',
   },
   {
-    id: 'windsurf',
+    id: 'devin',
     displayName: 'Devin Desktop',
     status: 'stable',
-    aliases: ['devin', 'devin-desktop', 'devin-local', 'cascade'],
+    aliases: ['windsurf', 'devin-desktop', 'devin-local', 'cascade'],
     builtIn: true,
     surfaces: {
       primary: 'devin',
@@ -151,7 +151,7 @@ export const BUILT_IN_SEEDS_3: BuiltInSeed[] = [
           },
           notes: [
             'Devin Desktop is the current product name; --provider devin is preferred and --provider windsurf remains a deprecated compatibility id.',
-            '.devin/rules is preferred by Devin Desktop, but AIWG keeps .devin/ as ignored local provider output and currently emits the compatibility surface through .windsurf/ plus AGENTS.md.',
+            'AIWG keeps .devin/ as ignored local provider output and retains .windsurf/ plus AGENTS.md; the installed 3.11 package is insufficient to verify 3.14 project discovery. Verify on titan before changing paths.',
           ],
         },
         {
@@ -167,7 +167,7 @@ export const BUILT_IN_SEEDS_3: BuiltInSeed[] = [
             legacy: ['.windsurfrules'],
           },
           notes: [
-            'Devin CLI has distinct rules and skills surfaces and should not normalize to windsurf until a dedicated provider behavior issue adds writer support.',
+            'Devin CLI has distinct rules and skills surfaces and should not normalize to devin until a dedicated provider behavior issue adds writer support.',
           ],
         },
         {
@@ -183,17 +183,18 @@ export const BUILT_IN_SEEDS_3: BuiltInSeed[] = [
             legacy: [],
           },
           notes: [
-            'Devin product skills use the Agent Skills layout and are recorded here as a readable surface, not as current AIWG windsurf deploy output.',
+            'Devin product skills use the Agent Skills layout and are recorded here as a readable surface, not as current AIWG devin deploy output.',
           ],
         },
       ],
     },
     detection: {
       env: ['WINDSURF_VERSION'],
-      process: ['windsurf'],
-      capabilityId: 'windsurf',
+      process: ['devin-desktop', 'windsurf'],
+      capabilityId: 'devin',
       runtimeEnvPriority: 30,
     },
+    // Compatibility filenames stay unchanged; verify Desktop 3.14 on titan before migrating.
     paths: {
       artifacts: {
         agents: '.windsurf/agents',
@@ -224,11 +225,11 @@ export const BUILT_IN_SEEDS_3: BuiltInSeed[] = [
     adapters: {
       agentFormat: 'windsurf-markdown',
       hookBridge: null,
-      mcpInjection: 'windsurf',
+      mcpInjection: 'devin',
       contextAggregation: 'agents-md',
       ruleFormat: 'windsurf-rule',
     },
-    matrixRef: 'windsurf',
+    matrixRef: 'devin',
   },
   {
     id: 'generic',

@@ -141,7 +141,7 @@ PIPELINE OPTIONS:
 AGENT OPTIONS:
   --provider <name>       Agent system to use (default: claude)
                           Spawnable: ${spawnable}
-                          IDE-integrated (guidance only): copilot, cursor, factory, warp, windsurf
+                          IDE-integrated (guidance only): copilot, cursor, factory, warp, devin
   --dangerous             Enable unrestricted mode (skips permission prompts).
                           Maps to the provider's native flag — e.g. claude gets
                           --dangerously-skip-permissions, codex gets

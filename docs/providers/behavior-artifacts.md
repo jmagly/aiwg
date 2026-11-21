@@ -13,7 +13,7 @@ AIWG addons may ship `behaviors/<name>/BEHAVIOR.md`. OpenClaw reads those native
 | Factory | `.factory/rules/behaviors/<name>.md` |
 | OpenCode | `.opencode/rule/behaviors/<name>.md` |
 | Warp | `.warp/rules/behaviors/<name>.md` |
-| Windsurf | `.windsurf/rules/behaviors/<name>.md` |
+| Devin Desktop | `.windsurf/rules/behaviors/<name>.md` |
 | Hermes | `.hermes/behaviors/<name>.md` |
 | OpenClaw | `~/.openclaw/behaviors/<name>/BEHAVIOR.md` plus translated hooks when hook metadata exists |
 

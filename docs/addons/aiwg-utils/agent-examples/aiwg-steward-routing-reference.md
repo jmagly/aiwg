@@ -169,7 +169,7 @@ copied by default):
 | copilot | `.github/skills/` |
 | opencode | `.opencode/skill/` |
 | warp | `.warp/skills/` |
-| windsurf | `.windsurf/skills/` |
+| devin | `.windsurf/skills/` |
 | openclaw | `~/.openclaw/skills/aiwg/` |
 | hermes | `~/.hermes/skills/` |
 | codex | `.agents/skills/` |

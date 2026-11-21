@@ -204,7 +204,7 @@ Destructive, secret, production and override actions always retain review.
 | GitHub Copilot | None confirmed | Check `.github/copilot/` | Markdown text output |
 | OpenCode | None confirmed | Check `.opencode/` config | Markdown text output |
 | Codex (OpenAI) | `request_user_input` (mode-gated, usually off) · MCP elicitation (stable) | `codex features list`; check tool surface | Markdown text output — see Codex note below |
-| Windsurf | None confirmed | Check AGENTS.md context | Markdown text output |
+| Devin Desktop | None confirmed | Check AGENTS.md context | Markdown text output |
 
 ## Detection Pattern
 

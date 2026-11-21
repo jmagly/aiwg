@@ -19,10 +19,10 @@ describe('normalizeProviderId', () => {
     expect(normalizeProviderId('claude-code')).toBe('claude');
     expect(normalizeProviderId('openai')).toBe('codex');
     expect(normalizeProviderId('tinyhumansai')).toBe('openhuman');
-    expect(normalizeProviderId('devin')).toBe('windsurf');
-    expect(normalizeProviderId('devin-desktop')).toBe('windsurf');
-    expect(normalizeProviderId('devin-local')).toBe('windsurf');
-    expect(normalizeProviderId('cascade')).toBe('windsurf');
+    expect(normalizeProviderId('devin')).toBe('devin');
+    expect(normalizeProviderId('devin-desktop')).toBe('devin');
+    expect(normalizeProviderId('devin-local')).toBe('devin');
+    expect(normalizeProviderId('cascade')).toBe('devin');
     expect(normalizeProviderId('pi-coding-agent')).toBe('pi');
   });
 

@@ -99,10 +99,10 @@ const MCP_INJECTION_DEFINITIONS = [
     },
   },
   {
-    id: 'windsurf',
-    aliases: ['devin', 'devin-desktop', 'devin-local', 'cascade'],
+    id: 'devin',
+    aliases: ['windsurf', 'devin-desktop', 'devin-local', 'cascade'],
     mcp: {
-      providerId: 'windsurf',
+      providerId: 'devin',
       includeInSupportedProviders: true,
       configFormat: 'json',
       serverConfigFormat: 'standard',

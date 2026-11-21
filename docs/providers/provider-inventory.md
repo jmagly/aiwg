@@ -24,7 +24,7 @@ AIWG has **19 named provider integrations**. The source-of-truth registry is
 | `pi` | [Pi Coding Agent](https://pi.dev/) | Experimental | Project |
 | `omp` | [Oh My Pi](omp.md) | Experimental | Mixed project/user |
 | `warp` | Warp Terminal | Stable | Project |
-| `windsurf` | Devin Desktop | Stable compatibility adapter | Project |
+| `devin` | Devin Desktop | Stable compatibility adapter | Project |
 
 `agy` is the only alias for `antigravity` and is also Google's CLI executable.
 `dsh` selects `deepseek-harness` and is also its CLI executable. Bare
@@ -33,7 +33,7 @@ the separate LLM/API vendor category.
 `oh-my-pi` is an alias for `omp`; OMP is distinct from the original `pi` provider.
 The `pi` provider targets Pi Coding Agent, the minimal agent harness published
 at [pi.dev](https://pi.dev/); it remains one provider identity.
-`devin` is an alias for `windsurf`, not an additional provider. Bare `grok` is deliberately not an AIWG provider alias because it names the xAI model/API category; use `grokbot` for Grok Bot and `grok-build` for the xAI Grok Build CLI/TUI. Grok web Build is not the CLI adapter.
+`devin` is the canonical Devin Desktop id; `windsurf` is a deprecated alias, not an additional provider. Bare `grok` is deliberately not an AIWG provider alias because it names the xAI model/API category; use `grokbot` for Grok Bot and `grok-build` for the xAI Grok Build CLI/TUI. Grok web Build is not the CLI adapter.
 `muse` is the only AIWG provider id for Muse Code; no aliases are registered (see `docs/architecture/adr-muse-provider-target.md`).
 
 The `generic`

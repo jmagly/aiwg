@@ -4,7 +4,7 @@ name: soul-disable
 platforms: [all]
 description: Disable soul enforcement without deleting SOUL.md or soul files
 commandHint:
-  argumentHint: "[--provider claude|warp|copilot|cursor|factory|windsurf|opencode|codex] [--all]"
+  argumentHint: "[--provider claude|warp|copilot|cursor|factory|devin|opencode|codex] [--all]"
   allowedTools: Read, Write, Edit, Bash, Glob
   model: haiku
   category: soul-management
@@ -24,7 +24,7 @@ Remove the soul directive from platform context file(s) and remove the enforceme
 
 | Flag | Description |
 |------|-------------|
-| `--provider <name>` | Target specific provider: `claude`, `warp`, `copilot`, `cursor`, `factory`, `windsurf`, `opencode`, `codex` |
+| `--provider <name>` | Target specific provider: `claude`, `warp`, `copilot`, `cursor`, `factory`, `devin`, `opencode`, `codex` |
 | `--all` | Disable for all installed providers (default if no provider specified) |
 
 ## Workflow
@@ -48,7 +48,7 @@ grep -q "@SOUL.md" CLAUDE.md && echo "enabled" || echo "already disabled"
 
 ### Step 3: Remove Directive
 
-**For @-link style** (Claude, Warp, Windsurf, Copilot, Cursor, Factory, OpenCode):
+**For @-link style** (Claude, Warp, Devin Desktop, Copilot, Cursor, Factory, OpenCode):
 
 Remove the `@SOUL.md` line from the context file. Preserve all surrounding content.
 

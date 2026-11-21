@@ -242,8 +242,8 @@ function delegationSupport(provider: string | undefined): string {
     case 'warp':
     case 'hermes':
       return `**Provider behavior (${provider})**: delegation is available, but model selection is global/run-scoped. Use the wrapper rubric for task selection while reporting that heterogeneous per-worker pinning is not enforced.`;
-    case 'windsurf':
-      return '**Provider behavior (windsurf)**: portable subagent model selection is unsupported. Apply the decomposition rubric in the primary agent and do not claim wrapper pinning or parallel delegation.';
+    case 'devin':
+      return '**Provider behavior (devin)**: portable subagent model selection is unsupported. Apply the decomposition rubric in the primary agent and do not claim wrapper pinning or parallel delegation.';
     default:
       return `**Provider behavior (${provider ?? 'unknown'})**: delegation and per-worker model selection are unverified. Apply the rubric only where the active provider exposes those capabilities, and state any fallback explicitly.`;
   }

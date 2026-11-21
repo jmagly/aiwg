@@ -206,7 +206,7 @@ operator text outside AIWG blocks. Redeployment removes former inline blocks.
 | Claude | Complete bodies and summary `RULES-INDEX.md` in `.claude/rules/`, loaded natively; compact core remains native. | Native `paths` frontmatter. |
 | Cursor | Complete MDC bodies and index in `.cursor/rules/`, `alwaysApply: true`; compact core remains native. | Native MDC `globs`, `alwaysApply: false`. |
 | Grok Build | Complete Markdown bodies and index in `.grok/rules/`, discovered by the verified native loader. AGENTS.md names the index. | Index and explicit fetch; no verified glob attachment. |
-| Windsurf | Complete bodies and index in `.windsurf/rules/`, `trigger: always_on`. AGENTS.md names the index. | `trigger: glob` with the translator's `glob` field. |
+| Devin Desktop | Complete bodies and index in `.windsurf/rules/`, `trigger: always_on`. AGENTS.md names the index. | `trigger: glob` with the translator's `glob` field. |
 | OpenCode | Complete bodies and index in `.opencode/rule/`, registered through `opencode.json` `instructions` (recursive Markdown glob). Preserve existing config and instruction entries. | Index and explicit fetch; instructions registration is unconditional. |
 | Codex | `.codex/rules/RULES-INDEX.md` lists every complete local kernel file; AGENTS.md requires reading it before every task and subagent task. | Prompt index/check, fetch matching rules. |
 | Muse | `.muse/rules/RULES-INDEX.md`, reached through its own AGENTS.md hook. No declared rules path exists; `.muse` follows its existing harness directory convention. | Prompt index/check. Workspace trust still applies. |
@@ -715,7 +715,7 @@ epic_rule_outside_profile:
 
 ### Legacy provider migration (#3457)
 
-Copilot, Factory, OpenCode, Windsurf, Antigravity, Muse, OMP and Grok Build
+Copilot, Factory, OpenCode, Devin Desktop, Antigravity, Muse, OMP and Grok Build
 use the shared transactional activation projector for direct deployments as
 well as kernel-only `use all`. Compact core bodies are first in the managed
 startup rule block; a harness-specific hook reaches kernel bodies and the activation index in rule files. Core bodies
@@ -727,7 +727,7 @@ imports of full rule files.
 | Copilot | `.github/copilot-instructions.md` | Copilot custom instructions contract |
 | Factory | `AGENTS.md` | Factory AGENTS discovery hierarchy |
 | OpenCode | `AGENTS.md`, `AIWG.md`, `.opencode/rule/*.md` | [OpenCode rules and instructions registration](https://opencode.ai/docs/rules/) (`CONTEXT_CONTRACTS`) |
-| Windsurf | `AGENTS.md` | Windsurf/Devin topology contract |
+| Devin Desktop | `AGENTS.md` | Devin Desktop topology contract |
 | Antigravity | `AGENTS.md` | [Qualified CLI 1.1.26 project context](https://antigravity.google/docs/cli/overview/) (`CONTEXT_CONTRACTS`, verified 2026-09-04) |
 | Muse | `AGENTS.md` | Muse context contract; workspace trust required |
 | OMP | `.omp/AGENTS.md` | [OMP 18.1.10 context loader at 5964a0f7649275bcde818f20073193fd032451f2](https://github.com/can1357/oh-my-pi/blob/5964a0f7649275bcde818f20073193fd032451f2/packages/coding-agent/src/system-prompt.ts#L451); shadows root context |

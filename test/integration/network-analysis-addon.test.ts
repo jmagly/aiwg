@@ -87,7 +87,7 @@ describe('network-analysis addon deployment (#2272)', () => {
   it('declares the documented provider matrix without provider-specific skill forks', () => {
     expect(providers).toEqual([
       'claude', 'codex', 'cursor', 'factory', 'hermes', 'opencode',
-      'openclaw', 'openhuman', 'warp', 'windsurf',
+      'openclaw', 'openhuman', 'warp', 'devin',
     ]);
     expect(manifest.skills).toEqual(['analyze-network-capture']);
     expect(manifest.platform_support).toEqual(

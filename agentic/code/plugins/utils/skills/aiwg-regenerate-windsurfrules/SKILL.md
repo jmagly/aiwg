@@ -2,14 +2,16 @@
 namespace: aiwg
 name: aiwg-regenerate-windsurfrules
 platforms: [all]
-description: Regenerate .windsurfrules for Windsurf with preserved team directives
+description: Regenerate .windsurfrules for Devin Desktop with preserved team directives
 ---
 
-# Regenerate .windsurfrules
+# Regenerate Devin Desktop rules
 
-Regenerate the `.windsurfrules` file for Windsurf (Codeium) integration, analyzing current project state while preserving team directives and organizational requirements.
+> **Deprecated skill ID:** `aiwg-regenerate-windsurfrules` remains discoverable for legacy installs. New projects use `aiwg-regenerate` with provider `devin`; internal filenames remain unchanged.
 
-**Hook file approach (default):** Generates `AIWG-windsurf.md` and adds `@AIWG-windsurf.md` directive. Note: Windsurf @-link support is unverified — defaults to full inject until confirmed (see #444).
+Regenerate the `.windsurfrules` file for Devin Desktop integration, analyzing current project state while preserving team directives and organizational requirements.
+
+**Hook file approach (default):** Generates `AIWG-windsurf.md` and adds `@AIWG-windsurf.md` directive. Note: Devin Desktop @-link support is unverified — defaults to full inject until confirmed (see #444).
 
 **Full inject (`--full-inject`):** Embeds AIWG content inline with AIWG markers.
 
@@ -47,7 +49,7 @@ Same preservation patterns as other platforms:
 - Test framework
 - CI/CD configuration
 - Directory structure
-- Windsurf-specific configuration in `.windsurf/`
+- Devin Desktop-specific configuration in `.windsurf/`
 
 ### Step 4: Detect AIWG State
 
@@ -66,7 +68,7 @@ Read registry for framework versions.
 ```markdown
 # .windsurfrules
 
-Project rules for Windsurf AI assistance.
+Project rules for Devin Desktop AI assistance.
 
 ## Project Overview
 
@@ -112,7 +114,7 @@ docs/          → Documentation
 
 ## AIWG Framework Integration
 
-This project uses AIWG SDLC framework with Windsurf.
+This project uses AIWG SDLC framework with Devin Desktop.
 
 ### Installed Frameworks
 
@@ -191,7 +193,7 @@ Output: .windsurfrules (187 lines)
 ## Examples
 
 ```bash
-# Regenerate .windsurfrules
+# Regenerate Devin Desktop rules
 /aiwg-regenerate-windsurfrules
 
 # Preview changes
@@ -219,6 +221,6 @@ Output: .windsurfrules (187 lines)
 ## References
 
 - @$AIWG_ROOT/agentic/code/addons/aiwg-utils/README.md — aiwg-utils addon overview
-- @$AIWG_ROOT/agentic/code/addons/aiwg-utils/rules/native-ux-tools.md — Platform capability matrix including Windsurf
+- @$AIWG_ROOT/agentic/code/addons/aiwg-utils/rules/native-ux-tools.md — Platform capability matrix including Devin Desktop
 - @$AIWG_ROOT/docs/cli-reference.md — CLI reference for aiwg sync and regenerate commands
 - @$AIWG_ROOT/agentic/code/frameworks/sdlc-complete/README.md — SDLC framework context referenced in generated .windsurfrules

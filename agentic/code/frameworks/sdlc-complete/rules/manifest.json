@@ -46,7 +46,7 @@
         "mechanism": "file-copy",
         "supported": true
       },
-      "windsurf": {
+      "devin": {
         "target": ".windsurf/rules/RULES-INDEX.md",
         "mechanism": "file-copy",
         "supported": true

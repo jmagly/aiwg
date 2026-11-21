@@ -505,7 +505,7 @@ PRs: 15 total
 Contribution Categories:
 - Platform Integrations: 8 (53%)
   - Cursor: 1 (merged)
-  - Windsurf: 1 (open)
+  - Devin Desktop: 1 (open)
   - Zed: 1 (open)
   - Warp: 2 (merged)
   - VS Code: 3 (merged)
@@ -906,13 +906,13 @@ Tagging team for review: @maintainer1 @maintainer2
    - ✓ Claude: Agents deployed and functional
    - ✓ Warp: Workflows generated correctly
    - ⏳ Cursor: Testing in progress
-   - ❌ Windsurf: Error in rule generation (details below)
+   - ❌ Devin Desktop: Error in rule generation (details below)
 
-   **Issue Found (Windsurf):**
+   **Issue Found (Devin Desktop):**
    File: tools/windsurf/setup-windsurf.mjs:67
    Error: `undefined is not a function` when generating rules
 
-   Please fix Windsurf compatibility before merge.
+   Please fix Devin Desktop compatibility before merge.
    ```
 
 ### First-Time Contributors
@@ -1313,12 +1313,12 @@ aiwg -review-approve 123 --auto-merge --comment "Exemplary contribution!"
 
 ### Example 2: Good PR - Minor Changes Needed
 
-**Scenario:** Windsurf platform integration, quality score 82/100
+**Scenario:** Devin Desktop platform integration, quality score 82/100
 
 ```markdown
 ## Review Summary
 
-PR #125: Add Windsurf editor platform integration
+PR #125: Add Devin Desktop editor platform integration
 quality score: 82/100
 
 ### Automated Quality Gates
@@ -1345,12 +1345,12 @@ quality score: 82/100
 ```markdown
 ## Troubleshooting
 
-### Error: "Windsurf configuration directory not found"
-**Cause:** Windsurf not installed or using non-standard location
+### Error: "Devin Desktop configuration directory not found"
+**Cause:** Devin Desktop not installed or using non-standard location
 **Fix:**
-1. Verify Windsurf is installed: `which windsurf`
+1. Verify Devin Desktop is installed: `which devin`
 2. Check config location: `ls ~/.config/windsurf`
-3. Specify custom location: `aiwg -deploy-agents --platform windsurf --config-dir /custom/path`
+3. Specify custom location: `aiwg -deploy-agents --platform devin --config-dir /custom/path`
 
 ### Error: "Permission denied writing to .windsurf/rules"
 **Cause:** File permissions issue
@@ -1360,9 +1360,9 @@ chmod 755 ~/.windsurf
 chmod 644 ~/.windsurf/rules
 ```
 
-### Agents not loading in Windsurf
-**Cause:** Windsurf needs restart after rule changes
-**Fix:** Close and reopen Windsurf
+### Agents not loading in Devin Desktop
+**Cause:** Devin Desktop needs restart after rule changes
+**Fix:** Close and reopen Devin Desktop
 ```
 
 **Why:** Every integration doc has troubleshooting - helps users self-service
@@ -1383,10 +1383,10 @@ if (!fs.existsSync(configDir)) {
 **Suggested:**
 ```javascript
 if (!fs.existsSync(configDir)) {
-  console.error(`Error: Windsurf configuration directory not found at ${configDir}`);
+  console.error(`Error: Devin Desktop configuration directory not found at ${configDir}`);
   console.error(`\nPossible solutions:`);
-  console.error(`1. Install Windsurf editor from https://windsurf.ai`);
-  console.error(`2. Verify installation: which windsurf`);
+  console.error(`1. Install Devin Desktop editor from https://windsurf.ai`);
+  console.error(`2. Verify installation: which devin`);
   console.error(`3. Use custom location: --config-dir /path/to/config`);
   process.exit(1);
 }
@@ -1395,7 +1395,7 @@ if (!fs.existsSync(configDir)) {
 **Why:** Actionable error messages reduce support burden
 
 ### What You Got Right
-- **Platform Detection:** Excellent auto-detection of Windsurf installation
+- **Platform Detection:** Excellent auto-detection of Devin Desktop installation
 - **Code Structure:** Clean separation of concerns
 - **Integration:** Smooth CLI integration with --platform flag
 

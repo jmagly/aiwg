@@ -21,4 +21,4 @@ agent:
     - quality_assessment: "Score with rationale"
 
   rules: [token-security, executable-feedback, anti-laziness]
-  platforms: [claude-code, opencode, hermes, cursor, copilot, windsurf, warp, factory]
+  platforms: [claude-code, opencode, hermes, cursor, copilot, devin, warp, factory]

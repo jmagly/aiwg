@@ -19,7 +19,7 @@ OpenClaw receives native behavior bundles under `~/.openclaw/behaviors/`. Other 
 | Warp | Fallback rule via `aiwg use aiwg-utils --provider warp` |
 | Copilot | Fallback rule via `aiwg use aiwg-utils --provider copilot` |
 | Cursor | Fallback rule via `aiwg use aiwg-utils --provider cursor` |
-| Windsurf | Fallback rule via `aiwg use aiwg-utils --provider windsurf` |
+| Devin Desktop | Fallback rule via `aiwg use aiwg-utils --provider devin` |
 | OpenCode | Fallback rule via `aiwg use aiwg-utils --provider opencode` |
 | Factory | Fallback rule via `aiwg use aiwg-utils --provider factory` |
 | Codex | Fallback rule via `aiwg use aiwg-utils --provider codex` |

@@ -31,7 +31,7 @@ const {
       binary: provider === 'claude' ? 'claude' : provider,
       guidanceMessage: undefined,
     })),
-    mockIsSpawnableProvider: vi.fn((provider: string) => !['copilot', 'cursor', 'warp', 'windsurf'].includes(provider)),
+    mockIsSpawnableProvider: vi.fn((provider: string) => !['copilot', 'cursor', 'warp', 'devin'].includes(provider)),
     mockDangerousWarning: vi.fn(() => null),
     mockSpawnableProviders: vi.fn(() => ['claude', 'factory', 'opencode', 'codex']),
   };

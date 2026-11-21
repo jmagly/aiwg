@@ -189,7 +189,7 @@ describe('buildParallelismSection (#1362)', () => {
   it.each([
     ['warp', 'model selection is global/run-scoped'],
     ['hermes', 'model selection is global/run-scoped'],
-    ['windsurf', 'portable subagent model selection is unsupported'],
+    ['devin', 'portable subagent model selection is unsupported'],
     ['openhuman', 'wrapper roles compile to OpenHuman agent definitions'],
   ])('qualifies provider delegation for %s', async (provider, expected) => {
     await writeAiwgConfig(tmpDir, emptyConfig([provider]));

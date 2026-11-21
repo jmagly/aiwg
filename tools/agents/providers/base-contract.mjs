@@ -71,7 +71,7 @@ export const ProviderInterface = {
   deploySkills(skillDirs, targetDir, opts) {},
   deployRules(ruleFiles, targetDir, opts) {},
 
-  // ── Aggregation (for Warp, Windsurf) ────────────────────────────────
+  // ── Aggregation (for Warp, Devin Desktop) ────────────────────────────────
   aggregate(artifacts, targetDir, opts) {},
 
   // ── Create/update AGENTS.md ────────────────────────────────────────

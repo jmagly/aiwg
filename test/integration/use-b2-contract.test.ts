@@ -54,7 +54,8 @@ describe('B2 use CLI contract', () => {
     });
     expect(result.code, result.output).toBe(0);
     const providers = readFileSync(trace, 'utf8').trim().split('\n').map(line => JSON.parse(line));
-    expect(providers.sort()).toEqual(selectedProviders.split(',').sort());
+    const canonicalProviders = selectedProviders.split(',').map(provider => provider === 'windsurf' ? 'devin' : provider);
+    expect(providers.sort()).toEqual(canonicalProviders.sort());
     expect(readdirSync(temporary)).toEqual([]);
     if (dryRun) expect(readdirSync(result.cwd)).toEqual([]);
   }, 240_000);

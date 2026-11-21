@@ -35,7 +35,7 @@ const PROVIDERS_NEEDING_COMMANDS = new Set([
   'factory',
   'opencode',  // OpenCode scans .opencode/command/**/*.md via ConfigCommand.load() (PUW-006 #1107)
   'warp',
-  'windsurf',
+  'devin',
   'copilot',
   'codex',
   'openclaw',

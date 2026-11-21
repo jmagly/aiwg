@@ -438,7 +438,7 @@ The MCP registry is not an alternative deployment inventory.
 Seed ownership: `provider-seeds-1.ts` owns antigravity, claude, codex, copilot,
 cursor, factory and grokbot; `provider-seeds-2.ts` owns deepseek-harness,
 grok-build, hermes, muse, opencode, openclaw, openhuman and omp;
-`provider-seeds-3.ts` owns pi, warp, windsurf and generic.
+`provider-seeds-3.ts` owns pi, warp, devin and generic.
 
 Paths below are project relative unless prefixed with `~/`. K = native kernel
 skills, B = bulk skill inventory; `use all` defaults to kernel deployment,
@@ -466,7 +466,7 @@ each provider's public default without changing its deployment flags.
 | pi | `AGENTS.md` | `.pi/rules` | `.agents/skills`; `.pi/.aiwg/skills` | `pi.mjs` |
 | omp | `.omp/AGENTS.md` | `.omp/rules` | `.agents/skills` (K/B) | `omp.mjs` |
 | warp | `WARP.md`, `AGENTS.md` | `.warp/rules` | `.warp/skills`; `.warp/.aiwg/skills` | `warp.mjs` |
-| windsurf | `AGENTS.md` | `.windsurf/rules` | `.windsurf/skills`; `.windsurf/.aiwg/skills` | `windsurf.mjs` |
+| devin | `AGENTS.md` | `.windsurf/rules` | `.windsurf/skills`; `.windsurf/.aiwg/skills` | `windsurf.mjs` |
 | generic | `AGENTS.md` (host must load explicitly) | `rules` | `.agents/skills` (host loaded); `skills` | `generic.mjs` (#3997) |
 
 Hook support below means **AIWG prompt discovery delivery**, not merely an
@@ -495,7 +495,7 @@ establishes it; interactive support does not establish exec support.
 | pi | None | `pi --print` | Unverified | Pass | Static only |
 | omp | None: extension bridge is not prompt-context delivery | `omp --print` | Unverified | Pass | Static only |
 | warp | None | `warp-terminal agent run` (Oz) | Unverified | Pass | Static only |
-| windsurf | None | Desktop provider; Devin CLI is a separate future target | N/A | Pass | Static only |
+| devin | None | Desktop provider; Devin CLI is a separate future target | N/A | Pass | Static only |
 | generic | None | N/A (host defined) | N/A | Pass (#3997) | Portable adapter; no harness |
 
 Result: **18/18 named harnesses pass** the offline deployment/refresh check;

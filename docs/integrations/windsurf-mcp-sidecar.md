@@ -1,15 +1,17 @@
-# Windsurf MCP Sidecar Guide
+# Devin Desktop MCP Sidecar Guide
 
-Connect AIWG to Windsurf Cascade AI as an MCP sidecar for structured workflow access.
+Connect AIWG to Devin Desktop Cascade AI as an MCP sidecar for structured workflow access.
 
-> **This is not a standard provider deployment.** Windsurf is an IDE-integrated AI assistant that cannot be spawned from the CLI. The MCP sidecar provides structured AIWG tool access from within Windsurf's Cascade agent. The architecture is `Windsurf Cascade AI → MCP → AIWG Server`. Windsurf supports stdio, Streamable HTTP, and SSE transports for MCP connections, with a 100-tool limit across all connected servers.
+> **This is not a standard provider deployment.** Devin Desktop is an IDE-integrated AI assistant that cannot be spawned from the CLI. The MCP sidecar provides structured AIWG tool access from within Devin Desktop's Cascade agent. The architecture is `Devin Desktop Cascade AI → MCP → AIWG Server`. Devin Desktop supports stdio, Streamable HTTP, and SSE transports for MCP connections, with a 100-tool limit across all connected servers.
 
 ---
+
+See [Desktop path verification](../providers/devin-desktop-paths.md) for retained paths and the pending 3.14 check.
 
 ## Architecture
 
 ```
-Windsurf Cascade AI (host)
+Devin Desktop Cascade AI (host)
   ├── Cascade conversation and workflows
   ├── AGENTS.md (aggregated agent definitions)
   ├── .windsurf/ (skills, rules, workflows)
@@ -18,35 +20,35 @@ Windsurf Cascade AI (host)
               └── .aiwg/ artifacts, workflows, templates
 ```
 
-**Windsurf owns**: Cascade conversation context, AGENTS.md aggregation, `.windsurf/` directory, workflow invocation.
+**Devin Desktop owns**: Cascade conversation context, AGENTS.md aggregation, `.windsurf/` directory, workflow invocation.
 
 **AIWG owns**: workflow execution, artifact output in `.aiwg/`, template rendering, agent role definitions.
 
-**MCP is the seam.** Windsurf already receives AIWG agent and workflow definitions via `aiwg use sdlc --provider windsurf`. The MCP sidecar adds structured, callable AIWG tooling on top of that foundation — without replacing it.
+**MCP is the seam.** Devin Desktop already receives AIWG agent and workflow definitions via `aiwg use sdlc --provider devin`. The MCP sidecar adds structured, callable AIWG tooling on top of that foundation — without replacing it.
 
 ---
 
 ## Prerequisites
 
-- Windsurf installed and running ([windsurf.ai](https://windsurf.ai))
+- Devin Desktop installed and running ([windsurf.ai](https://windsurf.ai))
 - AIWG installed: `npm install -g aiwg`
-- A project with AIWG deployed for Windsurf:
+- A project with AIWG deployed for Devin Desktop:
 
 ```bash
 cd /path/to/your/project
-aiwg use sdlc --provider windsurf
+aiwg use sdlc --provider devin
 ```
 
-If you have not done the base deployment yet, complete the [Windsurf Quick Start](windsurf-quickstart.md) first, then return here.
+If you have not done the base deployment yet, complete the [Devin Desktop Quick Start](windsurf-quickstart.md) first, then return here.
 
 ---
 
 ## Install MCP Configuration
 
-Run the AIWG install command to write the MCP configuration for Windsurf:
+Run the AIWG install command to write the MCP configuration for Devin Desktop:
 
 ```bash
-aiwg mcp install windsurf
+aiwg mcp install devin
 ```
 
 This writes (or updates) `~/.codeium/windsurf/mcp_config.json` with the AIWG server entry.
@@ -70,7 +72,7 @@ You should see:
 }
 ```
 
-After writing the config, restart Windsurf to pick up the new MCP server.
+After writing the config, restart Devin Desktop to pick up the new MCP server.
 
 ---
 
@@ -111,7 +113,7 @@ A ready-to-use minimal config template is available at `agentic/code/frameworks/
 
 ## Verify the Connection
 
-After restarting Windsurf, ask Cascade to confirm the tools are available:
+After restarting Devin Desktop, ask Cascade to confirm the tools are available:
 
 ```text
 What AIWG MCP tools are available?
@@ -126,7 +128,7 @@ aiwg mcp info    # Show capabilities
 aiwg version     # Confirm CLI is in PATH
 ```
 
-If Cascade cannot see the tools, check that `aiwg` is accessible from the PATH that Windsurf uses when launching processes.
+If Cascade cannot see the tools, check that `aiwg` is accessible from the PATH that Devin Desktop uses when launching processes.
 
 ---
 
@@ -180,7 +182,7 @@ Understanding the token footprint helps you configure the whitelist for your nee
 | **Total overhead** | **~17,500** |
 | **Available for work** (128K context) | **~110,500 (86%)** |
 
-Windsurf has a large default context window, so the absolute impact is lower than on memory-constrained local models. The whitelist still matters for response latency: Cascade must process all schema tokens on every tool-using turn.
+Devin Desktop has a large default context window, so the absolute impact is lower than on memory-constrained local models. The whitelist still matters for response latency: Cascade must process all schema tokens on every tool-using turn.
 
 ---
 
@@ -241,13 +243,13 @@ Run these checks to confirm the integration is working:
 - Verify `aiwg mcp serve` runs successfully on its own
 - Confirm `~/.codeium/windsurf/mcp_config.json` is valid JSON (use `jq . ~/.codeium/windsurf/mcp_config.json`)
 - Ensure `aiwg` is in your PATH (check `which aiwg`)
-- Restart Windsurf after any config change
+- Restart Devin Desktop after any config change
 
 **Artifacts not appearing in `.aiwg/`:**
 
-- Confirm AIWG is initialized in the project (`aiwg use sdlc --provider windsurf`)
+- Confirm AIWG is initialized in the project (`aiwg use sdlc --provider devin`)
 - Check that `artifact-write` is in the tool whitelist
-- Verify Windsurf's working directory matches the project root
+- Verify Devin Desktop's working directory matches the project root
 
 **Context growing too fast:**
 
@@ -258,13 +260,13 @@ Run these checks to confirm the integration is working:
 
 - The config path is `~/.codeium/windsurf/mcp_config.json`
 - Create the directory if it does not exist: `mkdir -p ~/.codeium/windsurf`
-- Re-run `aiwg mcp install windsurf` after creating the directory
+- Re-run `aiwg mcp install devin` after creating the directory
 
 ---
 
 ## Related Resources
 
-- [Windsurf Quick Start](windsurf-quickstart.md) — base provider deployment (prerequisite)
+- [Devin Desktop Quick Start](windsurf-quickstart.md) — base provider deployment (prerequisite)
 - [Hermes MCP Sidecar Guide](hermes-quickstart.md) — reference architecture this guide follows
 - [AIWG MCP server reference](https://github.com/jmagly/aiwg/blob/main/docs/cli/reference.md#mcp)
-- [Windsurf Documentation](https://windsurf.ai/docs)
+- [Devin Desktop Documentation](https://windsurf.ai/docs)

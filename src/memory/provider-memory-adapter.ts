@@ -94,7 +94,7 @@ const POLICIES: Record<Platform, ProviderMemoryPolicy> = {
   pi: { limits: ['runtime-load-unobserved'], sessionEffect: 'next-session' },
   omp: { limits: ['nearest-nonempty-context', 'depth-ordered-include-deduplication', 'runtime-load-unobserved'], sessionEffect: 'next-session' },
   warp: { limits: ['runtime-load-unobserved'], sessionEffect: 'next-session' },
-  windsurf: { limits: ['runtime-load-unobserved'], sessionEffect: 'next-session' },
+  devin: { limits: ['runtime-load-unobserved'], sessionEffect: 'next-session' },
   generic: { limits: ['indexed-baseline-only'], sessionEffect: 'unknown' },
 };
 

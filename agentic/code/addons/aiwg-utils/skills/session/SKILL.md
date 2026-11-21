@@ -52,7 +52,7 @@ When triggered:
 
 4. **Launch**:
    - Spawnable providers (claude, codex, opencode): launches the binary directly
-   - IDE providers (cursor, windsurf, copilot, factory, warp): prints ready instructions
+   - IDE providers (cursor, devin, copilot, factory, warp): prints ready instructions
 
 ## Examples
 

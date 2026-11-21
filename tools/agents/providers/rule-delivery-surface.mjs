@@ -202,7 +202,7 @@ export function finishBindings(opts, provider) {
   const roots = [opts.target, opts.deploymentHome,
     ...[opts.kernelSkillsPath, opts.activeWorkspace, ...Object.values(provider.paths)].filter(p => p && path.isAbsolute(p))];
   const files = [...new Set(roots.flatMap(walk))];
-  const indexRel = provider.name === 'copilot' ? '.github/RULES-BOUND.md' : provider.name === 'flue' ? '.agents/.aiwg/RULES-BOUND.md' : `.${provider.name}/RULES-BOUND.md`;
+  const indexRel = provider.name === 'copilot' ? '.github/RULES-BOUND.md' : provider.name === 'flue' ? '.agents/.aiwg/RULES-BOUND.md' : `.${provider.name === 'devin' ? 'windsurf' : provider.name}/RULES-BOUND.md`;
   const indexFile = path.join(opts.target, indexRel);
   const anchor = boundRuleAnchor;
   const sections = new Map();
@@ -289,7 +289,7 @@ export function projectBoundFlowSkills(opts, provider, selected) {
   opts.flowSkillSources = new Map();
   if (opts.rulesOnly || opts.commandsOnly || !(opts.deploySkills || opts.skillsOnly)) return;
   const kernel = path.isAbsolute(provider.kernelSkillsPath || '') ? opts.kernelSkillsPath
-    : path.join(opts.target, provider.kernelSkillsPath || `.${provider.name}/skills`);
+    : path.join(opts.target, provider.kernelSkillsPath || `.${provider.name === 'devin' ? 'windsurf' : provider.name}/skills`);
   // Codex's opt-in standard tier shares the native skills directory.
   const standardPath = provider.standardSkillsPath || provider.paths.skills;
   const standard = provider.name === 'codex' ? kernel : path.isAbsolute(standardPath)
@@ -375,7 +375,7 @@ export function startupFiles(opts, provider) {
     // Count managed rule sections while preserving historical accounting for
     // operator aggregates; discrete hook-reached rule files are counted above.
     if ((provider.name === 'warp' && path.basename(file) === 'WARP.md')
-      || (provider.name === 'windsurf' && file === path.join(opts.target, 'AGENTS.md'))) content = warpRuleContent(content);
+      || (provider.name === 'devin' && file === path.join(opts.target, 'AGENTS.md'))) content = warpRuleContent(content);
     return { path: file, content };
   });
 }

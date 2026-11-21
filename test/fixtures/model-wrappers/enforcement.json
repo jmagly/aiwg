@@ -10,7 +10,7 @@
   "grok-build": { "state": "inherited" },
   "openclaw": { "state": "inherited" },
   "openhuman": { "state": "inherited" },
-  "windsurf": { "state": "inherited" },
+  "devin": { "state": "inherited" },
   "pi": { "state": "inherited" },
   "deepseek-harness": { "state": "inherited" },
   "warp": { "state": "global-only" },

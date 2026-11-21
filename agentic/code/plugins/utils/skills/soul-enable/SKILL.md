@@ -4,7 +4,7 @@ name: soul-enable
 platforms: [all]
 description: Enable soul enforcement by wiring SOUL.md into platform context files and deploying the enforcement rule
 commandHint:
-  argumentHint: "[--provider claude|warp|copilot|cursor|factory|windsurf|opencode|codex] [--all] [--agents]"
+  argumentHint: "[--provider claude|warp|copilot|cursor|factory|devin|opencode|codex] [--all] [--agents]"
   allowedTools: Read, Write, Edit, Bash, Glob
   model: haiku
   category: soul-management
@@ -28,7 +28,7 @@ Wire a project's SOUL.md into the active context so the agent's identity, worldv
 
 | Flag | Description |
 |------|-------------|
-| `--provider <name>` | Target specific provider: `claude`, `warp`, `copilot`, `cursor`, `factory`, `windsurf`, `opencode`, `codex` |
+| `--provider <name>` | Target specific provider: `claude`, `warp`, `copilot`, `cursor`, `factory`, `devin`, `opencode`, `codex` |
 | `--all` | Enable for all installed providers (default if no provider specified) |
 | `--agents` | Also wire per-agent `.soul.md` files into their agent definitions |
 | `--agent <name>` | Wire soul for a specific agent only |
@@ -48,7 +48,7 @@ Per-agent soul files follow the pattern: `<agent-name>.soul.md` alongside the ag
 |----------|-------------|-----------------|
 | Claude Code | `CLAUDE.md` | `@SOUL.md` |
 | Warp Terminal | `WARP.md` | `@SOUL.md` |
-| Windsurf | `AGENTS.md` | `@SOUL.md` |
+| Devin Desktop | `AGENTS.md` | `@SOUL.md` |
 | GitHub Copilot | `.github/copilot-instructions.md` | `@SOUL.md` |
 | Cursor | `.cursorrules` | `@SOUL.md` |
 | Factory AI | `AGENTS.md` | `@SOUL.md` |

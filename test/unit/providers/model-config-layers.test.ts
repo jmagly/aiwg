@@ -136,7 +136,7 @@ describe('merged deploy models (#4186, #4187)', () => {
     vi.spyOn(fs, 'existsSync').mockImplementation(file =>
       String(file).endsWith(defaultsPath) ? false : existsSync(file));
     const config = loadModelConfig(repo);
-    for (const provider of ['claude', 'factory', 'windsurf']) {
+    for (const provider of ['claude', 'factory', 'devin']) {
       for (const role of Object.values(roles)) {
         expect(config[provider][role].model).toBe(shipped[provider][role].model);
       }
@@ -154,7 +154,7 @@ describe('merged deploy models (#4186, #4187)', () => {
     expect(warn).toHaveBeenCalledOnce();
   });
 
-  it.each([false, true])('legacy Windsurf deploy inherits pins with shorthand override=%s', override => {
+  it.each([false, true])('legacy Devin Desktop deploy inherits pins with shorthand override=%s', override => {
     const source = join(root, 'source');
     put(`source/${defaultsPath}`, shipped);
     put('source/agentic/code/addons/fixture/agents/ordinary.md',

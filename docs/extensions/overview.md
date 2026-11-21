@@ -417,7 +417,7 @@ interface PlatformCompatibility {
   factory?: PlatformSupport;
   cursor?: PlatformSupport;
   copilot?: PlatformSupport;
-  windsurf?: PlatformSupport;
+  devin?: PlatformSupport;
   codex?: PlatformSupport;
   opencode?: PlatformSupport;
   generic?: PlatformSupport;

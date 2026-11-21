@@ -18,7 +18,7 @@ describe('provider model registry', () => {
     antigravity: ['GEMINI_API_KEY'],
     cursor: ['CURSOR_API_KEY'],
     warp: ['WARP_API_KEY'],
-    windsurf: [],
+    devin: [],
     openclaw: ['OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'ANTHROPIC_OAUTH_TOKEN', 'GEMINI_API_KEY', 'GOOGLE_API_KEY',
       'OPENROUTER_API_KEY', 'MISTRAL_API_KEY', 'XAI_API_KEY', 'OPENCLAW_HOME',
       'OPENCLAW_STATE_DIR', 'OPENCLAW_CONFIG_PATH', 'OPENCLAW_GATEWAY_URL',
@@ -56,7 +56,7 @@ describe('provider model registry', () => {
     expect(source.UNRELATED_API_KEY).toBe('dummy-UNRELATED_API_KEY');
   });
 
-  it.each(['windsurf', 'grokbot'])('keeps %s coverage-only with an explained empty session policy', provider => {
+  it.each(['devin', 'grokbot'])('keeps %s coverage-only with an explained empty session policy', provider => {
     const capability = loadProviderModelCapabilities().providers[provider];
     expect(capability.sessionEnvAllowlist).toEqual([]);
     expect(capability.verification).toContain('no CLI credential variable is evidenced');
@@ -79,8 +79,8 @@ describe('provider model registry', () => {
   it('covers every audited provider with sourced, dated capability entries', () => {
     const registry = loadProviderModelCapabilities();
     expect(Object.keys(registry.providers).sort()).toEqual([
-      'antigravity', 'claude', 'codex', 'copilot', 'cursor', 'deepseek-harness', 'factory', 'flue', 'grok-build', 'grokbot', 'hermes',
-      'muse', 'omp', 'openclaw', 'opencode', 'openhuman', 'pi', 'warp', 'windsurf',
+      'antigravity', 'claude', 'codex', 'copilot', 'cursor', 'deepseek-harness', 'devin', 'factory', 'flue', 'grok-build', 'grokbot', 'hermes',
+      'muse', 'omp', 'openclaw', 'opencode', 'openhuman', 'pi', 'warp',
     ]);
     for (const [provider, capability] of Object.entries(registry.providers)) {
       expect(capability.sourceUrl).toMatch(/^https:\/\//);
@@ -153,9 +153,9 @@ describe('provider-aware compilation', () => {
     expect(result.fields).toEqual({});
     expect(result.diagnostics.map(item => item.code)).toContain('MODEL_SURFACE_DEGRADED');
   });
-  it('omits unsupported Windsurf and Codex skill fields', () => {
+  it('omits unsupported Devin Desktop and Codex skill fields', () => {
     for (const [provider, artifact] of [
-      ['windsurf', 'agent'], ['codex', 'skill'],
+      ['devin', 'agent'], ['codex', 'skill'],
     ] as const) {
       const result = compileModelPolicy({ provider, artifact, policy });
       expect(result.outcome).toBe('unsupported');
@@ -216,7 +216,7 @@ describe('provider-aware compilation', () => {
     ['omp', 'native', true],
     ['pi', 'native', true],
     ['warp', 'global-only', false],
-    ['windsurf', 'unsupported', false],
+    ['devin', 'unsupported', false],
   ] as const)(
     'compiles %s agent policy as %s without pretend fields',
     (provider, expectedOutcome, expectsFields) => {

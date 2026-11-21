@@ -121,7 +121,7 @@ vi.mock('../../../../src/update/service.mjs', () => ({
 vi.mock('../../../../src/config/aiwg-config.js', () => ({
   readAiwgConfig: mockReadAiwgConfig,
   getDeploymentSummary: mockGetDeploymentSummary,
-  VALID_PROVIDERS: ['claude', 'codex', 'openai', 'cursor', 'windsurf', 'copilot', 'opencode', 'factory', 'antigravity', 'warp', 'openclaw', 'hermes'],
+  VALID_PROVIDERS: ['claude', 'codex', 'openai', 'cursor', 'devin', 'copilot', 'opencode', 'factory', 'antigravity', 'warp', 'openclaw', 'hermes'],
 }));
 
 vi.mock('../../../../src/cli/agent-spawn.js', () => ({

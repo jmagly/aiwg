@@ -246,7 +246,7 @@ The daemon runs on any CLI-based platform. Platforms are grouped into three tier
 |------|---------|-----------|
 | **Tier 1 — Native** | Full headless daemon support. `aiwg daemon start/stop/status` work out of the box. Platform has a headless CLI that can be supervised by the daemon's PTY orchestrator. | Claude Code, OpenCode, Warp Terminal, OpenClaw, Codex, Factory AI |
 | **Tier 2 — PTY Adapter** | Platform has a TUI that can be bridged over a PTY. Not headless natively, but operable remotely via `aiwg daemon pty`. | Claude Code (secondary), Codex (secondary) |
-| **Tier 3 — IDE-hosted** | Runs as an extension inside a desktop IDE process that requires a display server. No standalone CLI process to bridge or supervise. Can *connect to* a daemon over HTTP/WS but cannot *host* one. | Cursor, Windsurf, GitHub Copilot |
+| **Tier 3 — IDE-hosted** | Runs as an extension inside a desktop IDE process that requires a display server. No standalone CLI process to bridge or supervise. Can *connect to* a daemon over HTTP/WS but cannot *host* one. | Cursor, Devin Desktop, GitHub Copilot |
 
 Tier 1 platforms receive the full daemon feature set: file watching, cron scheduling, agent supervision, PTY orchestration, IPC, automation rules, and behaviors. Tier 3 platforms still benefit from AIWG's agent loop, Mission Control, and scheduling via AIWG emulation — they connect to a daemon running elsewhere rather than hosting one locally.
 

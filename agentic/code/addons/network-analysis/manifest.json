@@ -66,7 +66,7 @@
     "openclaw": "supported",
     "openhuman": "supported",
     "warp": "supported",
-    "windsurf": "supported"
+    "devin": "supported"
   },
   "security": {
     "defaultMode": "offline-only",

@@ -126,7 +126,7 @@ export class PlatformSkillResolver {
    * Get path for a namespaced skill deployment.
    *
    * Platforms with subdirectory support deploy under `{baseDir}/{namespace}/{slug}/`.
-   * Windsurf (1-level discovery) deploys flat at `{baseDir}/{slug}/`.
+   * Devin Desktop (1-level discovery) deploys flat at `{baseDir}/{slug}/`.
    *
    * @param platform - Target platform
    * @param projectPath - Project root directory
@@ -147,7 +147,7 @@ export class PlatformSkillResolver {
     if (config.supportsSubdirectory) {
       return path.join(baseDir, namespace, slug);
     }
-    // Windsurf and other flat-discovery platforms: slug only, no namespace subdir
+    // Devin Desktop and other flat-discovery platforms: slug only, no namespace subdir
     return path.join(baseDir, slug);
   }
 

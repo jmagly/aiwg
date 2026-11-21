@@ -36,7 +36,7 @@ export const PROVIDER_CAPABILITIES = {
     contextFile: '.github/copilot-instructions.md',
     fallback: 'full-inject',
   },
-  windsurf: {
+  devin: {
     atLinkSupport: false,
     hookFileName: 'AIWG-windsurf.md',
     hookDirective: null,

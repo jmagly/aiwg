@@ -197,7 +197,7 @@ Provider definitions expose 12 targets:
 | OpenClaw | `~/.openclaw/skills` | recursive |
 | OpenHuman | `~/.openhuman/skills` | recursive |
 | Warp | `.warp/skills` | recursive |
-| Windsurf | `.windsurf/skills` | one-level |
+| Devin Desktop | `.windsurf/skills` | one-level |
 | Generic | `skills` | recursive |
 
 The shared deployer already recursively copies resources and adds an

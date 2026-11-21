@@ -5,11 +5,11 @@ metadata:
 spec:
   groups:
     all-providers:
-      members: [claude-code, codex, copilot, cursor, warp, factory, opencode, windsurf, openclaw, hermes, omnius]
+      members: [claude-code, codex, copilot, cursor, warp, factory, opencode, devin, openclaw, hermes, omnius]
     programmatic:
       members: [claude-code, codex, opencode, hermes, omnius]
     gated:
-      members: [copilot, cursor, warp, factory, windsurf, openclaw]
+      members: [copilot, cursor, warp, factory, devin, openclaw]
   hosts:
     claude-code:
       address: local-session
@@ -39,10 +39,10 @@ spec:
       address: local-session
       groups: [all-providers, programmatic]
       vars: { provider: opencode, access_mode: programmatic }
-    windsurf:
+    devin:
       address: paid-tier-session
       groups: [all-providers, gated]
-      vars: { provider: windsurf, access_mode: gated }
+      vars: { provider: devin, access_mode: gated }
     openclaw:
       address: paid-tier-session
       groups: [all-providers, gated]

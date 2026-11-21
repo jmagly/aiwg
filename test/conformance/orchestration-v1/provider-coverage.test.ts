@@ -168,7 +168,7 @@ describe('T-OG-19 S1 registry coverage reconciliation (B-OG-47)', () => {
   it('PC04 records a concrete gap and recheck for each excluded row, with no fabricated command', () => {
     const registry = loadProviderModelCapabilities();
     const out = [...canonicalMatrix()].filter(([, row]) => row.scope === 'out');
-    expect(out.map(([id]) => id).sort()).toEqual(['flue', 'grokbot', 'windsurf']);
+    expect(out.map(([id]) => id).sort()).toEqual(['devin', 'flue', 'grokbot']);
     for (const [id, row] of out) {
       expect(row.channel, id).toMatch(/^none - /);
       expect(row.identity, id).toBe('unavailable');
@@ -197,7 +197,7 @@ describe('T-OG-19 S1 registry coverage reconciliation (B-OG-47)', () => {
     ['evidence date drift', (doc: string) => doc.replace('| `copilot` | IN | roctinam/aiwg#2901 | 2026-10-08 |', '| `copilot` | IN | roctinam/aiwg#2901 | 2026-10-01 |')],
     ['live overclaim', (doc: string) => doc.replace('| `warp` | IN | roctinam/aiwg#2905 | 2026-10-08 | no |', '| `warp` | IN | roctinam/aiwg#2905 | 2026-10-08 | yes |')],
     ['scope drift', (doc: string) => doc.replace('| `grokbot` | OUT | — |', '| `grokbot` | IN | — |')],
-    ['OUT row without gap', (doc: string) => doc.replace(/(\| `windsurf` \| OUT .*\| )Gap: /, '$1')],
+    ['OUT row without gap', (doc: string) => doc.replace(/(\| `devin` \| OUT .*\| )Gap: /, '$1')],
   ])('PC06 rejects %s', (_name, mutate) => {
     const modified = mutate(inventory);
     expect(modified).not.toBe(inventory);

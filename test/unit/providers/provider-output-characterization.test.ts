@@ -200,7 +200,7 @@ const USE_PATH_GOLDENS = {
     },
     kernelSkills: '.warp/skills',
   },
-  windsurf: {
+  devin: {
     deployTarget: 'project',
     artifacts: {
       agents: '.windsurf/agents',
@@ -236,7 +236,7 @@ const REGENERATE_FILE_GOLDENS: Record<string, string[]> = {
   muse: ['AIWG.md', 'AGENTS.md'],
   opencode: ['AIWG.md', 'AGENTS.md'],
   warp: ['AIWG.md', 'AGENTS.md', 'WARP.md'],
-  windsurf: ['AIWG.md', 'AGENTS.md'],
+  devin: ['AIWG.md', 'AGENTS.md'],
 };
 
 describe('provider output characterization for registry migration', () => {
@@ -360,7 +360,7 @@ describe('provider output characterization for registry migration', () => {
       'codex',
       'grok-build',
       'opencode',
-      'windsurf',
+      'devin',
       'warp',
     ]);
     expect(listMcpInjectProviderIds()).toEqual(SUPPORTED_PROVIDERS);
@@ -381,7 +381,7 @@ describe('provider output characterization for registry migration', () => {
     expect(getProviderConfigPath('grok-build', projectDir)).toBe(resolve(projectDir, '.grok/config.toml'));
     expect(getProviderConfigPath('grok-build', projectDir, { scope: 'user' })).toBe(resolve(homeDir, '.grok/config.toml'));
     expect(getProviderConfigPath('opencode', projectDir)).toBe(resolve(projectDir, 'opencode.json'));
-    expect(getProviderConfigPath('windsurf', projectDir)).toBe(resolve(homeDir, '.codeium/windsurf/mcp_config.json'));
+    expect(getProviderConfigPath('devin', projectDir)).toBe(resolve(homeDir, '.codeium/windsurf/mcp_config.json'));
     expect(getProviderConfigPath('warp', projectDir)).toBe(resolve(homeDir, '.warp/mcp.json'));
   });
 });

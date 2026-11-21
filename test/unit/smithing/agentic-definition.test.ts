@@ -82,7 +82,7 @@ function validateAgenticDefinition(def: AgenticDefinition): string[] {
     errors.push('Missing platform section');
   } else {
     if (!def.platform.provider) errors.push('Missing platform.provider');
-    const validProviders = ['claude', 'factory', 'copilot', 'cursor', 'codex', 'warp', 'windsurf'];
+    const validProviders = ['claude', 'factory', 'copilot', 'cursor', 'codex', 'warp', 'devin'];
     if (def.platform.provider && !validProviders.includes(def.platform.provider)) {
       errors.push(`Invalid platform.provider: ${def.platform.provider}`);
     }

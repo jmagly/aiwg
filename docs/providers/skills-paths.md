@@ -123,7 +123,7 @@ Deploying to `.agents/skills/` is the most portable option if you need a single 
 
 ---
 
-### Windsurf
+### Devin Desktop
 
 | Scope | Path | Source |
 |-------|------|--------|
@@ -131,10 +131,10 @@ Deploying to `.agents/skills/` is the most portable option if you need a single 
 
 - Codeium — closed source; path from documentation only
 - Status: experimental
-- Devin Desktop is modeled as the renamed/evolved Windsurf local IDE surface.
-  AIWG keeps `windsurf` as the deployable compatibility id, and
+- Devin Desktop uses the canonical provider id `devin`. The deprecated alias
+  `windsurf` remains available for legacy installs, and
   `devin-desktop`, `devin-local`, and `cascade` resolve to the same writer
-  adapter. Use `aiwg use sdlc --provider windsurf` or
+  adapter. Use `aiwg use sdlc --provider devin` or
   `aiwg use sdlc --provider devin-desktop`.
 - AIWG does not currently emit `.devin/` provider output. `.devin/` remains
   ignored local provider state; committed source should use `.windsurf/` output
@@ -218,7 +218,7 @@ Not all providers have a native plugin marketplace. The table below distinguishe
 | **Cursor** | File-deploy adapter | `aiwg use sdlc --provider cursor` |
 | **OpenCode** | File-deploy adapter | `aiwg use sdlc --provider opencode` |
 | **Warp Terminal** | File-deploy adapter | `aiwg use sdlc --provider warp` |
-| **Windsurf** | File-deploy adapter | `aiwg use sdlc --provider windsurf` |
+| **Devin Desktop** | File-deploy adapter | `aiwg use sdlc --provider devin` |
 | **OpenClaw** | File-deploy adapter | `aiwg use sdlc --provider openclaw` |
 | **Hermes** | File-deploy adapter; managed Agent Skills target | `aiwg use sdlc --provider hermes`; `aiwg skills deploy <name> --target hermes` |
 | **Grok Bot** | File-deploy adapter; fail-closed user skill root | `aiwg use sdlc --provider grokbot`; set `AIWG_GROKBOT_SKILLS_DIR` for user-scope |
@@ -242,7 +242,7 @@ Not all providers have a native plugin marketplace. The table below distinguishe
 | cursor | `.cursor/skills/` | `.cursor/skills/` | Unverified |
 | opencode | `.opencode/skill/` | `.opencode/skill/` | Yes |
 | warp | `.warp/skills/` | `.warp/skills/` (also `.agents/skills/`) | Partial |
-| windsurf | `.windsurf/skills/` | `.windsurf/skills/` | Unverified |
+| devin | `.windsurf/skills/` | `.windsurf/skills/` | Unverified |
 | openclaw | `~/.openclaw/skills/` | `~/.openclaw/skills/` | Yes |
 | muse | `.agents/skills/` | `.agents/skills/` | Yes (user root `$XDG_CONFIG_HOME/muse/skills`; never `~/.agents/skills`) |
 
@@ -259,7 +259,7 @@ Not all providers have a native plugin marketplace. The table below distinguishe
 | Cursor | — (closed) | No | Docs only |
 | OpenCode | https://github.com/sst/opencode | Full TypeScript | `packages/opencode/src/skill/index.ts` |
 | Warp | — (closed) | No (examples: warpdotdev/oz-skills) | Docs only |
-| Windsurf | — (closed) | No | Docs only |
+| Devin Desktop | — (closed) | No | Docs only |
 | OpenClaw | https://github.com/openclaw/openclaw | Full TypeScript | `src/agents/skills/workspace.ts`, `local-loader.ts` |
 | Hermes Agent | https://github.com/NousResearch/hermes-agent | Full Python | `agent/skill_commands.py` |
 | agentskills spec | https://github.com/agentskills/agentskills | Full | Specification + reference library |

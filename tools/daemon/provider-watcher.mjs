@@ -80,8 +80,8 @@ const PROVIDER_SOURCES = [
     integrationDocs: [],
   },
   {
-    id: 'windsurf',
-    displayName: 'Windsurf',
+    id: 'devin',
+    displayName: 'Devin Desktop',
     sources: [
       { type: 'changelog-url', url: 'https://windsurf.com/changelog' },
       { type: 'docs-url', url: 'https://docs.windsurf.com' },
@@ -139,7 +139,7 @@ export class ProviderWatcher extends EventEmitter {
   constructor(options = {}) {
     super();
     this.stateDir = options.stateDir || '.aiwg/daemon/provider-watch';
-    this.providers = options.providers || PROVIDER_SOURCES.map((p) => p.id);
+    this.providers = (options.providers || PROVIDER_SOURCES.map((p) => p.id)).map(id => id === 'windsurf' ? 'devin' : id);
     this.intervalHours = options.intervalHours || 6;
     // npm keeps its own config/registry variables; only daemon secrets are removed.
     this.environment = options.environment;

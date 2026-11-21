@@ -134,10 +134,10 @@ spec:
 ---
 apiVersion: workflow.aiwg.io/v1
 kind: WorkflowPlaybook
-metadata: { name: validate-windsurf, labels: { provider: windsurf, domain: release-validation } }
+metadata: { name: validate-windsurf, labels: { provider: devin, domain: release-validation } }
 spec:
   inventory: validation-providers
-  targets: { hosts: [windsurf] }
+  targets: { hosts: [devin] }
   vars: { project_path: "{{ project.path }}" }
   steps:
     - { id: aiwg-list, capability: universal-aiwg-list }
@@ -149,7 +149,7 @@ spec:
     - { id: skill-mirrors, capability: verify-windsurf-skill-mirrors, depends_on: [rule-frontmatter], inputs: [{ name: project_path, value: "{{ project_path }}" }] }
     - id: windsurf-session-gate
       kind: gate
-      description: In Windsurf, ask for an AIWG agent and record whether reachability uses the bridge plus discover/show.
+      description: In Devin Desktop, ask for an AIWG agent and record whether reachability uses the bridge plus discover/show.
       depends_on: [skill-mirrors]
 ---
 apiVersion: workflow.aiwg.io/v1

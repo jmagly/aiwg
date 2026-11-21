@@ -506,7 +506,7 @@ Agent loops can create subtasks for granular progress:
 |----------|----------------|-------------------|
 | Claude Code | ✅ Full support | Sync to tasks |
 | Cursor | ✅ Full support | Sync to tasks |
-| Windsurf | ✅ Full support | Sync to tasks |
+| Devin Desktop | ✅ Full support | Sync to tasks |
 | Warp Terminal | ❌ No support | `.aiwg/` only |
 | vim/neovim | ❌ No support | `.aiwg/` only |
 | VS Code | ❌ No support | `.aiwg/` only |

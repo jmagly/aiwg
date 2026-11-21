@@ -827,7 +827,7 @@
     {
       "id": "integrations/windsurf-quickstart",
       "title": "Devin Desktop",
-      "summary": "Setup for Devin Desktop using the Windsurf compatibility adapter",
+      "summary": "Setup for Devin Desktop using retained legacy app paths",
       "file": "integrations/windsurf-quickstart.md",
       "parent": "integrations"
     },
@@ -2954,6 +2954,13 @@
       "title": "Google Antigravity CLI Provider Guide",
       "summary": "Experimental provider selection, project resources, MCP, headless operation, and qualification boundaries",
       "file": "providers/antigravity.md",
+      "parent": "providers"
+    },
+    {
+      "id": "providers/devin-desktop-paths",
+      "title": "Devin Desktop Paths",
+      "summary": "Retained deployment paths, local package evidence, and pending Desktop 3.14 verification",
+      "file": "providers/devin-desktop-paths.md",
       "parent": "providers"
     },
     {

@@ -73,7 +73,7 @@ const PROVIDER_LABELS: Record<string, string> = {
   cursor:    'Cursor            .cursor/',
   opencode:  'OpenCode          .opencode/',
   warp:      'Warp Terminal     .warp/',
-  windsurf:  'Windsurf          AGENTS.md',
+  devin:  'Devin Desktop          AGENTS.md',
   factory:   'Factory AI        .factory/',
   codex:     'OpenAI Codex      ~/.codex/',
   openclaw:  'OpenClaw          ~/.openclaw/',

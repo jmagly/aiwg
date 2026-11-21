@@ -1,6 +1,7 @@
 // Retain per-provider deployment intent in the existing project ownership receipt.
 import { writeContextFileSync } from '../../smiths/context-pipeline/context-file-safety.js';
 import fs from 'node:fs';
+import { canonicalDesktopProviderId, canonicalizeDesktopProviderKeys } from '../../providers/devin-compat.mjs';
 import path from 'node:path';
 import { readAiwgConfig, type AiwgConfig } from '../../config/aiwg-config.js';
 import type { HandlerContext } from './types.js';
@@ -9,12 +10,12 @@ import { frameworkRegistryId } from '../../config/framework-aliases.js';
 type History = Record<string, Record<string, { copy: boolean; package?: boolean; skipUtils?: boolean; kernelOnly?: boolean; produces?: string[]; reconciled?: boolean }>>;
 const receiptPath = (project: string) => path.join(project, '.aiwg/.aiwg-manifest.json');
 export function bundleDeploymentHistory(project: string): History {
-  try { return JSON.parse(fs.readFileSync(receiptPath(project), 'utf8')).bundleDeployments ?? {}; }
+  try { return canonicalizeDesktopProviderKeys(JSON.parse(fs.readFileSync(receiptPath(project), 'utf8')).bundleDeployments ?? {}) as History; }
   catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return {}; throw error; }
 }
 export function bundleCopyArgs(installed: AiwgConfig['installed'], id: string, provider: string): string[] {
   const entry = Object.entries(installed).find(([key]) => frameworkRegistryId(key) === frameworkRegistryId(id))?.[1];
-  const flags = entry?.deployedTo[provider];
+  const flags = canonicalizeDesktopProviderKeys(entry?.deployedTo ?? {})[canonicalDesktopProviderId(provider)];
   return [...(flags?.copy === true ? ['--copy-all'] : []), ...(flags?.skipUtils === true ? ['--no-utils'] : []),
     ...(provider === 'flue' && flags?.package === true ? ['--package'] : [])];
 }
@@ -26,7 +27,8 @@ export async function recordBundleDeployment(project: string, id: string, provid
   const produces = [...await expectedBundleOwners(selected, provider, frameworkRoot ?? await getFrameworkRoot())].sort();
   const file = receiptPath(project);
   const receipt = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : { scope: 'project', managed: {} };
-  receipt.bundleDeployments ??= {};
+  provider = canonicalDesktopProviderId(provider);
+  receipt.bundleDeployments = canonicalizeDesktopProviderKeys(receipt.bundleDeployments ?? {});
   receipt.bundleDeployments[provider] ??= {};
   const copy = args.includes('--copy-all') || args.includes('--copy-standard-skills');
   if (!copy) {
@@ -44,6 +46,8 @@ export function markBundleReconciled(project: string, id: string, provider: stri
   const file = receiptPath(project);
   if (!fs.existsSync(file)) return;
   const receipt = JSON.parse(fs.readFileSync(file, 'utf8'));
+  provider = canonicalDesktopProviderId(provider);
+  receipt.bundleDeployments = canonicalizeDesktopProviderKeys(receipt.bundleDeployments ?? {});
   if (!receipt.bundleDeployments?.[provider]?.[frameworkRegistryId(id)]) return;
   receipt.bundleDeployments[provider][frameworkRegistryId(id)].reconciled = true;
   writeContextFileSync(file, `${JSON.stringify(receipt, null, 2)}\n`);
@@ -57,6 +61,7 @@ export function bundleProviderCopyArgs(args: string[]): string[] {
 // Framework passes retain a separately declared local bundle's provider mode.
 export async function projectLocalDeploymentContext(ctx: HandlerContext, project: string, id: string, provider: string, explicit: boolean): Promise<HandlerContext> {
   if (explicit) return ctx;
+  provider = canonicalDesktopProviderId(provider);
   const installed = (await readAiwgConfig(project))?.installed;
   if (installed?.[id]?.deployedTo[provider]?.copy === undefined) return ctx;
   return { ...ctx, args: [...ctx.args.filter(arg => !['--copy-all', '--copy-standard-skills'].includes(arg)), ...bundleCopyArgs(installed, id, provider)] };
@@ -64,7 +69,8 @@ export async function projectLocalDeploymentContext(ctx: HandlerContext, project
 
 export function projectLocalCopyMode(config: AiwgConfig, id: string, provider: string, args: string[], explicit: boolean): boolean {
   const requested = args.includes('--copy-all') || args.includes('--copy-standard-skills');
-  return explicit ? requested : config.installed[id]?.deployedTo[provider]?.copy ?? requested;
+  const deployed = canonicalizeDesktopProviderKeys(config.installed[id]?.deployedTo ?? {})[canonicalDesktopProviderId(provider)];
+  return explicit ? requested : deployed?.copy ?? requested;
 }
 
 // Match the effective framework gates used by the deployment pass.

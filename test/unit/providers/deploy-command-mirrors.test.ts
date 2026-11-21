@@ -33,7 +33,7 @@ afterEach(() => fs.rmSync(scratch, { recursive: true, force: true }));
 
 describe('command mirror split preserves legacy behavior', () => {
   it.each(['antigravity', 'claude', 'factory', 'codex', 'opencode', 'copilot', 'cursor', 'flue', 'pi', 'omp',
-    'deepseek-harness', 'warp', 'windsurf', 'hermes', 'openclaw', 'openhuman', 'grokbot', 'grok-build', 'muse'])(
+    'deepseek-harness', 'warp', 'devin', 'hermes', 'openclaw', 'openhuman', 'grokbot', 'grok-build', 'muse'])(
     '%s does not inject bindings into edited targets or refresh their receipts', providerName => {
       const target = path.join(scratch, 'target');
       const dir = path.join(target, `.${providerName}/skills/demo`);

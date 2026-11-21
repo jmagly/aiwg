@@ -124,7 +124,7 @@ describe('model worker provider matrix', () => {
     }
   }, SINGLE_DEPLOY_TEST_TIMEOUT_MS);
 
-  it.each(['openclaw', 'warp', 'windsurf', 'hermes', 'grok-build'])('%s declares inherited/global or unsupported degradation without false exact pins', async provider => {
+  it.each(['openclaw', 'warp', 'devin', 'hermes', 'grok-build'])('%s declares inherited/global or unsupported degradation without false exact pins', async provider => {
     const root = mkdtempSync(join(tmpdir(), 'aiwg-degraded-workers-'));
     roots.push(root);
     const home = join(root, 'home');
@@ -171,11 +171,11 @@ describe('model worker provider matrix', () => {
 
     }
 
-    if (provider === 'windsurf') {
-      const windsurfTarget = join(root, 'windsurf');
-      deploy('windsurf', windsurfTarget, home);
+    if (provider === 'devin') {
+      const windsurfTarget = join(root, 'devin');
+      deploy('devin', windsurfTarget, home);
       const windsurf = await readFile(join(windsurfTarget, 'AGENTS.md'), 'utf8');
-      const index = assertStartupRuleDelivery(windsurfTarget, 'windsurf', windsurf);
+      const index = assertStartupRuleDelivery(windsurfTarget, 'devin', windsurf);
       for (const role of roles) {
         expect(index).toContain(`aiwg-model-${role}-worker`);
         const content = await readFile(join(windsurfTarget, `.windsurf/agents/aiwg-model-${role}-worker.md`), 'utf8');

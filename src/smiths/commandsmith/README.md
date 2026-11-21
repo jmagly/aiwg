@@ -7,7 +7,7 @@ Platform-aware slash command generator for AIWG.
 CommandSmith generates slash commands with:
 
 - **Three template types**: Utility, Transformation, Orchestration
-- **Multi-platform support**: Claude, Factory, Cursor, Codex, Copilot, Windsurf, Generic
+- **Multi-platform support**: Claude, Factory, Cursor, Codex, Copilot, Devin Desktop, Generic
 - **Standard options**: All commands support `--interactive` and `--guidance`
 - **Platform-specific formats**: Markdown for most, JSON for Cursor
 - **Validation**: Ensures proper naming and structure
@@ -127,7 +127,7 @@ Multi-agent workflow coordination with phases and parallel execution.
 | Cursor | `.cursor/commands` | JSON | `.json` |
 | Codex | `.codex/commands` | Markdown | `.md` |
 | Copilot | `.github/agents` | Markdown | `.md` |
-| Windsurf | `.windsurf/workflows` | Markdown | `.md` |
+| Devin Desktop | `.windsurf/workflows` | Markdown | `.md` |
 | Generic | `commands` | Markdown | `.md` |
 
 ## API Reference

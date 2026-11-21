@@ -45,7 +45,7 @@ Additionally check:
 |----------|-------------|---------|
 | Claude Code | `CLAUDE.md` | `@SOUL.md` |
 | Warp Terminal | `WARP.md` | `@SOUL.md` |
-| Windsurf | `AGENTS.md` | `@SOUL.md` |
+| Devin Desktop | `AGENTS.md` | `@SOUL.md` |
 | GitHub Copilot | `.github/copilot-instructions.md` | `@SOUL.md` |
 | Cursor | `.cursorrules` | `@SOUL.md` |
 | Factory AI | `AGENTS.md` | `@SOUL.md` |
@@ -63,7 +63,7 @@ Provider       Status                    Soul File
 Claude Code    ✓ enabled                 SOUL.md (~2,847 tokens)
 Warp           ✗ disabled                —
 Copilot        - context file not found  —
-Windsurf       - context file not found  —
+Devin Desktop       - context file not found  —
 Cursor         - context file not found  —
 Factory        - context file not found  —
 OpenCode       - context file not found  —

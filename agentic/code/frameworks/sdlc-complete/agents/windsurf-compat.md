@@ -1,18 +1,21 @@
-# Windsurf Compatibility (EXPERIMENTAL)
+# Devin Desktop Compatibility (EXPERIMENTAL)
 
-> **WARNING**: Windsurf provider support is experimental and untested.
+> **Deprecated reference ID:** `windsurf-compat` stays discoverable for legacy installs.
+> Use the canonical `devin` provider selector; internal paths remain unchanged.
+
+> **WARNING**: Devin Desktop provider support is experimental and untested.
 > Please report issues at: https://github.com/jmagly/aiwg/issues
 
 ## Overview
 
-AIWG agents can be deployed to Windsurf using the `--provider windsurf` flag.
-Unlike Claude Code and Factory, Windsurf does NOT use separate agent files.
-Instead, AIWG generates an aggregated AGENTS.md file that Windsurf reads natively,
+AIWG agents can be deployed to Devin Desktop using the `--provider devin` flag.
+Unlike Claude Code and Factory, Devin Desktop does NOT use separate agent files.
+Instead, AIWG generates an aggregated AGENTS.md file that Devin Desktop reads natively,
 plus a `.windsurfrules` file with orchestration context.
 
 ## Key Differences
 
-| Feature | Claude Code | Factory | Cursor | Windsurf |
+| Feature | Claude Code | Factory | Cursor | Devin Desktop |
 |---------|-------------|---------|--------|----------|
 | Agent location | `.claude/agents/*.md` | `.factory/droids/*.md` | `.cursor/agents/*.json` | `AGENTS.md` (aggregated) |
 | Config file | `CLAUDE.md` | `AGENTS.md` | `.cursorrules` | `.windsurfrules` |
@@ -23,17 +26,17 @@ plus a `.windsurfrules` file with orchestration context.
 ## Deployment
 
 ```bash
-# Deploy SDLC agents to Windsurf
-aiwg use sdlc --provider windsurf
+# Deploy SDLC agents to Devin Desktop
+aiwg use sdlc --provider devin
 
 # With commands (as workflows)
-aiwg use sdlc --provider windsurf --deploy-commands
+aiwg use sdlc --provider devin --deploy-commands
 
 # Dry run to preview
-aiwg use sdlc --provider windsurf --dry-run
+aiwg use sdlc --provider devin --dry-run
 
 # All frameworks
-aiwg use all --provider windsurf
+aiwg use all --provider devin
 ```
 
 ## Generated Structure
@@ -55,13 +58,13 @@ project/
 
 ### AGENTS.md
 
-Windsurf reads AGENTS.md natively for directory-scoped instructions. AIWG generates
+Devin Desktop reads AGENTS.md natively for directory-scoped instructions. AIWG generates
 this file with all agents in plain markdown format (no YAML frontmatter):
 
 ```markdown
 # AGENTS.md
 
-> AIWG Agent Directory for Windsurf
+> AIWG Agent Directory for Devin Desktop
 
 ## Table of Contents
 - [architecture-designer](#architecture-designer)
@@ -93,7 +96,7 @@ this file with all agents in plain markdown format (no YAML frontmatter):
 Contains orchestration context with natural language commands and key agent summaries:
 
 ```markdown
-# AIWG Rules for Windsurf
+# AIWG Rules for Devin Desktop
 
 <orchestration>
 ## AIWG SDLC Framework
@@ -120,7 +123,7 @@ Contains orchestration context with natural language commands and key agent summ
 
 ### Workflows
 
-Commands are converted to Windsurf workflow format (plain markdown, no YAML):
+Commands are converted to Devin Desktop workflow format (plain markdown, no YAML):
 
 ```markdown
 # Flow: Inception to Elaboration
@@ -132,9 +135,9 @@ Commands are converted to Windsurf workflow format (plain markdown, no YAML):
 [Workflow instructions...]
 ```
 
-Note: Windsurf workflows have a 12,000 character limit per file.
+Note: Devin Desktop workflows have a 12,000 character limit per file.
 
-## Using Agents in Windsurf
+## Using Agents in Devin Desktop
 
 Since agents are in AGENTS.md, invoke them via natural language:
 
@@ -152,7 +155,7 @@ Or reference the file directly:
 
 ## Workflows (Commands)
 
-AIWG commands deployed as Windsurf workflows can be invoked with:
+AIWG commands deployed as Devin Desktop workflows can be invoked with:
 
 ```
 /flow-inception-to-elaboration
@@ -162,7 +165,7 @@ AIWG commands deployed as Windsurf workflows can be invoked with:
 
 ## Models
 
-Windsurf uses Claude models via API. The default model mappings are:
+Devin Desktop uses Claude models via API. The default model mappings are:
 
 | Role | Model |
 |------|-------|
@@ -173,7 +176,7 @@ Windsurf uses Claude models via API. The default model mappings are:
 Override with CLI flags:
 
 ```bash
-aiwg use sdlc --provider windsurf \
+aiwg use sdlc --provider devin \
   --reasoning-model claude-opus-5 \
   --coding-model claude-sonnet-5 \
   --efficiency-model claude-haiku-4-5-20251001
@@ -182,14 +185,14 @@ aiwg use sdlc --provider windsurf \
 ## Limitations
 
 1. **No individual agent files** - All agents aggregated in AGENTS.md
-2. **No dynamic tool selection** - Windsurf manages tool access internally
+2. **No dynamic tool selection** - Devin Desktop manages tool access internally
 3. **Character limits** - Workflows limited to 12,000 characters each
 4. **Skills not supported** - Reference skill files via @-mentions instead
-5. **Experimental** - Format may change based on Windsurf updates
+5. **Experimental** - Format may change based on Devin Desktop updates
 
 ## Skills via Reference
 
-Skills are not directly deployed to Windsurf. Instead, reference skill files in prompts:
+Skills are not directly deployed to Devin Desktop. Instead, reference skill files in prompts:
 
 ```
 "Follow @~/.local/share/ai-writing-guide/agentic/code/addons/aiwg-utils/skills/workspace-health/SKILL.md"
@@ -198,10 +201,10 @@ Skills are not directly deployed to Windsurf. Instead, reference skill files in 
 
 ## Differences from Cursor
 
-While Cursor and Windsurf are both VS Code-based AI IDEs, they have different
+While Cursor and Devin Desktop are both VS Code-based AI IDEs, they have different
 configuration approaches:
 
-| Aspect | Cursor | Windsurf |
+| Aspect | Cursor | Devin Desktop |
 |--------|--------|----------|
 | Config file | `.cursorrules` | `.windsurfrules` |
 | Agent files | `.cursor/agents/*.json` | None (inline in AGENTS.md) |
@@ -212,7 +215,7 @@ configuration approaches:
 
 ## Resources
 
-- **Windsurf Docs**: https://docs.windsurf.com/
+- **Devin Desktop Docs**: https://docs.windsurf.com/
 - **AGENTS.md Spec**: https://docs.windsurf.com/windsurf/cascade/agents-md
 - **Workflows**: https://docs.windsurf.com/windsurf/cascade/workflows
 - **AIWG Issues**: https://github.com/jmagly/aiwg/issues
@@ -220,9 +223,9 @@ configuration approaches:
 
 ## Support
 
-For Windsurf-specific questions:
-- **Windsurf Docs**: https://docs.windsurf.com/
-- **Windsurf Community**: Check Windsurf documentation for community links
+For Devin Desktop-specific questions:
+- **Devin Desktop Docs**: https://docs.windsurf.com/
+- **Devin Desktop Community**: Check Devin Desktop documentation for community links
 
 For AIWG integration questions:
 - **AIWG Issues**: https://github.com/jmagly/aiwg/issues

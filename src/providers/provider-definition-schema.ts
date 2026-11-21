@@ -179,7 +179,7 @@ export const ProviderDefinitionSchema = z.object({
     'pi',
     'omp',
     'warp',
-    'windsurf',
+    'devin',
     'generic',
   ]),
   displayName: z.string().min(1),

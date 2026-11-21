@@ -14,7 +14,7 @@ of a running worker. Provider or account policy can substitute a model.
 | Antigravity | inherited; wrapper mirrors do not project CLI flags | not enforced |
 | OpenClaw | inherited; Markdown mirrors do not set `subagents.model` | not enforced |
 | OpenHuman | inherited/dynamic; user wrappers use hints, project wrappers omit model | not enforced |
-| Windsurf | inherited from the UI session | not enforced |
+| Devin Desktop | inherited from the UI session | not enforced |
 | Pi, DeepSeek Harness | inherited; agent references do not set runtime controls | not enforced |
 | Warp | global-only, run/profile model selection | not enforced |
 | Hermes | global-only, delegation configuration | not enforced |

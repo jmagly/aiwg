@@ -133,7 +133,7 @@ Scope:
 - emit strict standard frontmatter on native Agent Skills surfaces;
 - move AIWG bookkeeping out of portable `SKILL.md`;
 - replace silent truncation with explicit projection/degradation behavior;
-- handle Hermes and Windsurf layout constraints explicitly;
+- handle Hermes and Devin Desktop layout constraints explicitly;
 - retain safe managed cleanup and protect user-owned collisions.
 
 Acceptance:

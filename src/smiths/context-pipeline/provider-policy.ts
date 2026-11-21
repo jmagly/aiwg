@@ -33,7 +33,7 @@ export const AGENTS_MD_PROVIDERS: ReadonlySet<Platform> = new Set(
     .map((definition) => definition.id),
 );
 
-export type AgentsMdProvider = Platform & ('antigravity' | 'codex' | 'copilot' | 'cursor' | 'windsurf' | 'hermes' | 'grokbot' | 'grok-build' | 'muse' | 'pi' | 'omp' | 'warp' | 'factory' | 'opencode');
+export type AgentsMdProvider = Platform & ('antigravity' | 'codex' | 'copilot' | 'cursor' | 'devin' | 'hermes' | 'grokbot' | 'grok-build' | 'muse' | 'pi' | 'omp' | 'warp' | 'factory' | 'opencode');
 
 /** Compatibility query: every registered provider receives root AIWG.md (#3762). */
 export function shouldEmitContextFiles(provider: Platform): boolean {

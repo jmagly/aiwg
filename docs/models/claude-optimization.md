@@ -8,7 +8,7 @@ Practical techniques for getting the most out of Claude models in AIWG deploymen
 
 Use this guide if you are:
 
-- Running AIWG on Claude Code, Factory AI, or Windsurf (all use Claude under the hood)
+- Running AIWG on Claude Code, Factory AI, or Devin Desktop (all use Claude under the hood)
 - Tuning agent prompts in `agentic/code/frameworks/sdlc-complete/agents/`
 - Troubleshooting quality issues with specific SDLC agents
 - Selecting models for custom agent definitions

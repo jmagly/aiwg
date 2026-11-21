@@ -25,7 +25,7 @@ export function readRuleDeliveryContext(report: { contributors: Array<{ path: st
   const manifests = [...new Set(files.filter(file => /[/\\](?:rules|rule|instructions)[/\\]/.test(file))
     .map(file => path.dirname(file)).map(dir => path.join(dir, '.aiwg-manifest.json')))];
   const read = (file: string) => fs.readFileSync(file, 'utf8');
-  const native = ['claude', 'cursor', 'grok-build', 'windsurf', 'opencode'].includes(provider);
+  const native = ['claude', 'cursor', 'grok-build', 'devin', 'opencode'].includes(provider);
   for (const file of manifests.filter(file => fs.existsSync(file))) {
     const manifest = JSON.parse(read(file));
     if (!manifest.delivery) continue; // Nested behavior files share the parent receipt.
@@ -41,7 +41,7 @@ export function readRuleDeliveryContext(report: { contributors: Array<{ path: st
     }
     const assertLoaded = (file: string) => {
       const data = parseRuleFrontmatter(read(file)).data as Record<string, unknown>;
-      if (provider === 'windsurf') expect(data.trigger, `${provider}: always-on ${file}`).toBe('always_on');
+      if (provider === 'devin') expect(data.trigger, `${provider}: always-on ${file}`).toBe('always_on');
       if (provider === 'cursor') expect(data.alwaysApply, `${provider}: alwaysApply ${file}`).toBe(true);
       if (provider === 'opencode') {
         const { instructions } = JSON.parse(read(path.join(projectRoot, 'opencode.json')));
@@ -57,9 +57,9 @@ export function readRuleDeliveryContext(report: { contributors: Array<{ path: st
       return { ...parsed.rule, content, body: parsed.body, file,
         name: parsed.data.name || path.basename(file, '.md') };
     });
-    const projected = projectOnDemandReferences(rules, ['claude', 'cursor', 'windsurf'].includes(provider));
+    const projected = projectOnDemandReferences(rules, ['claude', 'cursor', 'devin'].includes(provider));
     for (const rule of projected.filter((rule: any) => rule.activation === 'kernel' || report.pins?.some(pin => pin.name === rule.name))) {
-      const name = path.basename(rule.file) === 'BEHAVIOR.md' ? `${['grok-build', 'windsurf'].includes(provider) ? 'behavior-' : 'behaviors/'}${path.basename(path.dirname(rule.file))}` : path.basename(rule.file, '.md');
+      const name = path.basename(rule.file) === 'BEHAVIOR.md' ? `${['grok-build', 'devin'].includes(provider) ? 'behavior-' : 'behaviors/'}${path.basename(path.dirname(rule.file))}` : path.basename(rule.file, '.md');
       const dest = path.join(path.dirname(entryPoint), `${name}.${provider === 'cursor' ? 'mdc' : 'md'}`);
       expect(read(dest), `${provider}: complete ${name}`).toContain(rule.body.trim());
       const index = read(entryPoint);
@@ -74,7 +74,7 @@ export function readRuleDeliveryContext(report: { contributors: Array<{ path: st
 }
 
 /** Assert a compact startup reaches exactly one complete harness projection. */
-export function assertStartupRuleDelivery(root: string, provider: string, startup: string, rulesDir = `.${provider}/rules`): string {
+export function assertStartupRuleDelivery(root: string, provider: string, startup: string, rulesDir = `.${provider === 'devin' ? 'windsurf' : provider}/rules`): string {
   const directory = path.join(root, rulesDir);
   const manifest = JSON.parse(fs.readFileSync(path.join(directory, '.aiwg-manifest.json'), 'utf8'));
   expect(manifest.ruleSources.length, `${provider}: selected source rules`).toBeGreaterThan(0);

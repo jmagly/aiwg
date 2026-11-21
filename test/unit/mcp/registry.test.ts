@@ -476,7 +476,7 @@ describe("injectServers", () => {
     { provider: "opencode", location: "project", file: "opencode.json", shape: "opencode" },
     { provider: "antigravity", location: "project", file: ".agents/mcp_config.json", shape: "antigravity" },
     { provider: "agy", location: "project", file: ".agents/mcp_config.json", shape: "antigravity" },
-    { provider: "windsurf", location: "home", file: ".codeium/windsurf/mcp_config.json", shape: "plain" },
+    { provider: "devin", location: "home", file: ".codeium/windsurf/mcp_config.json", shape: "plain" },
     { provider: "warp", location: "home", file: ".warp/mcp.json", shape: "plain" },
   ] as const;
 
@@ -531,7 +531,7 @@ describe("injectServers", () => {
     },
   );
 
-  it.each(["claude", "antigravity", "omp", "grok-build", "factory", "codex", "openai", "windsurf", "warp"] as const)(
+  it.each(["claude", "antigravity", "omp", "grok-build", "factory", "codex", "openai", "devin", "warp"] as const)(
     "allows user root aliases for %s", async provider => {
       vi.stubEnv("HOME", join(tempDir, "provider-home"));
       vi.stubEnv("PI_CODING_AGENT_DIR", join(tempDir, "provider-home", ".omp", "agent"));
@@ -643,7 +643,7 @@ describe("injectServers", () => {
   it("allows literal credentials for the private home-scope windsurf target, by design", async () => {
     vi.stubEnv("HOME", join(tempDir, "provider-home"));
     await registry.add({ name: "local", type: "stdio", command: "synthetic-command", env: { API_TOKEN: "canary-env-123" } });
-    const result = await inject(registry, "windsurf", { projectDir });
+    const result = await inject(registry, "devin", { projectDir });
     expect(result.error).toBeUndefined();
     const data = JSON.parse(await readFile(result.configPath, "utf-8"));
     expect(data.mcpServers.local.env).toEqual({ API_TOKEN: "canary-env-123" });
@@ -668,7 +668,7 @@ describe("injectServers", () => {
   it("allows credential-looking args at the private home-scope windsurf target, by design (PR #279: 'Credential heuristics for args' not changed)", async () => {
     vi.stubEnv("HOME", join(tempDir, "provider-home"));
     await registry.add({ name: "local", type: "stdio", command: "synthetic-command", args: ["--token=canary-arg-123"] });
-    const result = await inject(registry, "windsurf", { projectDir });
+    const result = await inject(registry, "devin", { projectDir });
     expect(result.error).toBeUndefined();
     const data = JSON.parse(await readFile(result.configPath, "utf-8"));
     expect(data.mcpServers.local.args).toEqual(["--token=canary-arg-123"]);
@@ -748,7 +748,7 @@ describe("injectServers", () => {
       // OMP files can carry oauth/auth secrets, so they are always owner-only,
       // independent of scope - unlike the other home-scope-only providers below.
       expect(after.mode & 0o777).toBe(
-        scope === "user" || ["factory", "codex", "openai", "windsurf", "warp", "omp", "oh-my-pi"].includes(provider)
+        scope === "user" || ["factory", "codex", "openai", "devin", "warp", "omp", "oh-my-pi"].includes(provider)
           ? 0o600
           : 0o644,
       );
@@ -760,7 +760,7 @@ describe("injectServers", () => {
     }
   });
 
-  it.each(safeDestinations.filter(({ provider, scope }) => scope === "user" || ["factory", "codex", "openai", "windsurf", "warp"].includes(provider)))("creates a private user config for $provider at $scope scope", async ({ provider, scope }) => {
+  it.each(safeDestinations.filter(({ provider, scope }) => scope === "user" || ["factory", "codex", "openai", "devin", "warp"].includes(provider)))("creates a private user config for $provider at $scope scope", async ({ provider, scope }) => {
     vi.stubEnv("HOME", join(tempDir, "provider-home"));
     vi.stubEnv("PI_CODING_AGENT_DIR", join(tempDir, "provider-home", ".omp", "agent"));
     vi.stubEnv("GROK_HOME", join(tempDir, "provider-home", ".grok"));
@@ -1356,7 +1356,7 @@ describe("getProviderConfigPath", () => {
     );
     expect(getProviderConfigPath("factory")).toContain(".factory/mcp.json");
     expect(getProviderConfigPath("codex")).toContain(".codex/config.toml");
-    expect(getProviderConfigPath("windsurf")).toContain(
+    expect(getProviderConfigPath("devin")).toContain(
       "windsurf/mcp_config.json",
     );
     expect(getProviderConfigPath("warp")).toContain(".warp/mcp.json");
@@ -1370,7 +1370,7 @@ describe("SUPPORTED_PROVIDERS", () => {
     expect(SUPPORTED_PROVIDERS).toContain("factory");
     expect(SUPPORTED_PROVIDERS).toContain("codex");
     expect(SUPPORTED_PROVIDERS).toContain("opencode");
-    expect(SUPPORTED_PROVIDERS).toContain("windsurf");
+    expect(SUPPORTED_PROVIDERS).toContain("devin");
     expect(SUPPORTED_PROVIDERS).toContain("warp");
   });
 });

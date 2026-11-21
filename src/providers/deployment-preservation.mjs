@@ -1,5 +1,6 @@
 // Preserve copy-mode deletions and edited receipt-owned payloads across provider passes.
 import fs from 'node:fs';
+import { canonicalDesktopProviderId, canonicalizeDesktopProviderKeys } from './devin-compat.mjs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { frameworkRegistryId } from '../config/framework-aliases.js';
@@ -9,13 +10,16 @@ const parse = bytes => { try { return JSON.parse(bytes?.toString() || '{}'); } c
 const sidecar = '.aiwg-manifest.json';
 const context = new Set(['AGENTS.md', 'AIWG.md', 'WORKSPACE.md', 'CLAUDE.md', 'WARP.md', '.hermes.md', 'copilot-instructions.md']);
 export function providerCopyMode(project, provider, owner, config, indexOwner) {
-  const history = parse(fs.existsSync(path.join(project, '.aiwg', sidecar)) ? fs.readFileSync(path.join(project, '.aiwg', sidecar)) : null).bundleDeployments?.[provider] || {};
+  provider = canonicalDesktopProviderId(provider);
+  const histories = parse(fs.existsSync(path.join(project, '.aiwg', sidecar)) ? fs.readFileSync(path.join(project, '.aiwg', sidecar)) : null).bundleDeployments || {};
+  const history = canonicalizeDesktopProviderKeys(histories)[provider] || {};
   if (!config) {
     try { config = JSON.parse(fs.readFileSync(path.join(project, '.aiwg/aiwg.config'), 'utf8')); } catch { config = {}; }
   }
   const modes = new Map(Object.entries(history).map(([id, mode]) => [frameworkRegistryId(id), mode.copy === true || mode.package === true]));
   for (const [id, entry] of Object.entries(config.installed || {})) {
-    if (entry.deployedTo?.[provider]) modes.set(frameworkRegistryId(id), entry.deployedTo[provider].copy === true || entry.deployedTo[provider].package === true);
+    const deployment = canonicalizeDesktopProviderKeys(entry.deployedTo || {})[provider];
+    if (deployment) modes.set(frameworkRegistryId(id), deployment.copy === true || deployment.package === true);
   }
   if (indexOwner) modes.set(frameworkRegistryId(indexOwner), false);
   const inherited = new Set();
@@ -149,7 +153,7 @@ export function deploymentEditWarnings(project, provider) {
       }
     }
   };
-  visit(path.join(project, `.${provider}`));
+  visit(path.join(project, `.${provider === 'devin' ? 'windsurf' : provider}`));
   visit(path.join(project, '.agents'));
   return [...warnings];
 }

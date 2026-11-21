@@ -30,7 +30,7 @@ import {
   resolveToolFilters,
 } from './tool-filters.mjs';
 import { assertCredentialPolicy, CREDENTIAL_POLICIES, credentialReferenceInput, validateCredentialReferences, hasSecretLookingLiterals, installPolicyCheckedServer, redactCredentialArgs, redactCredentialText, redactCredentialRecord, resolveCredentialPolicy } from './credentials.mjs';
-import { getMcpInjectionDefinition } from '../providers/provider-definitions.mjs';
+import { getMcpInjectionDefinition, normalizeRuntimeProviderId } from '../providers/provider-definitions.mjs';
 import { manageOmpMcp } from './omp-config.mjs';
 import { claudeDesktopConfigPath, resolveClaudeInstallTarget, legacyClaudeMigration } from './claude-install.mjs';
 import { unmanageGrokBuildMcp } from './grok-build-config.mjs';
@@ -367,8 +367,8 @@ enabled_tools = [
       userScope: true,
       alias: 'codex'
     },
-    windsurf: {
-      // Windsurf stores MCP config at ~/.codeium/windsurf/mcp_config.json
+    devin: {
+      // Devin Desktop stores MCP config at ~/.codeium/windsurf/mcp_config.json
       path: path.join(homeDir, '.codeium/windsurf/mcp_config.json'),
       userScope: true,
       content: {
@@ -1027,13 +1027,13 @@ async function handleInject(args) {
 
   let providers;
   if (injectAll) {
-    providers = await registry.getInjectedProviders();
+    providers = [...new Set((await registry.getInjectedProviders()).map(p => normalizeRuntimeProviderId(p) === 'devin' ? 'devin' : p))];
     if (providers.length === 0) {
       console.error('No providers have been injected before. Use --provider <name> first.');
       process.exit(1);
     }
   } else {
-    const normalized = provider === 'claude' ? 'claude-code' : provider;
+    const normalized = normalizeRuntimeProviderId(provider) === 'devin' ? 'devin' : provider === 'claude' ? 'claude-code' : provider;
     if (!getMcpInjectionDefinition(normalized)) {
       console.error(`Unknown provider: ${provider}`);
       console.error(`Supported providers: ${SUPPORTED_PROVIDERS.join(', ')}`);
@@ -1667,7 +1667,8 @@ export async function main(args = process.argv.slice(2)) {
       if (!['project', 'user'].includes(scope)) throw new Error('Scope must be project or user');
       const installArgs = args.slice(1).filter((a, index, rest) => !a.startsWith('--') && !['--scope', '--project'].includes(rest[index - 1]));
       const requestedTarget = installArgs[0] || 'claude';
-      const target = resolveClaudeInstallTarget(requestedTarget, scope);
+      const target = normalizeRuntimeProviderId(requestedTarget) === 'devin'
+        ? 'devin' : resolveClaudeInstallTarget(requestedTarget, scope);
       if (requestedTarget === 'claude') {
         console.warn(`Deprecated MCP install target "claude" selected ${target}; use "aiwg mcp install ${target}" explicitly.`);
       }
@@ -1692,7 +1693,7 @@ export async function main(args = process.argv.slice(2)) {
           opencode: (projectDir === '.' || projectDir === 'global')
             ? 'opencode.json'
             : path.join(projectDir, 'opencode.json'),
-          windsurf: path.join(homeDir, '.codeium/windsurf/mcp_config.json'),
+          devin: path.join(homeDir, '.codeium/windsurf/mcp_config.json'),
           warp: '(UI-based — Settings > AI > MCP Servers)'
         };
         console.log(`[DRY RUN] Config file: ${configPaths[target] || 'unknown'}`);

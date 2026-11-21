@@ -183,9 +183,9 @@ async function promptUser(): Promise<Partial<AgentOptions>> {
   console.log('  2. cursor    - Cursor (.cursor/agents/)');
   console.log('  3. codex     - OpenAI Codex (.codex/agents/)');
   console.log('  4. factory   - Factory AI (.factory/droids/)');
-  console.log('  5. windsurf  - Windsurf (.windsurf/agents/)');
+  console.log('  5. windsurf  - Devin Desktop (.windsurf/agents/)');
   const platformChoice = await question('Select platform (1-5): ');
-  const platform = ['claude', 'cursor', 'codex', 'factory', 'windsurf'][
+  const platform = ['claude', 'cursor', 'codex', 'factory', 'devin'][
     parseInt(platformChoice) - 1
   ];
 

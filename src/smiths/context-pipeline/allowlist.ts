@@ -69,7 +69,7 @@ const AIWG_PATH_PREFIXES_RELATIVE: ReadonlyArray<string> = [
   '.warp/commands/',
   '.warp/rules/',
 
-  // Windsurf
+  // Devin Desktop
   '.windsurf/agents/',
   '.windsurf/skills/',
   '.windsurf/workflows/',

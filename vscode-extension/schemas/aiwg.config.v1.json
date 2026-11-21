@@ -161,7 +161,7 @@
     },
     "providers": {
       "type": "array",
-      "description": "Active AI provider targets",
+      "description": "Active AI provider targets; devin is canonical, windsurf is a deprecated alias",
       "items": {
         "type": "string",
         "enum": [
@@ -169,6 +169,7 @@
           "copilot",
           "cursor",
           "warp",
+          "devin",
           "windsurf",
           "openclaw",
           "codex",

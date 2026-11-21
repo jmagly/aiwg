@@ -55,14 +55,14 @@ describe('SkillSmith', () => {
 
     it('derives platform skill configuration from ProviderDefinition', () => {
       const codex = getProviderDefinition('codex');
-      const windsurf = getProviderDefinition('windsurf');
+      const windsurf = getProviderDefinition('devin');
 
       expect(PlatformSkillResolver.getConfig('codex')).toMatchObject({
         baseDir: `~/${codex?.skillNamespace.skillsBaseDir}`,
         extension: codex?.smithPaths.fileExtension,
         supportsSubdirectory: codex?.skillNamespace.subdirLayout,
       });
-      expect(PlatformSkillResolver.getConfig('windsurf')).toMatchObject({
+      expect(PlatformSkillResolver.getConfig('devin')).toMatchObject({
         baseDir: windsurf?.skillNamespace.skillsBaseDir,
         extension: windsurf?.smithPaths.fileExtension,
         supportsSubdirectory: false,

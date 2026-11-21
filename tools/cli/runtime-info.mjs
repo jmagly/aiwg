@@ -72,7 +72,7 @@ export async function detectProvider() {
   if (explicit) return explicit;
   if (process.env.CODEX_SANDBOX || process.env.CODEX_HOME || process.env.CODEX_API_KEY || process.env.OPENAI_API_KEY) return 'codex';
   if (process.env.CURSOR_TRACE_ID || process.env.CURSOR_VERSION) return 'cursor';
-  if (process.env.WINDSURF_VERSION) return 'windsurf';
+  if (process.env.WINDSURF_VERSION) return 'devin';
   if (process.env.WARP_SESSION_ID || process.env.WARP_TERMINAL) return 'warp';
   if (process.env.COPILOT_AGENT || process.env.GITHUB_COPILOT_TOKEN) return 'copilot';
   if (process.env.FACTORY_AGENT_ID) return 'factory';

@@ -408,7 +408,7 @@ export function getRulesIndexPath(srcRoot) {
 
 /**
  * Generate consolidated rules content from manifest for a specific provider.
- * Used by content-injection providers (copilot, warp, windsurf) that need
+ * Used by content-injection providers (copilot, warp, devin) that need
  * the rules content inline rather than as a file.
  *
  * @param {string} srcRoot - Source root directory

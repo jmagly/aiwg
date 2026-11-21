@@ -34,3 +34,4 @@ Safely](../getting-started/install-node.md). Agent/operator details live in the
 AIWG intentionally retains the `.windsurf/` paths used by the compatibility
 adapter. The older `--provider windsurf` selector still works with a
 deprecation notice. The separate `devin-cli` provider is not yet supported.
+See [Desktop path verification](../providers/devin-desktop-paths.md) for retained paths and the pending 3.14 check.

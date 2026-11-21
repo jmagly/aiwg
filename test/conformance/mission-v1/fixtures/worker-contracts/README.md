@@ -881,3 +881,7 @@ fragments and their manifest digests are unchanged.
 fragment with endpoint, checkpoint and typed unavailable reasons. Manifest digests
 are updated; strict exact-match validation remains unchanged. Local processing
 is an operator-declared self-hosted path, not backend attestation.
+
+#4347 renames the OUT Desktop coverage row to canonical `devin`. Deprecated
+`windsurf` selectors still resolve to that row; scope and qualification are
+unchanged. No frozen schema fragment or manifest digest changes.

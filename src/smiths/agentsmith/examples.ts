@@ -259,16 +259,16 @@ async function example9_ModelOverride() {
 }
 
 /**
- * Example 10: Windsurf Platform - Aggregated AGENTS.md
+ * Example 10: Devin Desktop Platform - Aggregated AGENTS.md
  *
- * Generate agent for Windsurf's aggregated format.
+ * Generate agent for Devin Desktop's aggregated format.
  */
 async function example10_WindsurfFormat() {
   const options: AgentOptions = {
     name: 'refactor-assistant',
     description: 'Assists with code refactoring tasks',
     template: 'complex',
-    platform: 'windsurf',
+    platform: 'devin',
     projectPath: '/path/to/project',
     category: 'refactoring',
     guidance: `
@@ -281,9 +281,9 @@ async function example10_WindsurfFormat() {
   const agent = await generator.generateAgent(options);
   await generator.deployAgent(agent);
 
-  console.log('Windsurf agent deployed:');
+  console.log('Devin Desktop agent deployed:');
   console.log(`Path: ${agent.path}`);
-  console.log('Note: Windsurf uses plain markdown without YAML frontmatter');
+  console.log('Note: Devin Desktop uses plain markdown without YAML frontmatter');
 }
 
 // Export examples for use in CLI or documentation
@@ -331,6 +331,6 @@ export const examples = {
 //   console.log('\nExample 9: Model Override');
 //   await example9_ModelOverride();
 //
-//   console.log('\nExample 10: Windsurf Format');
+//   console.log('\nExample 10: Devin Desktop Format');
 //   await example10_WindsurfFormat();
 // }

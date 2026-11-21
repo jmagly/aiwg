@@ -1,10 +1,10 @@
 import { withModelWrapper } from './model-wrapper.mjs';
 import { importImpl } from '../../_resolve-impl.mjs';
 /**
- * Devin Desktop Provider (Windsurf compatibility adapter)
+ * Devin Desktop Provider (legacy path compatibility adapter)
  *
- * Deploys agents to the Devin Desktop/Windsurf compatibility surface with
- * minimal AGENTS.md hooks and trigger-frontmatter rules. The provider id and
+ * Deploys agents to the Devin Desktop compatibility surface with
+ * minimal AGENTS.md hooks and trigger-frontmatter rules. The deprecated selector and
  * generated `.windsurf/` paths remain stable for backward compatibility.
  *
  * Deployment paths:
@@ -22,7 +22,7 @@ import { importImpl } from '../../_resolve-impl.mjs';
  *   - Capabilities tags for tools
  *   - Workflow format for commands
  *   - Conventional skills and rules deployment
- *   - Devin Desktop selectors resolve to the stable `windsurf` provider id
+ *   - Devin Desktop selectors resolve to the canonical `devin` provider id
  */
 import realFs from 'fs';
 import { createRequire } from 'module';
@@ -59,8 +59,8 @@ import { writeContextFileSync } from './context-write.mjs';
 // ============================================================================
 // Provider Configuration
 // ============================================================================
-export const name = 'windsurf';
-export const aliases = ['devin', 'devin-desktop', 'devin-local', 'cascade'];
+export const name = 'devin';
+export const aliases = ['windsurf', 'devin-desktop', 'devin-local', 'cascade'];
 
 export const paths = {
   agents: '.windsurf/agents/',      // Discrete mirrors alongside AGENTS.md
@@ -93,9 +93,9 @@ export const capabilities = {
 // ============================================================================
 
 /**
- * Transform agent content to Windsurf format (plain markdown, no YAML frontmatter)
+ * Transform agent content to Devin Desktop format (plain markdown, no YAML frontmatter)
  */
-export const transformAgent = withModelWrapper('windsurf', translateAgent);
+export const transformAgent = withModelWrapper('devin', translateAgent);
 function translateAgent(srcPath, content, opts) {
   const fmMatch = content.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
   if (!fmMatch) return content;
@@ -108,7 +108,7 @@ function translateAgent(srcPath, content, opts) {
   const toolsMatch = frontmatter.match(/tools:\s*(.+)/)?.[1]?.trim();
   const modelMatch = frontmatter.match(/model:\s*(.+)/)?.[1]?.trim();
 
-  // Build Windsurf-compatible format (plain markdown, no YAML)
+  // Build Devin Desktop-compatible format (plain markdown, no YAML)
   const lines = [];
   lines.push(`### ${name}`);
   lines.push('');
@@ -146,7 +146,7 @@ function translateAgent(srcPath, content, opts) {
 }
 
 /**
- * Transform command content to Windsurf workflow format
+ * Transform command content to Devin Desktop workflow format
  */
 export function transformCommand(srcPath, content, opts) {
   const fmMatch = content.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
@@ -177,15 +177,15 @@ export function transformCommand(srcPath, content, opts) {
 }
 
 /**
- * Transform rule content for Windsurf — injects trigger frontmatter per ADR-2.
+ * Transform rule content for Devin Desktop — injects trigger frontmatter per ADR-2.
  *
  * Defaults to `trigger: always_on` (the ADR-2 §2 default-preservation choice
  * for the existing AIWG rule corpus). When the source frontmatter declares
  * a `globs:` or `applyTo:` field, the trigger is upgraded to `glob` and the
- * glob pattern is passed through as the Windsurf-native `glob:` field
+ * glob pattern is passed through as the Devin Desktop-native `glob:` field
  * (PUW-020 / #1121, glob-mode part of ADR-2 §1 mapping).
  *
- * Per ADR-2 §5: non-always_on modes require a live-Windsurf smoke test
+ * Per ADR-2 §5: non-always_on modes require a live-Devin Desktop smoke test
  * gate before shipping to operators with the live loader. Until that gate
  * lands, the safe default is preserved for rules without explicit globs.
  */
@@ -205,7 +205,7 @@ export function transformRule(srcPath, content, opts) {
     if (globsMatch || applyToMatch) {
       const globValue = (globsMatch?.[1] || applyToMatch?.[1] || '').trim().replace(/^['"]|['"]$/g, '');
       const triggerLines = [`trigger: glob`];
-      // Add Windsurf-native `glob:` field if not already present.
+      // Add Devin Desktop-native `glob:` field if not already present.
       if (!/^\s*glob\s*:/m.test(frontmatter)) {
         triggerLines.push(`glob: '${globValue}'`);
       }
@@ -221,7 +221,7 @@ export function transformRule(srcPath, content, opts) {
 }
 
 // ============================================================================
-// Model Mapping (not applicable for Windsurf)
+// Model Mapping (not applicable for Devin Desktop)
 // ============================================================================
 
 export function mapModel(shorthand, modelCfg, modelsConfig) {
@@ -233,7 +233,7 @@ export function mapModel(shorthand, modelCfg, modelsConfig) {
 // ============================================================================
 
 /**
- * Generate AGENTS.md for Windsurf with all agents aggregated
+ * Generate AGENTS.md for Devin Desktop with all agents aggregated
  */
 export function generateAgentsMd(files, destPath, opts) {
   if (opts.contextFiles === false) return;
@@ -254,7 +254,7 @@ export function generateAgentsMd(files, destPath, opts) {
 /**
  * Generate .windsurf/rules/aiwg-orchestration.md with trigger: always_on frontmatter.
  * Also writes a deprecated .windsurfrules stub for backward compatibility — that file
- * may be silently ignored by Windsurf (not documented in official docs).
+ * may be silently ignored by Devin Desktop (not documented in official docs).
  */
 export function generateWindsurfRules(srcRoot, target, opts) {
   const { dryRun } = opts;
@@ -267,7 +267,7 @@ export function generateWindsurfRules(srcRoot, target, opts) {
   lines.push('# AIWG Orchestration for Devin Desktop');
   lines.push('');
   lines.push('<!--');
-  lines.push('  Generated by AIWG for Devin Desktop using the Windsurf compatibility adapter.');
+  lines.push('  Generated by AIWG for Devin Desktop using the legacy path compatibility adapter.');
   lines.push('  This file provides orchestration context for AIWG SDLC workflows.');
   lines.push('  trigger: always_on — included in system prompt on every message.');
   lines.push('-->');
@@ -370,14 +370,14 @@ export function generateWindsurfRules(srcRoot, target, opts) {
 
   // Deprecated stub: .windsurfrules — retained for backward compat only
   const stubLines = [
-    '# AIWG Rules for Windsurf — Deprecated',
+    '# AIWG Rules for Devin Desktop — Deprecated',
     '',
     '> **This file is deprecated.**',
-    '> Windsurf reads `.windsurf/rules/*.md` natively (see official docs).',
+    '> Devin Desktop reads `.windsurf/rules/*.md` natively (see official docs).',
     '> AIWG orchestration context is now deployed to:',
     '>   `.windsurf/rules/aiwg-orchestration.md`  (trigger: always_on)',
     '>',
-    '> This root-level file may be silently ignored by Windsurf.',
+    '> This root-level file may be silently ignored by Devin Desktop.',
     '> It is retained only for backward compatibility and will be removed in a future release.',
   ];
   const stubPath = path.join(target, '.windsurfrules');
@@ -395,7 +395,7 @@ export function generateWindsurfRules(srcRoot, target, opts) {
 // ============================================================================
 
 /**
- * Deploy commands as Windsurf workflows
+ * Deploy commands as Devin Desktop workflows
  */
 export function deployWorkflows(commandFiles, targetDir, opts) {
   const { dryRun } = opts;
@@ -405,7 +405,7 @@ export function deployWorkflows(commandFiles, targetDir, opts) {
     ensureDir(workflowsDir);
   }
 
-  console.log(`\nDeploying ${commandFiles.length} commands as Windsurf workflows to ${workflowsDir}...`);
+  console.log(`\nDeploying ${commandFiles.length} commands as Devin Desktop workflows to ${workflowsDir}...`);
 
   for (const cmdFile of commandFiles) {
     const content = fs.readFileSync(cmdFile, 'utf8');
@@ -581,7 +581,7 @@ async function deploySelected(opts) {
     skillDirs.push(...frameworkSkills.skills);
   }
 
-  // Deploy commands as Windsurf workflows
+  // Deploy commands as Devin Desktop workflows
   if (deployCommands || commandsOnly) {
     // Collect command files based on mode
     const commandFiles = [];
@@ -656,10 +656,10 @@ async function deploySelected(opts) {
   await postDeploy(target, opts);
 
   console.log('\n' + '='.repeat(70));
-  console.log('Windsurf deployment complete. Generated files:');
+  console.log('Devin Desktop deployment complete. Generated files:');
   console.log('  - AGENTS.md (agent catalog)');
   console.log('  - .windsurf/rules/aiwg-orchestration.md (orchestration context, trigger: always_on)');
-  console.log('  - .windsurfrules (deprecated stub — Windsurf may ignore this file)');
+  console.log('  - .windsurfrules (deprecated stub — Devin Desktop may ignore this file)');
   if (deployCommands || commandsOnly) {
     console.log('  - .windsurf/workflows/ (commands as workflows)');
   }

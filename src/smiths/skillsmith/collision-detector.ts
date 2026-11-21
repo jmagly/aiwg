@@ -70,7 +70,7 @@ const PLATFORM_BUILTINS: Record<string, string[]> = {
   'cursor': ['settings', 'chat', 'edit'],
   'codex': ['help', 'run', 'exec'],
   'copilot': ['help', 'explain', 'fix', 'tests', 'review'],
-  'windsurf': ['help', 'settings'],
+  'devin': ['help', 'settings'],
   'opencode': ['help', 'run'],
   'warp': ['help', 'settings'],
   'hermes': [],

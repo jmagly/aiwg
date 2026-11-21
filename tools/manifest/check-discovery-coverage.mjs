@@ -29,7 +29,7 @@ const OPERATIONAL_TYPES = new Map([
 const COMPONENT_ROOTS = ['addons', 'frameworks', 'extensions'];
 const PROVIDERS = [
   'antigravity', 'claude', 'codex', 'copilot', 'cursor', 'deepseek-harness', 'factory', 'grokbot',
-  'hermes', 'muse', 'openclaw', 'opencode', 'openhuman', 'omp', 'pi', 'warp', 'windsurf',
+  'hermes', 'muse', 'openclaw', 'opencode', 'openhuman', 'omp', 'pi', 'warp', 'devin',
 ];
 
 function parseArgs(argv) {
@@ -169,7 +169,7 @@ function discoverArtifacts(componentDir, repoRoot) {
       : capability
         ? [capability]
         : [];
-    const platforms = strings(metadata.platforms);
+    const platforms = strings(metadata.platforms).map(provider => provider === 'windsurf' ? 'devin' : provider);
     return [{
       path: path.relative(repoRoot, file).split(path.sep).join('/'),
       relativePath: path.relative(componentDir, file).split(path.sep).join('/'),

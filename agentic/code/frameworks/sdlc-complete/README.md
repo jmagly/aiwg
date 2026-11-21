@@ -4,7 +4,7 @@
 
 The SDLC Complete framework provides a comprehensive Plan → Act lifecycle for software delivery using AI agents. This specialized framework includes agents, commands, templates, and flows for managing the entire software development lifecycle.
 
-**Supported Platforms:** Claude Code, Warp Terminal, Factory AI, GitHub Copilot, Cursor, OpenCode, OpenAI/Codex, Windsurf
+**Supported Platforms:** Claude Code, Warp Terminal, Factory AI, GitHub Copilot, Cursor, OpenCode, OpenAI/Codex, Devin Desktop
 
 ## Framework Structure
 
@@ -66,7 +66,7 @@ aiwg use sdlc --provider copilot        # GitHub Copilot
 aiwg use sdlc --provider cursor         # Cursor
 aiwg use sdlc --provider codex          # OpenAI/Codex
 aiwg use sdlc --provider opencode       # OpenCode
-aiwg use sdlc --provider windsurf       # Windsurf
+aiwg use sdlc --provider devin       # Devin Desktop
 
 # Scaffold new project with SDLC templates
 aiwg new my-project

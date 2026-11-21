@@ -2423,7 +2423,7 @@
         }
       }
     },
-    "windsurf": {
+    "devin": {
       "sessionEnvAllowlist": [],
       "agent": "unsupported",
       "skill": "unsupported",
@@ -2446,7 +2446,7 @@
         ],
         "qualificationOwner": "B-OG-47",
         "provenance": [
-          "src/providers/provider-definitions.ts#windsurf",
+          "src/providers/provider-seeds-3.ts#devin",
           "https://docs.devin.ai/cli/reference/commands.md"
         ],
         "reason": "Desktop/client capability does not establish a headless worker interface."

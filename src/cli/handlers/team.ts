@@ -409,7 +409,7 @@ function showTeamHelp(): void {
     info <name>            Show team definition and agent roster
 
   ${ui.bold('Options:')}
-    --provider <p>         Override provider: antigravity|agy|claude|warp|copilot|cursor|windsurf|opencode|factory|codex|openclaw|omp|oh-my-pi
+    --provider <p>         Override provider: antigravity|agy|claude|warp|copilot|cursor|devin|opencode|factory|codex|openclaw|omp|oh-my-pi
     --objective "<text>"   Set objective passed to mc dispatch agents
     --body-file <file>    OMP task JSON with explicit ownership and tools
     --cwd <dir>          OMP working directory (defaults to current workspace)

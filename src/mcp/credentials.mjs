@@ -30,7 +30,7 @@ export const ENV_REFERENCE_SYNTAX = Object.freeze({
   'claude-code': '${NAME}',
   claude: '${NAME}',
   cursor: '${env:NAME}',
-  windsurf: '${env:NAME}',
+  devin: '${env:NAME}',
   factory: '${NAME}',
   opencode: '{env:NAME}',
   omp: '${NAME}',

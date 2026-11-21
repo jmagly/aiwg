@@ -615,7 +615,7 @@ Components flow from source to platform-specific folders via `aiwg use`:
 | Warp Terminal | `aiwg use sdlc --provider warp` | `WARP.md` |
 | OpenAI/Codex | `aiwg use sdlc --provider codex` | `.codex/agents/` |
 | OpenCode | `aiwg use sdlc --provider opencode` | `.opencode/agent/` |
-| Windsurf | `aiwg use sdlc --provider windsurf` | `.windsurfrules` |
+| Devin Desktop | `aiwg use sdlc --provider devin` | `.windsurfrules` |
 
 For cross-platform details: @docs/integrations/cross-platform-overview.md
 

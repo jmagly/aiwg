@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { integer, dateTime, url, number } from '../schema/zod-validation.mjs';
 import { getCatalogValidators, validateWorkerModelObservation } from './worker-review-lineage.js';
 import { MODEL_TIERS, normalizeModelTier, flagshipElected, isFlagshipModel, type FlagshipAuthority } from './tiers.js';
+import { normalizeDesktopModelConfig } from '../providers/devin-compat.mjs';
 import { ProviderSchema, requireModelResource } from './policy-resources.js';
 import { loadProviderModelCapabilities } from './provider-policy.js';
 import { WorkerSelectionPolicySchema } from './worker-selection-policy.js';
@@ -166,7 +167,7 @@ export function validateUserProjectModelConfig(input: unknown): {
   valid: boolean;
   diagnostics: ModelDiagnostic[];
 } {
-  const parsed = UserProjectModelConfigSchema.safeParse(input);
+  const parsed = UserProjectModelConfigSchema.safeParse(normalizeDesktopModelConfig(input));
   if (parsed.success) return { valid: true, diagnostics: [] };
   return {
     valid: false,

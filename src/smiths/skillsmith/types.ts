@@ -144,7 +144,7 @@ export interface PlatformSkillConfig {
   /**
    * Whether this platform supports subdirectory recursion for skill discovery.
    * When true, namespaced skills deploy under `{baseDir}/{namespace}/{slug}/`.
-   * When false (e.g. Windsurf), skills deploy flat at `{baseDir}/{slug}/`.
+   * When false (e.g. Devin Desktop), skills deploy flat at `{baseDir}/{slug}/`.
    */
   supportsSubdirectory: boolean;
 }

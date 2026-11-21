@@ -12,7 +12,7 @@ const repo = path.resolve(__dirname, '../../..');
 const roots: string[] = [];
 const surfaces: Record<string, string> = {
   copilot: '.github/copilot-instructions.md', factory: 'AGENTS.md', opencode: 'AGENTS.md',
-  windsurf: 'AGENTS.md', antigravity: 'AGENTS.md', muse: 'AGENTS.md', omp: '.omp/AGENTS.md', 'grok-build': 'AGENTS.md',
+  devin: 'AGENTS.md', antigravity: 'AGENTS.md', muse: 'AGENTS.md', omp: '.omp/AGENTS.md', 'grok-build': 'AGENTS.md',
 };
 const core = readCoreBody(path.join(repo, 'agentic/code/addons/aiwg-utils/rules/anti-laziness.md'));
 const noAttribution = readCoreBody(path.join(repo, 'agentic/code/addons/aiwg-utils/rules/no-attribution.md'));
@@ -43,7 +43,7 @@ describe('legacy provider core projection (#3457)', () => {
       expect(content.match(/<!-- AIWG:rule-core:start -->/g)).toHaveLength(1);
       expect(block.split('<!-- AIWG:rule-core:end -->')[0]).not.toMatch(/<!-- AIWG:[\w-]+:(?:start|end) -->/);
       expect(content).not.toContain('agent-friendly-code');
-      const dir = provider === 'copilot' ? '.github/instructions' : provider === 'opencode' ? '.opencode/rule' : provider === 'grok-build' ? '.grok/rules' : `.${provider}/rules`;
+      const dir = provider === 'copilot' ? '.github/instructions' : provider === 'opencode' ? '.opencode/rule' : provider === 'grok-build' ? '.grok/rules' : `.${provider === 'devin' ? 'windsurf' : provider}/rules`;
       assertRuleStartupHook(content, provider, `${dir}/RULES-INDEX.md`);
       const body = fs.readFileSync(path.join(repo, 'agentic/code/addons/aiwg-utils/rules/skill-discovery.md'), 'utf8').replace(/^---\n[\s\S]*?\n---\s*/, '').trim();
       expect(fs.readFileSync(path.join(target, dir, 'skill-discovery.md'), 'utf8')).toContain('Run `aiwg discover');
@@ -60,7 +60,7 @@ describe('legacy provider core projection (#3457)', () => {
       const startup = fs.readFileSync(path.join(target, surface), 'utf8');
       expect(startup).toContain(core);
       expect(startup).toContain(noAttribution);
-      const dir = provider === 'copilot' ? '.github/instructions' : provider === 'opencode' ? '.opencode/rule' : provider === 'grok-build' ? '.grok/rules' : `.${provider}/rules`;
+      const dir = provider === 'copilot' ? '.github/instructions' : provider === 'opencode' ? '.opencode/rule' : provider === 'grok-build' ? '.grok/rules' : `.${provider === 'devin' ? 'windsurf' : provider}/rules`;
       assertRuleStartupHook(startup, provider, `${dir}/RULES-INDEX.md`);
       expect(fs.readFileSync(path.join(target, dir, 'skill-discovery.md'), 'utf8')).toContain('Run `aiwg discover');
       expect(startup).not.toContain('## Rule: skill-discovery');

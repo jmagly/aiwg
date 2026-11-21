@@ -354,7 +354,7 @@ All AIWG-owned skills declare `namespace: aiwg` in their SKILL.md frontmatter. T
 
 ```
 .claude/skills/aiwg/aiwg-sync/SKILL.md    ← canonical (unlimited-recursion platforms)
-.windsurf/skills/aiwg-sync/SKILL.md       ← Windsurf (1-level limit; no subdir)
+.windsurf/skills/aiwg-sync/SKILL.md       ← Devin Desktop (1-level limit; no subdir)
 .agents/skills/aiwg/aiwg-sync/SKILL.md    ← universal cross-platform path
 ```
 
@@ -1010,7 +1010,7 @@ native hook support; other platforms emulate via the AIWG daemon.
 | Cursor | `.cursor/behaviors/{id}/` | Emulated (daemon) |
 | Warp | `.warp/behaviors/{id}/` | Emulated (daemon) |
 | Copilot | `.github/behaviors/{id}/` | Emulated (daemon) |
-| Windsurf | `.windsurf/behaviors/{id}/` | Emulated (daemon) |
+| Devin Desktop | `.windsurf/behaviors/{id}/` | Emulated (daemon) |
 | Factory | `.factory/behaviors/{id}/` | Emulated (daemon) |
 | Codex | `~/.codex/behaviors/{id}/` | Emulated (daemon) |
 | OpenCode | `.opencode/behaviors/{id}/` | Emulated (daemon) |
@@ -1168,7 +1168,7 @@ When triggered via hooks, run the event-appropriate script automatically.
 | Warp | Emulated | WARP.md behavior section | None | Full |
 | Cursor | Emulated | Rules-based activation | None | Full |
 | Copilot | Emulated | Instructions-based activation | None | Full |
-| Windsurf | Emulated | Rules-based activation | None | Full |
+| Devin Desktop | Emulated | Rules-based activation | None | Full |
 | Factory AI | Emulated | Rules-based activation | None | Full |
 | Codex | Emulated | Rules-based activation | None | Full |
 | OpenCode | Emulated | Rules-based activation | None | Full |
@@ -1265,7 +1265,7 @@ interface PlatformCompatibility {
   factory?: PlatformSupport;
   cursor?: PlatformSupport;
   copilot?: PlatformSupport;
-  windsurf?: PlatformSupport;
+  devin?: PlatformSupport;
   codex?: PlatformSupport;
   opencode?: PlatformSupport;
   generic?: PlatformSupport;
@@ -1412,7 +1412,7 @@ interface TeamHandoff {
 | Provider | Native Teams | Fallback |
 |----------|-------------|---------|
 | Claude Code | Native agent dispatch | — |
-| Warp, Copilot, Cursor, Windsurf, OpenCode, Factory, Codex, OpenClaw | — | `aiwg mc` orchestration |
+| Warp, Copilot, Cursor, Devin Desktop, OpenCode, Factory, Codex, OpenClaw | — | `aiwg mc` orchestration |
 
 ### Built-in Teams
 
@@ -1671,7 +1671,7 @@ You are the AIWG Concierge — the primary front-facing interface for the AIWG p
 | **Cursor** | Emulated | agent | Hook subscriptions emulated via AIWG daemon event routing. |
 | **Warp** | Emulated | agent | Emulated via daemon. Behaviors appear in `WARP.md` for context loading. |
 | **Copilot** | Emulated | agent | Emulated via daemon. No native hook support. |
-| **Windsurf** | Emulated | agent | Emulated via daemon. No native hook support. |
+| **Devin Desktop** | Emulated | agent | Emulated via daemon. No native hook support. |
 | **Factory AI** | Emulated | agent | Emulated via daemon. |
 | **Codex** | Emulated | agent | Emulated via daemon. |
 | **OpenCode** | Emulated | agent | Emulated via daemon. |

@@ -98,8 +98,8 @@ describe('dynamic model catalog', () => {
     // read-only model-list decision, declared here but not independently
     // implemented by that task (see the local-http worker-adapter docs).
     expect(Object.keys(PROVIDER_DISCOVERY_DECISIONS).sort()).toEqual([
-      'claude', 'codex', 'copilot', 'cursor', 'factory', 'grok-build', 'grokbot', 'hermes',
-      'muse', 'ollama', 'omp', 'openclaw', 'opencode', 'openhuman', 'pi', 'warp', 'windsurf',
+      'claude', 'codex', 'copilot', 'cursor', 'devin', 'factory', 'grok-build', 'grokbot', 'hermes',
+      'muse', 'ollama', 'omp', 'openclaw', 'opencode', 'openhuman', 'pi', 'warp',
     ]);
     expect(Object.values(PROVIDER_DISCOVERY_DECISIONS).every(decision =>
       decision.reason.length > 0 && decision.documentation.startsWith('https://')

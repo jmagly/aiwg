@@ -26,7 +26,7 @@ const CURRENT_PLATFORM_IDS = [
   'pi',
   'omp',
   'warp',
-  'windsurf',
+  'devin',
   'generic',
 ];
 
@@ -79,10 +79,10 @@ describe('provider definition registry', () => {
     expect(normalizeProviderDefinitionId('claude-code')).toBe('claude');
     expect(normalizeProviderDefinitionId('openai')).toBe('codex');
     expect(normalizeProviderDefinitionId('tinyhumansai')).toBe('openhuman');
-    expect(normalizeProviderDefinitionId('devin')).toBe('windsurf');
-    expect(normalizeProviderDefinitionId('devin-desktop')).toBe('windsurf');
-    expect(normalizeProviderDefinitionId('devin-local')).toBe('windsurf');
-    expect(normalizeProviderDefinitionId('cascade')).toBe('windsurf');
+    expect(normalizeProviderDefinitionId('devin')).toBe('devin');
+    expect(normalizeProviderDefinitionId('devin-desktop')).toBe('devin');
+    expect(normalizeProviderDefinitionId('devin-local')).toBe('devin');
+    expect(normalizeProviderDefinitionId('cascade')).toBe('devin');
     expect(normalizeProviderDefinitionId('pi-coding-agent')).toBe('pi');
     expect(normalizeProviderDefinitionId('dsh')).toBe('deepseek-harness');
     expect(normalizeProviderDefinitionId('missing-provider')).toBeNull();
@@ -171,24 +171,24 @@ describe('provider definition registry', () => {
     expect(getProviderDefinition('codex')?.paths.kernelSkills).toBe('.agents/skills');
     expect(getProviderDefinition('openhuman')?.paths.deployTarget).toBe('mixed');
     expect(getProviderDefinition('openhuman')?.paths.kernelSkills).toBe('~/.openhuman/skills');
-    expect(getProviderDefinition('windsurf')?.surfaces.precedence).toContain('.devin/rules/');
-    expect(getProviderDefinition('windsurf')?.paths.artifacts.rules).toBe('.windsurf/rules');
-    expect(getProviderDefinition('windsurf')?.paths.kernelSkills).toBe('.windsurf/skills');
+    expect(getProviderDefinition('devin')?.surfaces.precedence).toContain('.devin/rules/');
+    expect(getProviderDefinition('devin')?.paths.artifacts.rules).toBe('.windsurf/rules');
+    expect(getProviderDefinition('devin')?.paths.kernelSkills).toBe('.windsurf/skills');
   });
 
-  it('records the Devin/Windsurf topology decision without enabling .devin writes', () => {
-    const windsurf = getProviderDefinition('windsurf');
+  it('records the Devin Desktop topology decision without enabling .devin writes', () => {
+    const windsurf = getProviderDefinition('devin');
     expect(windsurf).toBeDefined();
     expect(windsurf?.displayName).toBe('Devin Desktop');
     expect(windsurf?.status).toBe('stable');
-    expect(normalizeProviderDefinitionId('devin')).toBe('windsurf');
-    expect(normalizeProviderDefinitionId('devin-desktop')).toBe('windsurf');
+    expect(normalizeProviderDefinitionId('devin')).toBe('devin');
+    expect(normalizeProviderDefinitionId('devin-desktop')).toBe('devin');
     expect(normalizeProviderDefinitionId('devin-cli')).toBeNull();
 
     const desktop = windsurf?.surfaces.related.find((surface) => surface.id === 'devin-desktop');
     expect(desktop?.relationship).toBe('same-provider');
     expect(desktop?.deployable).toBe(true);
-    expect(windsurf?.aliases).toEqual(expect.arrayContaining(['devin', 'devin-desktop', 'devin-local', 'cascade']));
+    expect(windsurf?.aliases).toEqual(expect.arrayContaining(['windsurf', 'devin-desktop', 'devin-local', 'cascade']));
     expect(desktop?.paths.rules).toEqual(['.devin/rules/*.md', '.windsurf/rules/*.md']);
     expect(desktop?.paths.agentsMd).toEqual(['AGENTS.md', 'agents.md']);
     expect(desktop?.notes.join('\n')).toContain('AIWG keeps .devin/ as ignored local provider output');

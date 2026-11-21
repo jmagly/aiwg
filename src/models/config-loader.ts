@@ -8,6 +8,7 @@ import { workerDispatchBlocked, isWorkerMaintenance, workerRecoveryDiagnostic } 
  */
 
 import { readFile } from 'fs/promises';
+import { normalizeDesktopModelConfig } from '../providers/devin-compat.mjs';
 import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'node:url';
 import { homedir } from 'os';
@@ -89,7 +90,7 @@ export class ConfigLoader {
     if (this.cache && this.cacheDigest === digest) return this.cache;
 
     // Merge with precedence
-    const merged = this.merge(aiwgDefault, userConfig, projectConfig);
+    const merged = this.merge(aiwgDefault, normalizeDesktopModelConfig(userConfig), normalizeDesktopModelConfig(projectConfig));
 
     // A group-bound wrapper's inherited exact pin survives a higher-precedence
     // tier-only preference. Preserve the legacy unbound merge otherwise.

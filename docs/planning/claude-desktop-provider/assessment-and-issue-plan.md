@@ -27,8 +27,8 @@ Rationale, from evidence gathered in §2:
   drift-receipt guarantees in `src/cli/services/deployment-verification.ts`.
 - The registry already has the right primitive: `ProviderSurface.related[]` with
   `relationship: 'same-provider' | 'shared-adapter' | 'future-provider' | 'companion-standard'`
-  (`src/providers/provider-definitions.ts:20-36`), used today for Devin Desktop / Devin CLI /
-  Devin Product Skills under the `windsurf` provider (`src/providers/provider-definitions.ts:1238-1300`).
+  (`src/providers/provider-definitions.ts:20-36`), used today for Devin Desktop CLI /
+  Devin Product Skills under the `devin` provider (`src/providers/provider-definitions.ts:1238-1300`).
 
 What genuinely differs and therefore needs new modelling:
 

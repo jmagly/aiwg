@@ -138,7 +138,7 @@
       "consumer": "models resolve / worker-resolve / worker-invoke"
     },
     {
-      "provider": "windsurf",
+      "provider": "devin",
       "owner": "B-OG-47",
       "scope": "OUT",
       "nativeMcp": "no-headless-evidence",

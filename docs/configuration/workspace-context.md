@@ -64,7 +64,7 @@ Transactions and recoverable preimages live under
 | Factory | explicit directive in hierarchical `AGENTS.md` | supported |
 | OpenCode | `opencode.json` `instructions` registration | supported |
 | Warp | explicit directive in `WARP.md`/`AGENTS.md`; nested rules retained | supported |
-| Windsurf / Devin surfaces | explicit `AGENTS.md` direction; native `.windsurf`/`.devin` rules retained | degraded pending a verified include primitive |
+| Devin Desktop surfaces | explicit `AGENTS.md` direction; native `.windsurf`/`.devin` rules retained | degraded pending a verified include primitive |
 | Hermes | `.hermes.md`/`AGENTS.md` direction plus on-demand AIWG MCP reading | degraded |
 | OpenHuman | host-dependent `AGENTS.md` direction | degraded |
 | OpenClaw | no verified project-local startup loader | degraded, no automatic claim |

@@ -114,7 +114,7 @@ aiwg doctor            # workspace health snapshot (helpful)
 
 And — also required — the **provider** (the AIWG harness in use): one of
 `claude-code`, `codex`, `copilot`, `cursor`, `factory`, `hermes`, `opencode`,
-`openclaw`, `openhuman`, `omp`, `pi`, `warp`, or `windsurf`.
+`openclaw`, `openhuman`, `omp`, `pi`, `warp`, or `devin`.
 
 When you (the agent) draft a bug report on behalf of a user, **ask explicitly for each of the three required fields** if they aren't already in the conversation. Don't infer. The May-2026 jmagly→roctinam import sweep needed a correction round because the original GitHub report cited "Claude Code 2.1.137" but the actual harness in use was hermes — same bug, different behavior, wasted half a round-trip to clarify. Don't repeat that.
 

@@ -195,10 +195,10 @@ const RESTART_NOTICES: Readonly<Record<string, ReloadNotice>> = {
     action: 'Open a fresh Warp tab so it reloads project context.',
     reason: 'Warp reads project context when a tab starts.',
   },
-  windsurf: {
+  devin: {
     policy: 'restart-required',
     action: 'Reload Devin Desktop so it reparses project context.',
-    reason: 'Devin Desktop reads the Windsurf-compatible project context when the workspace opens.',
+    reason: 'Devin Desktop reads the project context when the workspace opens.',
   },
 };
 

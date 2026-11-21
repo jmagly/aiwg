@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -51,5 +51,8 @@ describe('Devin Desktop provider selectors', () => {
     expect(deploy('devin-desktop')).toEqual(preferred);
     expect(deploy('windsurf')).toEqual(preferred);
     expect(preferred.size).toBeGreaterThan(0);
+    for (const selector of ['devin', 'devin-desktop', 'windsurf']) {
+      expect(existsSync(join(ROOT, selector, '.devin')), `${selector}: keep legacy native paths`).toBe(false);
+    }
   });
 });

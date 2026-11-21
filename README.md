@@ -1411,7 +1411,7 @@ paths only inside generated provider files where that provider requires them.
 ## Configuration & Customization
 
 AIWG separates project context from provider packaging. The project keeps canonical context and generated artifacts
-under the workspace, then deploys provider-specific adapters for Claude, Codex, Cursor, Windsurf, Warp, OpenCode,
+under the workspace, then deploys provider-specific adapters for Claude, Codex, Cursor, Devin Desktop, Warp, OpenCode,
 OpenClaw, OpenHuman, Hermes, DeepSeek Harness, Copilot, Devin, Factory, Oh My Pi, Pi Coding Agent, Antigravity, and
 the generic fallback.
 
@@ -1640,7 +1640,7 @@ See [cross-platform overview](docs/integrations/cross-platform-overview.md) for 
 | Cursor | `aiwg use all --provider cursor` | Rules and skills | `.cursor/rules/*.mdc`, `.cursor/skills/*/SKILL.md`, `.cursor/hooks.json` | Cursor rules are native; the prompt-discovery hook runs where Cursor runs project hooks. Cursor can also be a direct worker alongside Codex and Muse. See [Cursor quickstart](docs/integrations/cursor-quickstart.md). |
 | OpenCode | `aiwg use all --provider opencode` | Agent/rule context | Provider-local agents, commands, rules | Good for lightweight terminal workflows. |
 | GitHub Copilot | `aiwg use all --provider copilot` | `.github` assets | Prompts, instructions, agents, MCP config | Uses `.github/prompts/*.prompt.md`, `.github/instructions/*.instructions.md`, and `.github/agents/*.agent.md`. |
-| Devin Desktop | `aiwg use all --provider devin` | `AGENTS.md` | Rules and workflows | Formerly Windsurf; `windsurf` remains the provider id and `devin` is its alias. See [quickstart](docs/integrations/windsurf-quickstart.md). |
+| Devin Desktop | `aiwg use all --provider devin` | `AGENTS.md` | Rules and workflows | `devin` is canonical; deprecated alias `windsurf` remains supported. See [quickstart](docs/integrations/windsurf-quickstart.md). |
 | DeepSeek Harness | `aiwg use all --provider dsh` | `AGENTS.md` | Provider-local skills and context | Experimental. See [DeepSeek Harness docs](docs/providers/deepseek-harness.md). |
 | Factory | `aiwg use all --provider factory` | Factory context | Agents and commands where supported | Provider behavior depends on the installed Factory environment. |
 | Hermes | `aiwg use all --provider hermes` | `AGENTS.md` | Skills, with context aggregated into `AGENTS.md` | See [Hermes quickstart](docs/integrations/hermes-quickstart.md). |

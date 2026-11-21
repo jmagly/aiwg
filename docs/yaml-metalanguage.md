@@ -64,7 +64,7 @@ agent:
     - quality_assessment: "Score with rationale"
 
   rules: [token-security, executable-feedback, anti-laziness]
-  platforms: [claude-code, opencode, cursor, copilot, windsurf, warp, factory]
+  platforms: [claude-code, opencode, cursor, copilot, devin, warp, factory]
 ```
 
 **`operating_rhythm`** is an ordered list of named steps. Each step can declare which tools it uses and which prior step it depends on. This makes execution order explicit and enables tooling to validate that dependencies are satisfied.

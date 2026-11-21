@@ -24,7 +24,7 @@ Regenerate `AIWG.md` (and provider equivalents) by assembling content from the `
 
 | Flag | Description |
 |------|-------------|
-| `--provider <name>` | Regenerate only for this provider: `claude`, `warp`, `copilot`, `cursor`, `factory`, `windsurf`, `opencode`, `codex` |
+| `--provider <name>` | Regenerate only for this provider: `claude`, `warp`, `copilot`, `cursor`, `factory`, `devin`, `opencode`, `codex` |
 | `--all` | Regenerate for all installed providers (default) |
 | `--dry-run` | Show what would be written without writing |
 | `--verbose` | Show each fragment being included and its line count |
@@ -35,7 +35,7 @@ Regenerate `AIWG.md` (and provider equivalents) by assembling content from the `
 |----------|-----------|
 | Claude Code | `AIWG.md` |
 | Warp Terminal | `AIWG-warp.md` |
-| Windsurf | `AIWG-windsurf.md` |
+| Devin Desktop | `AIWG-windsurf.md` |
 | GitHub Copilot | `AIWG-copilot.md` |
 | Cursor | `AIWG-cursor.md` |
 | Factory AI | `AIWG-factory.md` |

@@ -22,19 +22,19 @@ export function ruleRemovalReason(file) {
   return ` (${level} retired because the selected deployment no longer projects its source at this path)`;
 }
 const put = (file, content) => { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, content); };
-export const nativeRuleLoader = name => ['claude', 'cursor', 'grok-build', 'windsurf', 'opencode'].includes(name);
-export const nativePathLoader = name => ['claude', 'cursor', 'windsurf'].includes(name);
+export const nativeRuleLoader = name => ['claude', 'cursor', 'grok-build', 'devin', 'opencode'].includes(name);
+export const nativePathLoader = name => ['claude', 'cursor', 'devin'].includes(name);
 export function ruleDirectory(opts, provider) {
   // Muse has no declared rules path; use its existing .muse harness convention.
-  const dir = provider.paths.rules || (provider.name === 'grok-build' ? '.grok/rules' : `.${provider.name}/rules`);
+  const dir = provider.paths.rules || (provider.name === 'grok-build' ? '.grok/rules' : `.${provider.name === 'devin' ? 'windsurf' : provider.name}/rules`);
   return path.isAbsolute(dir) ? dir : path.join(opts.target, dir);
 }
 const ruleName = (rule, provider) => rule.behavior
-  ? `${['grok-build', 'windsurf'].includes(provider.name) ? 'behavior-' : 'behaviors/'}${path.basename(path.dirname(rule.file))}`
+  ? `${['grok-build', 'devin'].includes(provider.name) ? 'behavior-' : 'behaviors/'}${path.basename(path.dirname(rule.file))}`
   : path.basename(rule.file, '.md');
 function nativeContent(provider, rule, content, opts) {
   if (provider.name === 'cursor') return provider.transformRule(rule.file, content, opts);
-  if (provider.name === 'windsurf') {
+  if (provider.name === 'devin') {
     const parsed = parseRuleFrontmatter(content);
     const data = { ...parsed.data, trigger: rule.activation === 'paths' ? 'glob' : 'always_on' };
     if (rule.activation === 'paths') data.glob = rule.paths.join(',');

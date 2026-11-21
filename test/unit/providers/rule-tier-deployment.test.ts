@@ -216,11 +216,11 @@ describe('on-demand index propagation (#1675)', () => {
   // index writer after deploying rules. Cheap regression guard against someone
   // dropping the wiring during a refactor.
   describe('file-based provider wiring', () => {
-    const PROVIDERS = ['codex', 'factory', 'cursor', 'copilot', 'opencode', 'windsurf', 'openclaw'];
+    const PROVIDERS = ['codex', 'factory', 'cursor', 'copilot', 'opencode', 'devin', 'openclaw'];
     for (const p of PROVIDERS) {
       it(`${p}.mjs imports and calls writeOnDemandRuleIndex`, () => {
         const src = readFileSync(
-          resolve(REPO_ROOT, 'tools/agents/providers', `${p}.mjs`),
+          resolve(REPO_ROOT, 'tools/agents/providers', `${p === 'devin' ? 'windsurf' : p}.mjs`),
           'utf8',
         );
         expect(src).toContain('writeOnDemandRuleIndex');

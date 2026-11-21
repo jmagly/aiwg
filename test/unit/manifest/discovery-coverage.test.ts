@@ -24,7 +24,7 @@ afterEach(() => {
 });
 
 describe('component discovery coverage', () => {
-  it('reports a component with a triggered operational driver', () => {
+  it.each(['all', 'devin', 'windsurf'])('reports canonical provider support for a %s operational driver', platform => {
     const repo = fixture();
     component(repo, 'example', {
       id: 'example',
@@ -33,7 +33,7 @@ describe('component discovery coverage', () => {
     }, [
       '---',
       'name: example',
-      'platforms: [all]',
+      `platforms: [${platform}]`,
       'description: Configure the example addon.',
       'triggers:',
       '  - enable example',
@@ -43,6 +43,8 @@ describe('component discovery coverage', () => {
 
     const report = buildCoverageReport(repo);
     expect(report.ok).toBe(true);
+    expect(report.components[0].drivers[0].providerSupport).toContain('devin');
+    expect(report.components[0].drivers[0].providerSupport).not.toContain('windsurf');
     expect(report.components[0]).toMatchObject({
       component: 'example',
       status: 'covered',

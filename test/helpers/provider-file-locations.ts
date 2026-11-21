@@ -70,8 +70,8 @@ export const PROVIDERS: Record<string, ProviderConfig> = {
     fileExtension: '.md',
     minArtifacts: 5,
   },
-  windsurf: {
-    name: 'windsurf',
+  devin: {
+    name: 'devin',
     projectPaths: ['.windsurf/.aiwg/skills', '.windsurf/rules', '.agents/skills'],  // Agents → aggregated AGENTS.md; commands → skills (#551); cross-agent skills (#576)
     rootFiles: ['AGENTS.md', '.windsurfrules'],  // .windsurfrules is now a deprecated stub pointing to .windsurf/rules/aiwg-orchestration.md
     forbiddenPaths: ['.claude/agents', '.codex'],

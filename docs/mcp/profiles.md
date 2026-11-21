@@ -170,7 +170,7 @@ Profile-aware sessions work differently per provider. AIWG handles the differenc
 | **Codex** | Emulated | Per-profile runtime home (`HOME=~/.codex/roles-runtime/<profile>/`). OAuth tokens isolated per profile. See [Codex Profiles](./codex-profiles.md). |
 | **Cursor** | Native | Standalone `.cursor/mcp.json` written ephemerally or persistently. |
 | **OpenCode** | Native | Config file injection via provider adapter. |
-| **Windsurf** | Native | Config file injection via provider adapter. |
+| **Devin Desktop** | Native | Config file injection via provider adapter. |
 | **Factory** | Native | Config file injection via provider adapter. |
 | **Warp** | Degraded | Warp does not support file-based MCP config switching. `aiwg session --profile` for Warp prints setup instructions and the exact server list to configure via Warp's UI (Settings → AI → MCP Servers). |
 | **GitHub Copilot** | Degraded | Copilot MCP configuration is managed through VS Code settings. AIWG generates the correct `mcp` block and prints instructions for manual insertion. |
@@ -219,7 +219,7 @@ with `<server>__*`. Provider support and overlap precedence differ as described 
 Claude Code refuses `toolAllow`: its allow rules pre-approve tools and cannot restrict availability.
 Codex uses exact tool names; deny rules win an identical allow/deny overlap. OpenCode uses the last
 matching key: AIWG emits deny keys before allow keys so an explicit allow can override a matching
-wildcard deny. An identical key present in both lists stays denied. Factory, Windsurf and Antigravity
+wildcard deny. An identical key present in both lists stays denied. Factory, Devin Desktop and Antigravity
 have no documented tool allowlist and warn instead. See [tool filter support](./README.md#profile-tool-filters).
 
 Tool name format: `<server-name>__<tool-name>`, e.g. `git-gitea__delete_branch`.

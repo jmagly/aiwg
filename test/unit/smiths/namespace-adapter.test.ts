@@ -164,7 +164,7 @@ describe('mutateFrontmatter', () => {
 describe('getAdapter', () => {
   it('returns adapter for all defined platforms', () => {
     const platforms = ['claude', 'cursor', 'codex', 'opencode', 'openclaw',
-                       'factory', 'warp', 'windsurf', 'copilot', 'hermes'];
+                       'factory', 'warp', 'devin', 'copilot', 'hermes'];
     for (const p of platforms) {
       const adapter = getAdapter(p);
       expect(adapter).toBeDefined();
@@ -185,9 +185,9 @@ describe('getAdapter', () => {
 
 describe('NAMESPACE_ADAPTERS group assignments', () => {
   // Per ADR source-confirmed matrix (#695 cycle #2):
-  // Only Windsurf has 1-level recursion; all others are deep-recursion.
+  // Only Devin Desktop has 1-level recursion; all others are deep-recursion.
   const groupA = ['claude', 'cursor', 'codex', 'opencode', 'openclaw', 'factory', 'warp', 'copilot'];
-  const groupB = ['windsurf'];
+  const groupB = ['devin'];
   const groupC: string[] = [];
   const groupD = ['hermes'];
 
@@ -235,7 +235,7 @@ describe('NAMESPACE_ADAPTERS group assignments', () => {
   });
 
   it('all project platforms have project pathType', () => {
-    const projectPlatforms = ['claude', 'cursor', 'opencode', 'factory', 'warp', 'windsurf', 'copilot'];
+    const projectPlatforms = ['claude', 'cursor', 'opencode', 'factory', 'warp', 'devin', 'copilot'];
     for (const p of projectPlatforms) {
       expect(NAMESPACE_ADAPTERS[p as keyof typeof NAMESPACE_ADAPTERS].pathType).toBe('project');
     }
@@ -326,12 +326,12 @@ describe('getDeploymentPlans — Group A (promoted platforms)', () => {
 });
 
 // ============================================
-// getDeploymentPlans — Group B (one-level: Windsurf only)
+// getDeploymentPlans — Group B (one-level: Devin Desktop only)
 // ============================================
 
 describe('getDeploymentPlans — Group B (one-level)', () => {
-  it('Windsurf: returns 1 plan (flat slug only — sole 1-level platform)', () => {
-    const result = getDeploymentPlans('windsurf', PROJECT, 'sync', SAMPLE_SKILL_MD, NS);
+  it('Devin Desktop: returns 1 plan (flat slug only — sole 1-level platform)', () => {
+    const result = getDeploymentPlans('devin', PROJECT, 'sync', SAMPLE_SKILL_MD, NS);
     expect(result.skip).toBe(false);
     expect(result.plans).toHaveLength(1);
     expect(result.plans[0].targetPath).toContain('.windsurf/skills/aiwg-sync/SKILL.md');
@@ -360,7 +360,7 @@ describe('getDeploymentPlans — Group D (mcp-skip)', () => {
 
 describe('namespace frontmatter injection', () => {
   it('all plans include namespace: aiwg in content', () => {
-    for (const platform of ['claude', 'cursor', 'windsurf', 'copilot', 'factory'] as const) {
+    for (const platform of ['claude', 'cursor', 'devin', 'copilot', 'factory'] as const) {
       const result = getDeploymentPlans(platform, PROJECT, 'sync', SAMPLE_SKILL_MD, NS);
       for (const plan of result.plans) {
         expect(plan.content).toMatch(/^namespace: aiwg$/m);

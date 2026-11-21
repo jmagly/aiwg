@@ -232,7 +232,7 @@ describe('ProviderWatcher (#615)', () => {
       expect(ids).toContain('cursor');
       expect(ids).toContain('copilot');
       expect(ids).toContain('factory');
-      expect(ids).toContain('windsurf');
+      expect(ids).toContain('devin');
       expect(ids).toContain('warp');
       expect(ids).toContain('codex');
       expect(ids).toContain('opencode');

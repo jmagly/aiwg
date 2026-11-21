@@ -171,11 +171,12 @@ export const CONTEXT_CONTRACTS: Record<Platform, ProviderContextContract> = {
     bootstrapTargets: ['WARP.md', 'AGENTS.md'], maxContextBytes: null, recommendedMaxLines: null, nestedContext: true, support: 'supported',
     verification: { method: 'official Warp project rules documentation', source: 'https://docs.warp.dev/agent-platform/capabilities/rules/', lastVerified: VERIFIED_ON },
   },
-  windsurf: {
-    startupFiles: ['AGENTS.md', '.windsurf/rules/*.md', '.devin/rules/*.md'], precedence: ['provider/system', 'Devin rules', 'Windsurf rules', 'AGENTS.md'],
+  devin: {
+    // Retained topology: Desktop 3.14 loader precedence still needs verification on titan.
+    startupFiles: ['AGENTS.md', '.windsurf/rules/*.md', '.devin/rules/*.md'], precedence: ['provider/system', 'Devin rules', 'Devin Desktop rules', 'AGENTS.md'],
     loadMode: 'prose-directive', includeSyntax: null, configRegistration: null,
     bootstrapTargets: ['AGENTS.md'], maxContextBytes: null, recommendedMaxLines: null, nestedContext: true, support: 'degraded',
-    verification: { method: 'AIWG Windsurf/Devin topology contract; provider-native rules retained', source: 'src/providers/provider-definitions.ts', lastVerified: VERIFIED_ON },
+    verification: { method: 'AIWG Devin Desktop/Devin topology contract; provider-native rules retained', source: 'src/providers/provider-definitions.ts', lastVerified: VERIFIED_ON },
   },
   generic: {
     startupFiles: ['AGENTS.md'], precedence: ['host policy'], loadMode: 'prose-directive', includeSyntax: null, configRegistration: null,

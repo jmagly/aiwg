@@ -49,8 +49,8 @@ describe('PlatformSkillResolver.getNamespacedSkillPath', () => {
     expect(p).toBe(path.join(PROJECT, '.cursor/skills/aiwg/aiwg-sync'));
   });
 
-  it('deploys FLAT on Windsurf (1-level discovery limit)', () => {
-    const p = PlatformSkillResolver.getNamespacedSkillPath('windsurf', PROJECT, 'sync', NS);
+  it('deploys FLAT on Devin Desktop (1-level discovery limit)', () => {
+    const p = PlatformSkillResolver.getNamespacedSkillPath('devin', PROJECT, 'sync', NS);
     // No namespace subdir — just slug under base
     expect(p).toBe(path.join(PROJECT, '.windsurf/skills/aiwg-sync'));
     expect(p).not.toContain('/aiwg/');

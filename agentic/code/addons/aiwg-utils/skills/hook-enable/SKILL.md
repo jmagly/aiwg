@@ -4,7 +4,7 @@ name: hook-enable
 platforms: [all]
 description: Enable the AIWG context hook in platform context files without re-deploying
 commandHint:
-  argumentHint: "[--provider claude|warp|copilot|cursor|factory|windsurf|opencode|codex] [--all]"
+  argumentHint: "[--provider claude|warp|copilot|cursor|factory|devin|opencode|codex] [--all]"
   allowedTools: Read, Write, Edit, Bash, Glob
   model: haiku
   category: hook-management
@@ -24,7 +24,7 @@ Re-add the AIWG hook directive to the appropriate platform context file(s) so AI
 
 | Flag | Description |
 |------|-------------|
-| `--provider <name>` | Target specific provider: `claude`, `warp`, `copilot`, `cursor`, `factory`, `windsurf`, `opencode`, `codex` |
+| `--provider <name>` | Target specific provider: `claude`, `warp`, `copilot`, `cursor`, `factory`, `devin`, `opencode`, `codex` |
 | `--all` | Enable for all installed providers (default if no provider specified) |
 
 ## Hook File Map
@@ -33,7 +33,7 @@ Re-add the AIWG hook directive to the appropriate platform context file(s) so AI
 |----------|-------------|-----------|-----------|
 | Claude Code | `CLAUDE.md` | `AIWG.md` | `@AIWG.md` |
 | Warp Terminal | `WARP.md` | `AIWG-warp.md` | `@AIWG-warp.md` |
-| Windsurf | `AGENTS.md` | `AIWG-windsurf.md` | `@AIWG-windsurf.md` |
+| Devin Desktop | `AGENTS.md` | `AIWG-windsurf.md` | `@AIWG-windsurf.md` |
 | GitHub Copilot | `.github/copilot-instructions.md` | `AIWG-copilot.md` | `@AIWG-copilot.md` |
 | Cursor | `.cursorrules` | `AIWG-cursor.md` | `@AIWG-cursor.md` |
 | Factory AI | `AGENTS.md` | `AIWG-factory.md` | `@AIWG-factory.md` |

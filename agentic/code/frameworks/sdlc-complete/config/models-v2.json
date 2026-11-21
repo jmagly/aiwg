@@ -150,10 +150,10 @@
       }
     },
 
-    "windsurf": {
+    "devin": {
       "_status": "EXPERIMENTAL",
       "inherits": "claude",
-      "description": "Windsurf IDE uses Claude models (experimental support)"
+      "description": "Devin Desktop IDE uses Claude models (experimental support)"
     },
 
     "opencode": {

@@ -89,7 +89,7 @@ Rules deploy to platform-native locations:
 | Warp | `.warp/rules/RULES-INDEX.md` | File copy |
 | Factory AI | `.factory/rules/RULES-INDEX.md` | File copy |
 | OpenCode | `.opencode/rule/RULES-INDEX.md` | File copy |
-| Windsurf | `.windsurf/rules/RULES-INDEX.md` | File copy |
+| Devin Desktop | `.windsurf/rules/RULES-INDEX.md` | File copy |
 
 **File copy platforms** deploy the consolidated `RULES-INDEX.md` with summaries and @-links.
 

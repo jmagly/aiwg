@@ -36,7 +36,7 @@ spec:
       kind: playbook
       description: Run validate-opencode and attach its report.
       spec: { playbook: validate-opencode }
-    - id: windsurf
+    - id: devin
       kind: playbook
       description: Run validate-windsurf and attach its report.
       spec: { playbook: validate-windsurf }
@@ -54,6 +54,6 @@ spec:
       spec: { playbook: validate-omnius }
     - id: aggregate
       capability: aggregate-validation-report
-      depends_on: [claude-code, codex, copilot, cursor, warp, factory, opencode, windsurf, openclaw, hermes, omnius]
+      depends_on: [claude-code, codex, copilot, cursor, warp, factory, opencode, devin, openclaw, hermes, omnius]
       inputs:
         - { name: run_dir, value: "{{ run.dir }}" }

@@ -15,7 +15,7 @@ This document defines a 3-tier permission model for AIWG agents that controls wh
 | Claude Code | Full | Native `Task(agent_type)` support |
 | GitHub Copilot | Partial | Uses different delegation model |
 | Cursor | N/A | No sub-agent spawning |
-| Windsurf | N/A | Uses different agent model |
+| Devin Desktop | N/A | Uses different agent model |
 | Cline | N/A | Single-agent model |
 
 This permission model is primarily for Claude Code. Other platforms handle agent restrictions through different mechanisms.

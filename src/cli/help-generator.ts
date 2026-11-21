@@ -195,5 +195,5 @@ function formatCommandName(cmd: Extension): string {
 /** Provider list shared by both production help paths, including generic. */
 export function generateProviderHelp(): string {
   const providers = listProviderDefinitions();
-  return `Providers: ${providers.length} — ${providers.map(({ id, status }) => status === 'experimental' ? `${id} (experimental)` : id).join(', ')} (default: claude; aliases: agy → antigravity, devin → windsurf, oh-my-pi → omp, openai → codex)`;
+  return `Providers: ${providers.length} — ${providers.map(({ id, status }) => status === 'experimental' ? `${id} (experimental)` : id).join(', ')} (default: claude; aliases: agy → antigravity, windsurf → devin (deprecated), oh-my-pi → omp, openai → codex)`;
 }

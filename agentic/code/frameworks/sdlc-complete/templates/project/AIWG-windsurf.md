@@ -9,7 +9,7 @@ SDLC Complete — agents, commands, skills, and rules for full lifecycle coverag
 ## Key Commands
 
 - `aiwg status` — Show workspace health
-- `aiwg use sdlc --provider windsurf` — Deploy SDLC framework for Windsurf
+- `aiwg use sdlc --provider devin` — Deploy SDLC framework for Devin Desktop
 - `aiwg new-bundle <name> --type extension` — Scaffold a project-local bundle
 - `aiwg doctor --project-local` — Health check project-local artifacts
 - `aiwg promote <name>` — Graduate project-local bundle to upstream

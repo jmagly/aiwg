@@ -89,10 +89,10 @@ describe('per-harness rule hooks (#3740)', () => {
 
   it.each([...Object.keys(inlineStartup), 'openclaw'])('%s preserves rule routing and the Factory template instruction (#3942, #3996)', provider => {
     const { target } = setup();
-    const indexFile = path.join(target, `.${provider}/rules/RULES-INDEX.md`);
+    const indexFile = path.join(target, `.${provider === 'devin' ? 'windsurf' : provider}/rules/RULES-INDEX.md`);
     const files = projectStartup({ target, activeWorkspace: target }, { name: provider }, '', indexFile);
     for (const file of files) {
-      const location = `.${provider}/rules/RULES-INDEX.md`;
+      const location = `.${provider === 'devin' ? 'windsurf' : provider}/rules/RULES-INDEX.md`;
       const original = `${provider}: Before every task and subagent task, read and follow \`${location}\`; read every listed kernel file and fetch matching full rules before governed work.`;
       const hook = read(file).split(`<!-- AIWG:rule-hook-${provider}:start -->\n`)[1].split(`\n<!-- AIWG:rule-hook-${provider}:end -->`)[0];
       if (['codex', 'muse'].includes(provider)) assertRuleStartupHook(read(file), provider, location);
@@ -107,16 +107,16 @@ describe('per-harness rule hooks (#3740)', () => {
     }
   });
 
-  it.each(['codex', 'muse', 'factory', 'antigravity', 'pi', 'copilot', 'omp', 'warp', 'hermes', 'grok-build', 'windsurf', 'opencode'])('%s reaches complete kernel files and indexes through its hook', provider => {
+  it.each(['codex', 'muse', 'factory', 'antigravity', 'pi', 'copilot', 'omp', 'warp', 'hermes', 'grok-build', 'devin', 'opencode'])('%s reaches complete kernel files and indexes through its hook', provider => {
     const { root, target } = setup();
     const report = deploy(root, provider);
     const reached = readRuleDeliveryContext(report, provider);
     expect(reached).toContain('FIXTURE_KERNEL_BODY');
     expect(reached).toContain('Follow the fixture summary policy.');
     const dir = provider === 'opencode' ? '.opencode/rule' : provider === 'grok-build' ? '.grok/rules'
-      : provider === 'copilot' ? '.github/instructions' : `.${provider}/rules`;
+      : provider === 'copilot' ? '.github/instructions' : `.${provider === 'devin' ? 'windsurf' : provider}/rules`;
     expect(read(path.join(target, dir, 'fixture-kernel.md'))).toContain('FIXTURE_KERNEL_BODY');
-    if (provider === 'windsurf') {
+    if (provider === 'devin') {
       expect(read(path.join(target, dir, 'fixture-kernel.md'))).toContain('trigger: always_on');
       const scoped = read(path.join(target, dir, 'fixture-paths.md'));
       expect(scoped).toContain('trigger: glob'); expect(scoped).toContain('glob: src/**');
@@ -208,10 +208,10 @@ describe('per-harness rule hooks (#3740)', () => {
     expect(read(path.join(removedDir, 'operator.md'))).toBe('Operator rule.');
   }, 90_000);
 
-  it.each(['claude', 'cursor', 'windsurf', 'opencode', 'grok-build'])('F4 rejects an unreachable %s kernel index entry and restores it', provider => {
+  it.each(['claude', 'cursor', 'devin', 'opencode', 'grok-build'])('F4 rejects an unreachable %s kernel index entry and restores it', provider => {
     const { root, target } = setup();
     const report = deploy(root, provider);
-    const dir = provider === 'opencode' ? '.opencode/rule' : provider === 'grok-build' ? '.grok/rules' : `.${provider}/rules`;
+    const dir = provider === 'opencode' ? '.opencode/rule' : provider === 'grok-build' ? '.grok/rules' : `.${provider === 'devin' ? 'windsurf' : provider}/rules`;
     const file = path.join(target, dir, `RULES-INDEX.${provider === 'cursor' ? 'mdc' : 'md'}`);
     const original = read(file);
     fs.writeFileSync(file, original.replace(/^- fixture-kernel[^\n]*\n/gm, ''));
@@ -220,7 +220,7 @@ describe('per-harness rule hooks (#3740)', () => {
     readRuleDeliveryContext(report, provider);
   }, 90_000);
 
-  it.each(['windsurf', 'cursor', 'opencode'])('F4 rejects a disabled %s native loader and restores it', provider => {
+  it.each(['devin', 'cursor', 'opencode'])('F4 rejects a disabled %s native loader and restores it', provider => {
     const { root, target } = setup();
     const report = deploy(root, provider);
     const file = path.join(target, provider === 'opencode' ? 'opencode.json' : provider === 'cursor'
@@ -241,10 +241,10 @@ describe('per-harness rule hooks (#3740)', () => {
     expect(source).toContain('no frontmatter marker');
   });
 
-  it.each(['codex', 'windsurf', 'hermes'].flatMap(provider => ['drop hook', 'drop kernel file', 'inline kernel body'].map(mutation => ({ provider, mutation }))))('negative control $provider rejects $mutation, then passes after restoring', ({ provider, mutation }) => {
+  it.each(['codex', 'devin', 'hermes'].flatMap(provider => ['drop hook', 'drop kernel file', 'inline kernel body'].map(mutation => ({ provider, mutation }))))('negative control $provider rejects $mutation, then passes after restoring', ({ provider, mutation }) => {
     const { root, target } = setup();
     const report = deploy(root, provider);
-    const bridge = path.join(target, 'AGENTS.md'), kernel = path.join(target, `.${provider}/rules/fixture-kernel.md`);
+    const bridge = path.join(target, 'AGENTS.md'), kernel = path.join(target, `.${provider === 'devin' ? 'windsurf' : provider}/rules/fixture-kernel.md`);
     const original = read(bridge), body = read(kernel);
     readRuleDeliveryContext(report, provider);
     if (mutation === 'drop hook') fs.writeFileSync(bridge, original.replace(new RegExp(`${provider}: (?:Before every task|On every new directive)[^\\n]*`, 'g'), ''));

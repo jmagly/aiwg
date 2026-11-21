@@ -196,7 +196,7 @@ describe('AgentGenerator', () => {
       const options: AgentOptions = {
         name: 'test-agent',
         description: 'Test agent',
-        platform: 'windsurf',
+        platform: 'devin',
         projectPath: tempDir,
       };
 
@@ -389,18 +389,18 @@ describe('AgentGenerator', () => {
       expect(agent.content).toContain('Canonical Model Policy');
     });
 
-    it('should transform to Windsurf format without YAML', async () => {
+    it('should transform to Devin Desktop format without YAML', async () => {
       const options: AgentOptions = {
         name: 'windsurf-agent',
-        description: 'Windsurf format test',
-        platform: 'windsurf',
+        description: 'Devin Desktop format test',
+        platform: 'devin',
         projectPath: tempDir,
       };
 
       const agent = await generator.generateAgent(options);
 
       expect(agent.content).toContain('### windsurf-agent');
-      expect(agent.content).toContain('> Windsurf format test');
+      expect(agent.content).toContain('> Devin Desktop format test');
       expect(agent.content).toContain('<capabilities>');
       expect(agent.content).not.toMatch(/^---\n/); // No YAML frontmatter
     });
