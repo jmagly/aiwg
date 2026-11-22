@@ -54,6 +54,39 @@ def paragraphs(prose):
     return blocks
 
 
+def structural_candidates(prose):
+    """Loose shapes only: no candidate becomes a finding without judgment."""
+    out = []
+    for p in paragraphs(prose):
+        def add(rule, start, end, excerpt):
+            out.append(dict(ruleId=rule, start=start, end=end, excerpt=excerpt,
+                            paragraph=prose[p['start']:p['end']][:4096]))
+        seq = p['sentences']
+        for a, b in zip(seq, seq[1:]):
+            if len(a['tokens']) >= 3 and len(b['tokens']) >= 3 and a['tokens'][:2] == b['tokens'][:2] and a['tokens'][2:] != b['tokens'][2:] and not re.search(r'[\d\x01]', a['text'] + b['text']):
+                add('mirrored-sentences', b['start'], b['end'], prose[a['start']:b['end']])
+        run = []
+        def flush():
+            if len(run) == 3:
+                add('fragment-run', run[0]['start'], run[-1]['end'], prose[run[0]['start']:run[-1]['end']])
+            run.clear()
+        for s in seq:
+            text = s['text']
+            if len(s['tokens']) <= 4 and not re.search(r'[\d\x01:?]', text):
+                run.append(s)
+            else:
+                flush()
+            if text.count(':') != 1 or re.search(r'[\d`\[\]{};]', text) or not re.search(r'[.!]$', text):
+                continue
+            before, after = text.split(':')
+            if not 4 <= len(words(before)) <= 18 or not 2 <= len(words(after)) <= 16 or re.search(r'[\x01?!]|\b(?:and|or)\b', after, re.I) or len(after.split(',')) > 2:
+                continue
+            start = s['start'] + len(before)
+            add('colon-reveal', start, start + 1, text)
+        flush()
+    return out
+
+
 def structural_matches(prose, antonyms, match_type, quoted_prose=None):
     quoted_prose = prose if quoted_prose is None else quoted_prose
     out = []

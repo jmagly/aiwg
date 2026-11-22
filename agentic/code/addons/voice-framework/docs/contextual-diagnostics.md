@@ -82,6 +82,29 @@ intentional repetition. Batch results are keyed by unique document ID and use
 the same located-finding/exception contract. Do not put personal content in IDs;
 cross-document explanations include the relevant ID.
 
+## Optional model-assisted structural review
+
+`await diagnoseWritingAssisted(content, options)` and
+`await diagnoseWritingBatchAssisted(documents, options)` add a bounded judgment
+pass for loose mirrored predicates, colon reveals and three short fragments.
+The existing synchronous APIs remain deterministic. Validation and
+`aiwg writing --cross` use the asynchronous path. The Python scanner uses the
+same questions through `aiwg decision ask`.
+
+The existing decision opt-in, sampling defaults and fallback policy apply; no
+writing configuration is added. Only an answered yes with finite confidence at
+least 0.8 becomes a finding, with
+`confidence: { kind: 'model-assisted', value, calibrated: false }`.
+These are advisory editing signals; exceptions, protected contexts, disabled
+rules and author decisions still apply. Section headings accompany the masked
+paragraph so a judgment can distinguish prose beats from runbook statuses.
+
+Decision ask off, unavailable or below threshold retains deterministic output.
+The corpus remains at 49/56 with it off and reaches 56/56 with an offline stub;
+both have zero findings on the 22 wholly negative files. Stub coverage is not a
+live accuracy result. See the [scanner documentation](../../writing-quality/README.md#optional-structural-judgment)
+for labels, the Python CLI dependency and data handling.
+
 ## Compatibility
 
 `WritingValidationEngine.validate` retains its numeric legacy fields and adds

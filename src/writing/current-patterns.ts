@@ -12,6 +12,8 @@ const catalogue: typeof patternData = require('./current-patterns.catalogue.json
 
 export type PatternTier = 'cut' | 'check' | 'watch';
 export interface CurrentPatternFinding {
+  modelAssisted?: true;
+  confidence?: number;
   scope?: 'file' | 'cross';
   related?: Array<{ documentId: string; line: number }>;
   ruleId: string; tier: PatternTier; start: number; end: number;
@@ -99,6 +101,7 @@ export function currentPatternIssues(content: string, campaign: CurrentPatternFi
     location: { start: f.start, end: f.end, line: content.slice(0, f.start).split('\n').length,
       column: f.start - content.lastIndexOf('\n', f.start - 1) },
     context: content.slice(f.start, f.end),
+    ...(f.modelAssisted ? { modelAssisted: true as const, confidence: f.confidence } : {}),
     ...(f.scope === 'cross' ? { scope: f.scope, related: f.related } : {}),
   }));
 }

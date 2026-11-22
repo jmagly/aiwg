@@ -27,6 +27,7 @@ FIXES.update({'antithesis-pair': 'Keep the fact and drop the mirrored half.',
               'lexical-cluster': 'Replace vague markers with the specific action or fact.'})
 STRUCTURAL = runpy.run_path(str(Path(__file__).with_name('structural_patterns.py')))
 FIXES.update(STRUCTURAL['FIXES'])
+JUDGMENT = runpy.run_path(str(Path(__file__).with_name('structural_judgment.py')))
 
 # Legacy high-priority phrase patterns; matches do not identify authorship
 CRITICAL_PATTERNS = [
@@ -115,6 +116,7 @@ class PatternMatch(NamedTuple):
     match: str
     position: int
     severity: str
+    confidence: float = None
 
 
 def mask_prose(text: str, protect_quotes=True) -> str:
@@ -240,7 +242,7 @@ def current_matches(text: str):
                 break
 
 
-def scan_text(text: str) -> dict:
+def scan_text(text: str, judgment=None) -> dict:
     """Scan text for AI patterns and return analysis report."""
 
     source = text
@@ -295,6 +297,8 @@ def scan_text(text: str) -> dict:
 
     matches.extend(STRUCTURAL['structural_matches'](text.replace('’', "'").replace('‘', "'"), CATALOGUE['antonyms'], PatternMatch, mask_prose(source, protect_quotes=False)))
 
+    matches.extend(JUDGMENT['assisted_matches'](text, matches, STRUCTURAL['structural_candidates'], PatternMatch, judgment, source))
+
     # Calculate deprecated compatibility heuristic (not an authorship or quality measure)
     critical_count = sum(1 for m in matches if m.severity == "critical")
     warning_count = sum(1 for m in matches if m.severity == "warning")
@@ -330,7 +334,8 @@ def scan_text(text: str) -> dict:
                 "position": m.position,
                 "line": source.count('\n', 0, m.position) + 1,
                 "column": m.position - source.rfind('\n', 0, m.position),
-                "suggestion": FIXES.get(m.pattern, 'Review the wording in context; retain deliberate usage.')
+                "suggestion": FIXES.get(m.pattern, 'Review the wording in context; retain deliberate usage.'),
+                **({'modelAssisted': True, 'confidence': m.confidence} if m.confidence is not None else {})
             }
             for m in sorted(matches, key=lambda x: x.position)
         ],
@@ -374,7 +379,8 @@ def main():
         if readable:
             for file, report in result.items():
                 for m in report['matches']:
-                    print(f"{file}:{m['line']}:{m['column']} [{m['tier']}] {m['pattern']}: {m['suggestion']}")
+                    assisted = f" (model-assisted; confidence {m['confidence']})" if m.get('modelAssisted') else ''
+                    print(f"{file}:{m['line']}:{m['column']} [{m['tier']}] {m['pattern']}{assisted}: {m['suggestion']}")
         else:
             print(json.dumps(result, indent=2))
         return
@@ -401,10 +407,10 @@ def main():
     print(json.dumps(result, indent=2))
 
 
-def scan_campaign(sources: dict) -> dict:
+def scan_campaign(sources: dict, judgment=None) -> dict:
     """Scan an explicit {document_id: source} campaign, including local findings."""
     cross = STRUCTURAL['campaign_matches'](sources, mask_prose)
-    reports = {name: scan_text(text) for name, text in sources.items()}
+    reports = {name: scan_text(text, judgment=judgment) for name, text in sources.items()}
     for name, report in reports.items():
         report['matches'].extend(cross[name])
         report['matches'].sort(key=lambda m: (m['position'], m['pattern']))

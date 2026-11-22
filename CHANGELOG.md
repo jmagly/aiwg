@@ -9,6 +9,8 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
 
 ### Changed
 
+- Writing review adds optional model-assisted judgments for mirrored predicates, colon reveals and three-fragment runs through the existing decision engine. Confident yes answers carry a model-assisted label and confidence; disabled, unavailable and low-confidence judgments preserve deterministic output. Offline corpus coverage is 56/56 with the stub, or 49/56 with judgment off, with zero findings on 22 wholly negative files (#4137).
+
 - Writing-quality and voice-framework guidance shares tiered structural examples and fixes, campaign reuse rules and a substance requirement for articles and how-tos. It removes manufactured casualness and fragment advice, links the existing dated lexical catalogue with quarterly review, and states punctuation, passive-voice and authorship limits (#4141, #4137).
 
 ## [2026.11.8] - 2026-11-17
