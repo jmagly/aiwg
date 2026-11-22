@@ -1,4 +1,4 @@
-# Grok Build qualification — AIWG 2026.11.4
+# Grok Build qualification — AIWG 2026.11.9
 
 The `grok-build` CLI provider remains experimental. Supplied Linux Grok Build
 **1.0.77** captures from 2026-11-09 back trusted `AGENTS.md`/`.grok/rules`
@@ -9,7 +9,13 @@ folders load no project instructions. Export includes commands, without tool out
 The existing smoke now requires explicit opt-in, skips missing binary/login,
 and records OS, auth mode without credentials, sanitized inspect output,
 deployed surfaces and expected provider receipt. The existing drift tool gains
-a local help-token/schema comparison. No new CI workflow is added.
+a local help-token/schema comparison. Offline lifecycle tests now cover clean
+and existing projects on Linux, simulated Windows PowerShell and WSL-mounted
+paths, including explicit user mirroring, updates, staged failure recovery,
+idempotence, compatibility preservation and safe uninstall. The existing
+scheduled drift workflow also runs on release tags and no longer retrieves
+credentials or runs paid model smokes in CI. A [troubleshooting guide](../troubleshooting/grok-build.md)
+links recovery to the affected native contract.
 
 Stable promotion stays blocked: needs Windows PowerShell and WSL PUWs, repeat
 1.0.77 Linux lifecycle/security evidence, current source revision mapping,

@@ -4,6 +4,7 @@
   "collapsed": true,
   "order": [
     "setup-issues",
+    "grok-build",
     "deployment-issues",
     "path-issues",
     "platform-issues"

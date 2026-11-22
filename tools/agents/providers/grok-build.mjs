@@ -12,13 +12,13 @@ import { withModelWrapper } from './model-wrapper.mjs';
  */
 
 import path from 'node:path';
-import os from 'node:os';
 import fs from 'node:fs';
 import { createHash, randomUUID } from 'node:crypto';
 import yaml from 'js-yaml';
 import { importImpl } from '../../_resolve-impl.mjs';
 import { removeSkillCopy } from './skill-copy-prune.mjs';
-const { GROK_BUILD_STANDARD_SKILLS_PATH } = await importImpl(import.meta.url, 'providers/grok-build-paths.js');
+const { GROK_BUILD_STANDARD_SKILLS_PATH, resolveGrokHome } = await importImpl(import.meta.url, 'providers/grok-build-paths.js');
+export { resolveGrokHome };
 import {
   withRuleDeployment,
   replaceBoundRulesBlock,
@@ -69,20 +69,6 @@ export const capabilities = {
   homeDirectoryDeploy: true,
   parallelCommandAndSkillSurfaces: false,
 };
-
-const GROK_HOME_ENV = 'GROK_HOME';
-
-export function resolveGrokHome(env = process.env, userHome = os.homedir()) {
-  const raw = (env[GROK_HOME_ENV] || '').trim();
-  const candidate = raw || path.join(userHome, '.grok');
-  if (candidate === '~') return null;
-  let expanded = candidate;
-  if (candidate.startsWith('~/')) expanded = path.join(userHome, candidate.slice(2));
-  if (!path.isAbsolute(expanded)) return null;
-  const resolved = path.resolve(expanded);
-  if (!resolved || path.parse(resolved).root === resolved) return null;
-  return resolved;
-}
 
 export function createAgentsMd(target, srcRoot, dryRun) {
   assertSafeAgentsMd(target);

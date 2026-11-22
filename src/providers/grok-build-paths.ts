@@ -30,9 +30,9 @@ export function isGrokFilesystemRoot(
   return pathFlavor.parse(resolved).root === resolved;
 }
 
-function expandHomePrefix(raw: string, userHome = homedir()): string {
+function expandHomePrefix(raw: string, userHome: string, pathFlavor: typeof path): string {
   if (raw === '~') return raw;
-  if (raw.startsWith('~/')) return path.join(userHome, raw.slice(2));
+  if (raw.startsWith('~/')) return pathFlavor.join(userHome, raw.slice(2));
   return raw;
 }
 
@@ -45,9 +45,10 @@ export function resolveGrokHomeResult(
   userHome = homedir(),
 ): GrokHomeResolution {
   const raw = (env[GROK_HOME_ENV] || '').trim();
+  const pathFlavor = process.platform === 'win32' ? path.win32 : path;
   const fromEnv = Boolean(raw);
-  const candidate = fromEnv ? raw : path.join(userHome, '.grok');
-  const expanded = expandHomePrefix(candidate, userHome);
+  const candidate = fromEnv ? raw : pathFlavor.join(userHome, '.grok');
+  const expanded = expandHomePrefix(candidate, userHome, pathFlavor);
 
   if (expanded === '~' || expanded.startsWith('~')) {
     return {
@@ -57,7 +58,7 @@ export function resolveGrokHomeResult(
     };
   }
 
-  if (!path.isAbsolute(expanded)) {
+  if (!pathFlavor.isAbsolute(expanded)) {
     return {
       ok: false,
       reason: 'not-absolute',
@@ -73,8 +74,8 @@ export function resolveGrokHomeResult(
     };
   }
 
-  const resolved = path.resolve(expanded);
-  if (!resolved || isGrokFilesystemRoot(resolved)) {
+  const resolved = pathFlavor.resolve(expanded);
+  if (!resolved || isGrokFilesystemRoot(resolved, pathFlavor)) {
     return {
       ok: false,
       reason: 'root',

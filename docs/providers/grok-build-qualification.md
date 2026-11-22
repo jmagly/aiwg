@@ -5,6 +5,8 @@ Grok Bot and Grok web Build. The adapter remains **experimental**. The supplied
 Linux **1.0.77** captures (2026-11-09, banner revision `50ca579fa996`) establish
 only the behaviors in the [native-surface inventory](grok-build-evidence/2026-11-09.md).
 Windows PowerShell and WSL PUWs are **deferred: no captures supplied**.
+The offline lifecycle matrix now covers Linux, simulated Windows PowerShell
+paths and a WSL-mounted path layout. Simulation does not qualify a real host.
 
 The [contract](grok-build-qualification.json) keeps `capturedRelease` separate
 from its historical 1.0.38 source-review pins: public commit
@@ -25,6 +27,24 @@ clean project and an existing project with operator-owned `.grok/config.toml`,
 | Linux | 1.0.77 deploy/discovery/trust/headless/session captures; historical 1.0.38 lifecycle receipt | Repeat clean/existing install, update, deploy, verify, refresh, uninstall against 1.0.77 |
 | Windows PowerShell | Deferred: needs Windows PUW | Full lifecycle with native PowerShell paths and user/project scopes |
 | WSL | Deferred: needs WSL PUW | Full lifecycle inside WSL and Windows-mounted project; Linux binary inside WSL |
+
+Run the synthetic matrix from this checkout, without Grok or credentials:
+
+```bash
+nice -n 19 npx vitest run --config config/vitest.config.js test/unit/providers/grok-build-puw.test.ts
+node --test test/unit/providers/grok-build-qualification.test.mjs
+```
+
+`grok-build-puw.test.ts` uses temporary homes/projects, `withWindows`, drive
+and UNC operands, and a WSL-style mounted path. Clean and existing fixtures
+exercise native install/deploy, explicit user mirroring, source update,
+refresh/redeploy, synthetic inspect verification and reviewed uninstall.
+It checks operator config/skills, `AGENTS.md`, `.agents/skills` and Claude
+compatibility content, repeatability, symlink refusal, exact preimages after
+staged compilation failure, and canary-free logs/ownership receipts. It does
+not install upstream software or execute PowerShell, WSL or a provider model.
+The existing `test/integration/grok-build-use.test.ts` covers CLI use/removal
+and registry receipts. Real host lifecycle and live inspect remain deferred.
 
 After installing a reviewed released binary, record `grok --version`. Use the
 [quickstart](../integrations/grok-build-quickstart.md) for connect/deploy/verify:
@@ -58,13 +78,26 @@ before applying removal. Preserve modified/unverifiable and operator files.
 
 ## Read-only live smoke
 
-In a source checkout, from an already deployed, trusted disposable project:
+After the conductor runs `grok login`, from an already deployed, trusted
+disposable project with a disposable HOME, run exactly (substitute paths):
 
 ```bash
 AIWG_GROK_BUILD_LIVE_SMOKE=1 AIWG_GROK_BUILD_AUTH_MODE=interactive \
   node /path/to/aiwg/tools/providers/grok-build-qualification.mjs smoke \
   --output /private/new-receipt.json
 ```
+
+PowerShell uses the same smoke script after setting the opt-in declarations:
+
+```powershell
+$env:AIWG_GROK_BUILD_LIVE_SMOKE = '1'
+$env:AIWG_GROK_BUILD_AUTH_MODE = 'interactive'
+node C:\path\to\aiwg\tools\providers\grok-build-qualification.mjs smoke --output C:\private\new-receipt.json
+```
+
+Use the Bash command inside WSL with its Linux binary. Live smoke is explicitly
+**deferred** here: Grok is unauthenticated and was not run. An installed version
+other than 1.0.77 fails until its captures and release pin are reviewed.
 
 The existing `npm run smoke:grok-build:live -- --output FILE` alias works when
 run from the deployed checkout. Explicit opt-in is required. Missing opt-in,
@@ -94,7 +127,7 @@ native claim. Evidence references must resolve to nonempty files under `docs/`
 or `test-results/`, without traversal or symlink escapes. Captures do not turn
 pending checks into passes. Never copy historical pins into a new receipt.
 
-## CLI/schema drift check and proposed scheduling
+## CLI/schema drift check and scheduling
 
 The [snapshot](../../test/fixtures/providers/grok-build/capture-1.0.77/snapshot.json)
 records captured version, observed flag/format tokens, JSON result keys, and
@@ -118,16 +151,20 @@ config schema, and InspectReport JSON captures. The legacy drift mode without
 `--capture` checks upstream Git revisions over the network; it is separate
 from this local binary/schema comparison and was not run for this task.
 
-Proposed release/scheduled check (design only): on an operator-approved runner
-with the pinned CLI, run this comparison at release cut and weekly against
-reviewed samples. Retain the detected differences and route review to
+The existing `.gitea/workflows/grok-build-qualification.yml` runs the promotion
+gate on relevant pushes and release tags (`v*`), and checks public source commit
+and internal `SOURCE_REV` drift weekly, on manual dispatch and on release tags.
+Source drift catches any upstream source/config/schema revision change and
+fails with the affected contract path; it does not claim semantic schema
+comparison. CI retrieves no Grok credentials and never runs a model. The
+captured CLI/schema comparison above stays a local, separately authorized
+operation. Retain detected differences and route review to
 `grok-build-qualification.json`, inspection/config owners, headless transport,
 and session adapters. Require a reviewed replacement snapshot after drift;
-never update the pin automatically. Existing workflow revision checks do not
-perform this comparison. **No workflow changes are included**; adding or wiring
-this job needs operator approval.
+never update the pin automatically. Full help/config/InspectReport schema
+comparison remains deferred until complete samples are available.
 
-Troubleshooting: check folder trust before redeploying; confirm project versus
+See [troubleshooting](../troubleshooting/grok-build.md): check folder trust before redeploying; confirm project versus
 user scope and `GROK_HOME`; compare inspection with the AIWG receipt; restart
 the provider after changes. See [MCP sidecar/hooks](../integrations/grok-build-native-extensions.md),
 [sessions](grok-build-sessions.md), [models](grok-build-models.md),

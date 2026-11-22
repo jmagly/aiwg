@@ -190,6 +190,7 @@
     "blog/2026-5-where-things-are",
     "troubleshooting",
     "troubleshooting/setup-issues",
+    "troubleshooting/grok-build",
     "troubleshooting/deployment-issues",
     "troubleshooting/path-issues",
     "troubleshooting/platform-issues",
@@ -1647,6 +1648,13 @@
       "title": "Setup Issues",
       "summary": "Installation problems",
       "file": "troubleshooting/setup-issues.md",
+      "parent": "troubleshooting"
+    },
+    {
+      "id": "troubleshooting/grok-build",
+      "title": "Grok Build CLI troubleshooting",
+      "summary": "Recover native CLI deployments; distinct from Grok Bot and Grok web Build",
+      "file": "troubleshooting/grok-build.md",
       "parent": "troubleshooting"
     },
     {
