@@ -12,13 +12,13 @@ const end = JSON.stringify({ type: 'end', stopReason: 'end_turn' });
 const stream = (...events: unknown[]) => events.map(event => JSON.stringify(event)).join('\n');
 
 describe('Grok Build live smoke gate', () => {
-  it('keeps credential provisioning behind manual/scheduled opt-in and CI secrets', () => {
+  it('keeps the paid live smoke and its credential provisioning out of CI workflows', () => {
+    // Operator policy: paid/credentialed live runs are manual operator commands, never CI workflow steps
+    // (the qualification workflow's own contract test asserts the same from the workflow side).
     const workflow = readFileSync(resolve(__dirname, '../../../.gitea/workflows/grok-build-qualification.yml'), 'utf8');
-    const gate = workflow.split('- name: Fetch opt-in Grok credential from Vault')[1].split('env:')[0];
-    for (const guard of ["gitea.event_name == 'schedule'", "gitea.event_name == 'workflow_dispatch'",
-      "vars.AIWG_GROK_BUILD_LIVE_SMOKE == '1'", "secrets.VAULT_CI_ROLE_ID != ''", "secrets.VAULT_CI_SECRET_ID != ''"]) {
-      expect(gate).toContain(guard);
-    }
+    expect(workflow).not.toContain('Fetch opt-in Grok credential');
+    expect(workflow).not.toContain('vault-fetch.grok-build');
+    expect(workflow).not.toMatch(/run:[^\n]*grok-build-native-smoke\.mjs/);
   });
 
   it('skips without opt-in or a provisioned binary', () => {
