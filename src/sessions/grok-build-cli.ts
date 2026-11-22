@@ -78,7 +78,11 @@ export function parseGrokHeadlessSessionId(output: string, format: 'json' | 'str
   }
   const lines = format === 'json' ? [output] : output.trim().split(/\r?\n/);
   const ids = new Set<string>();
+  let ended = false;
   for (const line of lines) {
+    if (ended) {
+      throw new SessionContractError('SCHEMA_DRIFT', 'unrecognized Grok Build headless stream after final end; check CLI version and use a supported export');
+    }
     let value: unknown;
     try { value = JSON.parse(line); } catch {
       throw new SessionContractError('SCHEMA_DRIFT', 'Grok Build headless output is not valid JSON');
@@ -87,6 +91,7 @@ export function parseGrokHeadlessSessionId(output: string, format: 'json' | 'str
       throw new SessionContractError('SCHEMA_DRIFT', 'Grok Build headless event must be an object');
     }
     validateGrokHeadlessEnvelope(value as Record<string, unknown>, format);
+    ended = format === 'streaming-json' && (value as Record<string, unknown>).type === 'end';
     const id = (value as Record<string, unknown>).sessionId;
     if (id !== undefined) {
       if (typeof id !== 'string' || !UUID.test(id)) {
@@ -133,7 +138,8 @@ async function runGrok(options: GrokBuildCliOptions, args: string[]): Promise<st
   const env = options.env ?? process.env;
   const home = resolveGrokHomeResult(env);
   if (!home.ok) throw new SessionContractError('SOURCE_NOT_AUTHORIZED', home.message);
-  await rejectSymlinkComponents(home.path);
+  // The public CLI opens this store too; a safe home alone cannot authorize a linked store.
+  await rejectSymlinkComponents(join(home.path, 'sessions'));
   if (options.binary !== undefined && !isAbsolute(options.binary)) {
     throw new SessionContractError('SOURCE_NOT_AUTHORIZED', 'Grok Build binary override must be absolute');
   }

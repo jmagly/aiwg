@@ -17,6 +17,8 @@ These routes call `grok --no-auto-update sessions list`, `sessions search
 execution to 15 seconds and output to 2 MB, and return only session IDs from
 list/search. `--grok-bin` selects an absolute executable. Exports use exclusive,
 owner-only `<session-id>.md` files; existing files are never overwritten.
+CLI acquisition also rejects a symlinked `$GROK_HOME/sessions` root before
+launching Grok, including links to another product's store.
 AIWG never reads Grok Bot or Cursor stores through this adapter.
 
 To extract an ID from an already captured headless run, use `aiwg sessions
@@ -24,6 +26,8 @@ grok-id <file> --format json|streaming-json`. This reads a bounded regular file
 and validates the captured output grammar and one consistent UUID. It does not
 run a prompt. Unknown list/search rows, result envelopes or streaming event
 types fail closed with `SCHEMA_DRIFT`; inspect the CLI version before retrying.
+Streaming output must terminate with one `end`; duplicate terminal events or
+any further records fail with the same code.
 The captured stream has `available_commands`, `text`, `thought`, `usage`,
 `tool_call`, `tool_call_update`, and a final `end` event carrying the session ID.
 
