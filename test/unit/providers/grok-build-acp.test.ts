@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { tmpdir } from 'node:os';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { GrokAcpClient } from '../../../src/providers/grok-build-acp.js';
 
 const responder = `
@@ -25,6 +26,128 @@ function client(script = responder, env: NodeJS.ProcessEnv = { ...process.env, X
 }
 
 describe('Grok Build ACP contract', () => {
+  const liveRoot = new URL('../../fixtures/providers/grok-build/captured-20261121/', import.meta.url);
+  const livePath = fileURLToPath(new URL('acp-live.json', liveRoot));
+  const live = JSON.parse(readFileSync(livePath, 'utf8'));
+
+  it('keeps the 72-frame live capture with only generic command updates', () => {
+    expect(live.frames).toHaveLength(72);
+    expect(live.result).toMatchObject({ exit: { code: 0, sig: null }, stderrBytes: 4276,
+      updateKinds: ['available_commands_update', 'agent_thought_chunk', 'agent_message_chunk'] });
+    const commandUpdates = live.frames.flatMap(({ msg }: { msg: Record<string, any> }) =>
+      msg.params?.update?.sessionUpdate === 'available_commands_update' ? [msg.params.update] : []);
+    expect(commandUpdates).toHaveLength(3);
+    for (const update of commandUpdates) {
+      expect(update.availableCommands.map(({ name }: { name: string }) => name))
+        .toEqual(['compact', 'context', 'session-info']);
+    }
+    expect(live.frames[0].t).toBe(0);
+    expect(live.frames.at(-1).t).toBe(4964);
+  });
+
+  it.each([{}, { XAI_API_KEY: 'xai-offline-fixture' }])(
+    'replays live logged-in auth, chunks, usage and MidTurnAbort (env=%j)', async env => {
+      const root = mkdtempSync(join(tmpdir(), 'aiwg-grok-acp-live-replay-'));
+      const updates: Record<string, unknown>[] = [];
+      const acp = new GrokAcpClient({ cwd: root, command: process.execPath,
+        prefixArgs: [fileURLToPath(new URL('replay-acp.mjs', liveRoot)), livePath],
+        env, timeoutMs: 2_000, onUpdate: update => updates.push(update) });
+      try {
+        const requests = live.frames.filter(({ dir }: { dir: string }) => dir === 'out')
+          .map(({ msg }: { msg: Record<string, any> }) => msg);
+        expect(requests.map(({ method }: { method: string }) => method))
+          .toEqual(['initialize', 'session/new', 'session/prompt', 'session/prompt', 'session/cancel']);
+        const initResult = live.frames[1].msg.result;
+        expect(initResult).toMatchObject({ protocolVersion: 1, _meta: { defaultAuthMethodId: 'cached_token' } });
+        expect(initResult.authMethods.map(({ id }: { id: string }) => id)).toEqual(['cached_token', 'grok.com']);
+        const sessionId = requests[2].params.sessionId;
+        expect(await acp.initialize()).toEqual({ authMethod: 'cached_token', sessionId });
+        const completion = await acp.prompt(requests[2].params.prompt[0].text);
+        expect(completion).toEqual({ text: 'OK', ...live.result.steps[2].prompt1 });
+        expect(completion._meta).toMatchObject({ modelId: 'grok-4.7', usage: {
+          numTurns: 1, modelCalls: 1, modelUsage: { 'grok-4.7-build': { outputTokens: 30 } },
+        } });
+        const pending = acp.prompt(requests[3].params.prompt[0].text);
+        acp.cancel();
+        const cancelled = await pending;
+        expect(cancelled).toEqual({ text: '', ...live.result.steps[3].prompt2AfterCancel });
+        expect(cancelled).toMatchObject({ stopReason: 'cancelled', _meta: { cancellationCategory: 'MidTurnAbort' } });
+        for (const kind of live.result.updateKinds) {
+          const captured = live.frames.flatMap(({ msg }: { msg: Record<string, any> }) =>
+            msg.method === 'session/update' && msg.params.update.sessionUpdate === kind ? [msg.params.update] : []);
+          expect(captured.length).toBeGreaterThan(0);
+          expect(updates.filter(update => update.sessionUpdate === kind)).toEqual(captured);
+        }
+        expect(acp.stderr).toBe('REPLAY_COMPLETE 72\n');
+      } finally { acp.close(); rmSync(root, { recursive: true, force: true }); }
+    });
+
+  it.each([NaN, Infinity, 0, -1])('rejects invalid ACP lifetime %s before launch', timeoutMs => {
+    let acp: GrokAcpClient | undefined;
+    try {
+      expect(() => { acp = client('process.stdin.resume()', {}, timeoutMs); }).toThrow(/timeoutMs/);
+    } finally { acp?.close(); }
+  });
+
+  it.each([NaN, Infinity, 0, -1])('rejects invalid stderr bound %s before launch', maxStderrBytes => {
+    let acp: GrokAcpClient | undefined;
+    try {
+      expect(() => { acp = new GrokAcpClient({ cwd: tmpdir(), command: process.execPath,
+        prefixArgs: ['-e', 'process.stdin.resume()', '--'], maxStderrBytes }); }).toThrow(/maxStderrBytes/);
+    } finally { acp?.close(); }
+  });
+
+  it('preserves UTF-8 in session updates split across pipe reads', async () => {
+    const script = responder.replace("process.stderr.write('PROMPT_SEEN\\n');", `
+      const frame=Buffer.from(JSON.stringify({jsonrpc:'2.0',method:'session/update',params:{update:{sessionUpdate:'agent_message_chunk',content:{text:'🌍'}}}})+'\\n');
+      const split=frame.indexOf(Buffer.from('🌍'))+2;
+      process.stdout.write(frame.subarray(0,split));
+      setTimeout(()=>process.stdout.write(frame.subarray(split)),40);
+      return;`);
+    // Finish the prompt only after the second byte chunk has been written.
+    const acp = client(script.replace('process.stdout.write(frame.subarray(split))',
+      "{process.stdout.write(frame.subarray(split));console.log(JSON.stringify({jsonrpc:'2.0',id:m.id,result:{stopReason:'end_turn'}}));}"));
+    try {
+      await acp.initialize();
+      expect((await acp.prompt('unicode')).text).toBe('🌍');
+    } finally { acp.close(); }
+  });
+
+  it('ignores updates belonging to a different ACP session', async () => {
+    const extra = "console.log(JSON.stringify({jsonrpc:'2.0',method:'session/update',params:{sessionId:'other',update:{sessionUpdate:'agent_message_chunk',content:{text:'foreign'}}}}));";
+    const acp = client(responder.replace("process.stderr.write('PROMPT_SEEN\\n');", extra));
+    try {
+      await acp.initialize();
+      expect((await acp.prompt('hello')).text).toBe('Hello world');
+    } finally { acp.close(); }
+  });
+
+  it('bounds stderr and rejects outstanding requests without exposing secrets', async () => {
+    const acp = new GrokAcpClient({ cwd: tmpdir(), command: process.execPath,
+      prefixArgs: ['-e', 'process.stdin.once("data",()=>{process.stderr.write("xai-12345678 "+"x".repeat(8192));});setInterval(()=>{},1000)', '--'],
+      env: {}, maxStderrBytes: 1024, timeoutMs: 2_000 });
+    try {
+      await expect(acp.initialize()).rejects.toThrow(/stderr limit/);
+      expect(Buffer.byteLength(acp.stderr)).toBeLessThanOrEqual(1024);
+      expect(acp.stderr).not.toContain('xai-12345678');
+    } finally { acp.close(); }
+  });
+
+  it.each(['null', '[]', '"frame"', '{invalid'])('fails closed on malformed ACP frame %s', async frame => {
+    const acp = client(`process.stdin.once('data',()=>console.log(${JSON.stringify(frame)}));setInterval(()=>{},1000)`, {});
+    try { await expect(acp.initialize()).rejects.toThrow(/Invalid Grok ACP/); }
+    finally { acp.close(); }
+  });
+
+  it('propagates a redacted update callback error through the pending prompt', async () => {
+    const acp = new GrokAcpClient({ cwd: tmpdir(), command: process.execPath, prefixArgs: ['-e', responder, '--'],
+      env: {}, timeoutMs: 2_000, onUpdate: () => { throw new Error('xai-12345678'); } });
+    try {
+      await acp.initialize();
+      await expect(acp.prompt('offline')).rejects.toThrow(/callback failed.*\[REDACTED\]/);
+    } finally { acp.close(); }
+  });
+
   it.each([false, true])('pre-allows only discovery in ACP argv (disableSubagents=%s)', async disableSubagents => {
     const script = `process.stderr.write(JSON.stringify(process.argv.slice(1)));` + responder;
     const acp = new GrokAcpClient({ cwd: tmpdir(), command: process.execPath, prefixArgs: ['-e', script, '--'],

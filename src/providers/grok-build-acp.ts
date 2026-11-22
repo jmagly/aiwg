@@ -18,6 +18,10 @@ export interface GrokAcpOptions {
   onExit?: () => void | Promise<void>;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
 type Pending = { resolve: (value: Record<string, unknown>) => void; reject: (error: Error) => void; timer: ReturnType<typeof setTimeout> };
 
 export class GrokAcpClient {
@@ -37,10 +41,15 @@ export class GrokAcpClient {
   private text = '';
 
   constructor(options: GrokAcpOptions) {
+    for (const key of ['timeoutMs', 'maxStderrBytes'] as const) {
+      if (options[key] !== undefined && (!Number.isFinite(options[key]) || options[key]! <= 0)) {
+        throw new Error(`Grok ACP ${key} must be a positive finite number`);
+      }
+    }
     this.env = options.env ?? process.env;
     this.cwd = options.cwd;
     this.timeoutMs = Math.min(Math.max(options.timeoutMs ?? 30_000, 1), 120_000);
-    this.maxStderrBytes = options.maxStderrBytes ?? 1024 * 1024;
+    this.maxStderrBytes = Math.min(options.maxStderrBytes ?? 1024 * 1024, 8 * 1024 * 1024);
     this.onUpdate = options.onUpdate;
     this.child = spawn(options.command ?? 'grok', [...(options.prefixArgs ?? []), '--no-auto-update', '--allow', 'Bash(aiwg discover *)', ...(options.disableSubagents ? ['--no-subagents', '--disallowed-tools', 'workflow'] : []), 'agent', 'stdio'], {
       cwd: options.cwd, env: this.env, stdio: ['pipe', 'pipe', 'pipe'], shell: false,
@@ -50,13 +59,17 @@ export class GrokAcpClient {
       this.failAll(new Error(`Grok ACP closed (exit ${code ?? 'signal'})`));
       void options.onExit?.();
     });
-    this.child.stdout.on('data', (chunk: Buffer) => this.receive(chunk.toString('utf8')));
-    this.child.stderr.on('data', (chunk: Buffer) => {
-      this.stderrBuffer += chunk.toString('utf8');
-      if (Buffer.byteLength(this.stderrBuffer) > this.maxStderrBytes) {
+    this.child.stdout.setEncoding('utf8');
+    this.child.stderr.setEncoding('utf8');
+    this.child.stdout.on('data', (chunk: string) => this.receive(chunk));
+    this.child.stderr.on('data', (chunk: string) => {
+      if (this.closed) return;
+      if (Buffer.byteLength(this.stderrBuffer) + Buffer.byteLength(chunk) > this.maxStderrBytes) {
         this.failAll(new Error('Grok ACP stderr limit exceeded'));
         this.close();
+        return;
       }
+      this.stderrBuffer += chunk;
     });
   }
 
@@ -72,8 +85,9 @@ export class GrokAcpClient {
   }
 
   private receive(chunk: string): void {
+    if (this.closed) return;
     this.stdoutBuffer += chunk;
-    if (this.stdoutBuffer.length > 8 * 1024 * 1024) {
+    if (Buffer.byteLength(this.stdoutBuffer) > 8 * 1024 * 1024) {
       this.failAll(new Error('Grok ACP stdout limit exceeded'));
       this.close();
       return;
@@ -84,19 +98,31 @@ export class GrokAcpClient {
       this.stdoutBuffer = this.stdoutBuffer.slice(end + 1);
       if (!line) continue;
       let message: Record<string, unknown>;
-      try { message = JSON.parse(line) as Record<string, unknown>; }
+      try {
+        const parsed: unknown = JSON.parse(line);
+        if (!isRecord(parsed)) throw new Error('Invalid frame');
+        message = parsed;
+      }
       catch { this.failAll(new Error('Invalid Grok ACP JSON-RPC message')); this.close(); return; }
       if (message.method === 'session/update' || message.method === '_x.ai/session_notification') {
-        const params = message.params as Record<string, unknown> | undefined;
-        const update = params?.update as Record<string, unknown> | undefined;
-        if (update) {
+        const params = isRecord(message.params) ? message.params : undefined;
+        if (this.sessionId && params?.sessionId !== undefined && params.sessionId !== this.sessionId) continue;
+        const update = params?.update;
+        if (isRecord(update)) {
           const safe = JSON.parse(redactGrokOutput(JSON.stringify(update), this.env)) as Record<string, unknown>;
           const content = safe.content as Record<string, unknown> | undefined;
           if (safe.sessionUpdate === 'agent_message_chunk' && typeof content?.text === 'string') this.text += content.text;
-          this.onUpdate?.(safe);
+          try { this.onUpdate?.(safe); }
+          catch (cause) {
+            const detail = cause instanceof Error ? cause.message : String(cause);
+            this.failAll(new Error(`Grok ACP update callback failed: ${redactGrokOutput(detail, this.env)}`));
+            this.close();
+            return;
+          }
         }
         continue;
       }
+      if (typeof message.method === 'string') continue;
       const id = message.id;
       if (typeof id !== 'number') continue;
       const pending = this.pending.get(id);
