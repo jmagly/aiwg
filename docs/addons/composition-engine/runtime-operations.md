@@ -48,12 +48,40 @@ order even when workers finish in another order.
 An idempotent or exactly-once node receives the same invocation key across
 bounded retries. Successful receipts are checkpointed and replayed without a
 second adapter call. Approval-required work cannot be retried automatically,
-and a gate must appear in the approved gate set before execution. The runtime
+and a gate needs explicit host approval or a signed authorization receipt before execution. The runtime
 never prompts on its own: without approval it emits `run-paused`, persists the
 checkpoint, and returns `status: paused` before invoking the gated node. Resume
 with that checkpoint and `approvedGates`; a cancelled gate returns
 `status: cancelled`, while adapter failure after approval follows the declared
 node failure policy. `operatorAction: stop` cancels before another node starts.
+
+A gate may declare an optional `hitlAction` in the host-authored flow definition:
+
+~~~json
+{
+  "category": "repo.read", "repo": "example/repo", "target": "repo:example/repo",
+  "environment": "local", "resources": ["src/index.ts"], "verb": "read",
+  "reversible": true, "impact": "low"
+}
+~~~
+
+The host must classify the exact pending execution plan. Never copy descriptors
+from node inputs, worker output, issue content or model text, or infer effects
+from a gate's description. Unknown effects keep human review. `target` and
+`verb` default to `repo:<repo>` and the category's final component; `repo.edit`
+also needs the host's `actor` and exact `inputDigest` binding.
+
+Before an unapproved gate or its `approval-required` dependent runs, Flow lazily
+calls `checkHitlAuthorization` with that captured descriptor. Programmatic hosts
+pass `projectDir` (default: process cwd); `composition run` binds it to its host
+cwd. Only `auto-authorized` with a receipt containing `file` and `effectId` adds
+the gate to this run's approved set. Reports and checkpoints preserve the receipt,
+provenance and optional grant link in `evidence.nodes[gateId].authorization`.
+Gates without descriptors and any unavailable, failed or non-authorizing check
+retain `APPROVAL_REQUIRED`. Cancellation overrides both automatic and explicit
+approval. Resuming does a fresh lookup when approval is needed; checkpoint
+evidence and adapter outputs never supply approval. Capability, permission,
+budget and decision admission checks remain independent.
 
 Exactly-once is reported as observed behavior, not inferred from declaration.
 Per-node evidence counts attempts, duplicate detections, and receipt-based

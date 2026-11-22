@@ -200,6 +200,7 @@
     "references/REF-003-agentic-development-antipatterns",
     "references/REF-066-mcp-specification-2025",
     "releases",
+    "releases/v2026.11.9-announcement",
     "releases/v2026.11.8-announcement",
     "releases/v2026.11.7-announcement",
     "releases/v2026.11.6-announcement",
@@ -1717,6 +1718,13 @@
       "title": "Releases",
       "summary": "Release notes and changelog",
       "collapsed": true
+    },
+    {
+      "id": "releases/v2026.11.9-announcement",
+      "title": "v2026.11.9 — Lookup Without Copies and Steadier Tools",
+      "summary": "Copying bundles into tool folders is now opt-in, Windsurf support continues as Devin, writing checks can confirm patterns by meaning, and worker, search and setup fixes.",
+      "file": "releases/v2026.11.9-announcement.md",
+      "parent": "releases"
     },
     {
       "id": "releases/v2026.11.8-announcement",
