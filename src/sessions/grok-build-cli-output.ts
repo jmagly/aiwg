@@ -51,7 +51,7 @@ const eventKeys: Record<string, string[]> = {
 const object = (value: unknown) => value !== null && typeof value === 'object' && !Array.isArray(value);
 export function validateGrokHeadlessEnvelope(value: Record<string, unknown>, format: 'json' | 'streaming-json'): void {
   const type = format === 'json' ? 'result' : String(value.type);
-  const keys = type === 'result' ? resultKeys : eventKeys[type];
+  const keys = type === 'result' ? resultKeys : Object.hasOwn(eventKeys, type) ? eventKeys[type] : undefined;
   if (!keys || Object.keys(value).some(key => !keys.includes(key))) drift('headless event');
   if (type === 'result' || type === 'end') {
     for (const key of ['sessionId', 'requestId', 'cwd', 'stopReason']) if (typeof value[key] !== 'string') drift('headless result');
