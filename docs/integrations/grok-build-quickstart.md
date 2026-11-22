@@ -31,6 +31,8 @@ See [native extensions](grok-build-native-extensions.md) for MCP/hooks,
 the [CI guide](grok-build-ci.md), and [migration from temporary Claude deployment](../migration/grok-build-from-claude-workaround.md).
 The [qualification matrix](../providers/grok-build-qualification.md) documents
 scope, recovery, and the evidence still needed for stable promotion.
+Use the [troubleshooting guide](../troubleshooting/grok-build.md) for trust,
+scope, refresh and migration failures.
 
 For bounded headless automation, the captured command form was:
 

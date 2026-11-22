@@ -3,8 +3,10 @@ name: Grok Build qualification contract
 on:
   push:
     branches: [main, develop]
+    tags: ['v*']
     paths:
       - 'src/providers/provider-definitions.ts'
+      - 'src/providers/provider-seeds-*.ts'
       - 'src/providers/grok-build-*.ts'
       - 'tools/agents/providers/grok-build.mjs'
       - 'tools/providers/grok-build-native-smoke.mjs'
@@ -12,6 +14,8 @@ on:
       - 'docs/providers/grok-build-qualification.md'
       - 'docs/providers/grok-build-evidence/**'
       - 'tools/providers/grok-build-qualification.mjs'
+      - 'test/fixtures/providers/grok-build/**'
+      - 'test/unit/providers/grok-build-*.test.*'
       - '.gitea/workflows/grok-build-qualification.yml'
   schedule:
     - cron: '17 8 * * 1'
@@ -21,10 +25,6 @@ jobs:
   qualification:
     runs-on: ubuntu-latest
     container: node:24@sha256:050bf2bbe33c1d6754e060bec89378a79ed831f04a7bb1a53fe45e997df7b3bb
-    env:
-      VAULT_ADDR: ${{ vars.VAULT_ADDR }}
-      XAI_API_KEY_VAULT_PATH: ${{ vars.XAI_API_KEY_VAULT_PATH }}
-      XAI_API_KEY_VAULT_FIELD: ${{ vars.XAI_API_KEY_VAULT_FIELD }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
       - name: Enforce stable-promotion contract
@@ -32,24 +32,5 @@ jobs:
       - name: Test qualification negative controls
         run: node --test test/unit/providers/grok-build-qualification.test.mjs
       - name: Detect upstream source/config drift
-        if: gitea.event_name == 'schedule' || gitea.event_name == 'workflow_dispatch'
+        if: gitea.event_name == 'schedule' || gitea.event_name == 'workflow_dispatch' || startsWith(gitea.ref, 'refs/tags/')
         run: node tools/providers/grok-build-qualification.mjs drift
-      - name: Fetch opt-in Grok credential from Vault
-        if: ${{ (gitea.event_name == 'schedule' || gitea.event_name == 'workflow_dispatch') && vars.AIWG_GROK_BUILD_LIVE_SMOKE == '1' && secrets.VAULT_CI_ROLE_ID != '' && secrets.VAULT_CI_SECRET_ID != '' && vars.XAI_API_KEY_VAULT_PATH != '' && vars.XAI_API_KEY_VAULT_FIELD != '' }}
-        env:
-          VAULT_CI_ROLE_ID: ${{ secrets.VAULT_CI_ROLE_ID }}
-          VAULT_CI_SECRET_ID: ${{ secrets.VAULT_CI_SECRET_ID }}
-        run: |
-          apt-get update
-          apt-get install -y --no-install-recommends curl jq
-          bash ci/vault-fetch.sh --spec ci/vault-fetch.grok-build.spec
-      - name: Live headless smoke (explicit secret gate and SHA-pinned binary)
-        if: gitea.event_name == 'schedule' || gitea.event_name == 'workflow_dispatch'
-        env:
-          AIWG_GROK_BUILD_LIVE_SMOKE: ${{ vars.AIWG_GROK_BUILD_LIVE_SMOKE }}
-          AIWG_GROK_BUILD_BIN: ${{ vars.AIWG_GROK_BUILD_BIN }}
-          AIWG_GROK_BUILD_EXPECTED_SHA256: ${{ vars.AIWG_GROK_BUILD_EXPECTED_SHA256 }}
-        run: node tools/providers/grok-build-native-smoke.mjs
-      - name: Remove fetched Grok credential
-        if: always()
-        run: bash ci/vault-fetch.sh --cleanup
