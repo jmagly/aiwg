@@ -1,0 +1,6 @@
+{"type":"system","subtype":"init","session_id":"fixture-session"}
+{"type":"message","session_id":"fixture-session"}
+{"type":"reasoning","session_id":"fixture-session"}
+{"type":"reasoning","session_id":"fixture-session"}
+{"type":"message","session_id":"fixture-session"}
+{"type":"completion","finalText":"factory-smoke-ok","numTurns":1,"durationMs":1853,"session_id":"fixture-session","timestamp":0,"usage":{"input_tokens":9509,"output_tokens":30}}

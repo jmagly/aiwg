@@ -200,15 +200,15 @@ function messages(plan: any): string {
 describe('Factory (Droid) version-bound profile (B-OG-37)', () => {
   it('FD01 pins the evidenced release, driver, catalog and argv template; unknown controls stay unqualified', () => {
     const adapter = loadProviderModelCapabilities().providers.factory.workerHealthAdapter!;
-    expect(FACTORY_SUPPORTED_VERSIONS).toEqual([VERSION]);
-    expect(adapter).toMatchObject({ supportedVersions: VERSION, adapterVersion: APPROVED.entry.packageVersion,
+    expect(FACTORY_SUPPORTED_VERSIONS).toEqual(['1.0.x']);
+    expect(adapter).toMatchObject({ supportedVersions: '1.0.x', adapterVersion: APPROVED.entry.packageVersion,
       runtimeDriver: APPROVED.entry.reference,
       catalogAdapter: { kind: 'file', locator: 'agentic/code/providers/model-catalog.v1.json' },
       invocation: { executable: 'droid', stdin: 'brief-text',
         argv: ['exec', '--auto', '${sandbox}', '-m', '${model}', '-r', '${effort}', '--cwd', '${workspace}', '--output-format', 'stream-json'] },
       qualification: { status: 'unqualified' } });
     const profile = adapter.invocationProfiles!['direct-shell'];
-    expect(profile.supportedVersions).toBe(VERSION);
+    expect(profile.supportedVersions).toBe('1.0.x');
     expect(profile.controls.stdin.evidence).toContain('first stream-json message');
     expect(profile.pitfalls.join(' ')).toContain('Titan 1.0.0 eval (2026-11-06, BYOK custom model via OpenRouter)');
     expect(profile.pitfalls.join(' ')).toContain('-r/--reasoning-effort is accepted but ignored for BYOK custom models');

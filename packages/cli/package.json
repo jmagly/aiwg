@@ -108,6 +108,7 @@
     "tools/ralph-external/lib/codex-adapter.mjs",
     "tools/ralph-external/lib/opencode-adapter.mjs",
     "tools/ralph-external/lib/factory-adapter.mjs",
+    "tools/ralph-external/lib/factory-stream-final.mjs",
     "tools/ralph-external/lib/pi-adapter.mjs",
     "tools/ralph-external/lib/omp-adapter.mjs",
     "tools/ralph-external/lib/deepseek-harness-adapter.mjs",
