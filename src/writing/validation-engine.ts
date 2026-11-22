@@ -17,12 +17,15 @@ import { readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { ValidationRuleLoader, RuleSet, ValidationContext, Severity } from './validation-rules.js';
 import { loadScoringConfig, getScoringConfig } from './scoring-config-loader.js';
-import { diagnoseWriting, type DiagnosticOptions, type ContextualDiagnosticResult } from './contextual-diagnostics.js';
+import { diagnoseWriting, reviewWritingPatterns, type DiagnosticOptions, type ContextualDiagnosticResult } from './contextual-diagnostics.js';
+import type { WritingJudgmentOptions } from './structural-judgment.js';
 import { currentPatternIssues, rhetoricalTriad, type CurrentPatternFinding } from './current-patterns.js';
 import { validateCampaign } from './validation-campaign.js';
 import { maskProse } from './prose-mask.js';
 
 export interface ValidationIssue {
+  modelAssisted?: true;
+  confidence?: number;
   scope?: 'file' | 'cross';
   tier?: 'cut' | 'check' | 'watch';
   related?: Array<{ documentId: string; line: number }>;
@@ -85,7 +88,7 @@ export class WritingValidationEngine {
   private ruleSet: RuleSet | null = null;
   private initialized = false;
 
-  constructor(guideBasePath?: string) {
+  constructor(guideBasePath?: string, private readonly judgment: WritingJudgmentOptions = {}) {
     this.ruleLoader = new ValidationRuleLoader(guideBasePath);
   }
 
@@ -124,12 +127,13 @@ export class WritingValidationEngine {
     await this.initialize();
 
     const issues: ValidationIssue[] = [];
+    const review = await reviewWritingPatterns(content, {}, this.judgment);
 
     // Run all detections
     issues.push(...this.detectBannedPhrases(content, context));
     issues.push(...this.detectAIPatterns(content, context));
     issues.push(...this.detectFormulicStructures(content));
-    issues.push(...currentPatternIssues(content, campaign));
+    issues.push(...currentPatternIssues(content, [...campaign, ...review.assisted]));
 
     // Analyze authenticity
     const authenticityAnalysis = this.analyzeAuthenticity(content);
@@ -161,7 +165,7 @@ export class WritingValidationEngine {
       summary,
       suggestions,
       scoreSemantics: 'deprecated-uncalibrated-heuristic',
-      contextualDiagnostics: this.diagnose(content),
+      contextualDiagnostics: review.result,
       humanMarkers: authenticityAnalysis.humanMarkers,
       aiTells: authenticityAnalysis.aiTells
     };

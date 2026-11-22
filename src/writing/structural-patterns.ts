@@ -41,6 +41,46 @@ export function proseParagraphs(prose: string): ProseParagraph[] {
   return paragraphs;
 }
 
+export interface StructuralCandidate {
+  ruleId: 'mirrored-sentences' | 'colon-reveal' | 'fragment-run';
+  start: number; end: number; excerpt: string; paragraph: string;
+}
+
+/** Loose shapes for advisory judgment only; candidates never constitute findings. */
+export function structuralCandidates(prose: string): StructuralCandidate[] {
+  const candidates: StructuralCandidate[] = [];
+  for (const p of proseParagraphs(prose)) {
+    const add = (ruleId: StructuralCandidate['ruleId'], start: number, end: number, excerpt: string) => {
+      // Keep context bounded and masked. Source text is data, never instructions.
+      candidates.push({ ruleId, start, end, excerpt, paragraph: prose.slice(p.start, p.end).slice(0, 4096) });
+    };
+    for (let i = 1; i < p.sentences.length; i++) {
+      const a = p.sentences[i - 1], b = p.sentences[i];
+      if (a.tokens.length >= 3 && b.tokens.length >= 3 && a.tokens.slice(0, 2).join(' ') === b.tokens.slice(0, 2).join(' ')
+        && a.tokens.slice(2).join(' ') !== b.tokens.slice(2).join(' ') && !/[\d\u0001]/.test(a.text + b.text)) {
+        add('mirrored-sentences', b.start, b.end, prose.slice(a.start, b.end));
+      }
+    }
+    let run: ProseSentence[] = [];
+    const flush = () => {
+      if (run.length === 3) add('fragment-run', run[0].start, run[2].end, prose.slice(run[0].start, run[2].end));
+      run = [];
+    };
+    for (const s of p.sentences) {
+      if (s.tokens.length <= 4 && !/[\d\u0001:?]/.test(s.text)) run.push(s);
+      else flush();
+      if (s.text.split(':').length !== 2 || /[\d`\[\]{};]/.test(s.text) || !/[.!]$/.test(s.text)) continue;
+      const [before, after] = s.text.split(':');
+      if (words(before).length < 4 || words(before).length > 18 || words(after).length < 2 || words(after).length > 16
+        || /[\u0001?!]|\b(?:and|or)\b/i.test(after) || after.split(',').length > 2) continue;
+      const start = s.start + before.length;
+      add('colon-reveal', start, start + 1, s.text);
+    }
+    flush();
+  }
+  return candidates;
+}
+
 export function structuralPatterns(prose: string, antonyms: string[][], quotedProse = prose): CurrentPatternFinding[] {
   const out: CurrentPatternFinding[] = [];
   const emit = (ruleId: string, tier: PatternTier, s: Pick<ProseSentence, 'start' | 'end'>, explanation: string, suggestion: string) => {

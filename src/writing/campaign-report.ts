@@ -2,7 +2,7 @@
 import { readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { checkCampaignSize } from './campaign-patterns.js';
-import { diagnoseWritingBatch } from './contextual-diagnostics.js';
+import { diagnoseWritingBatchAssisted } from './contextual-diagnostics.js';
 
 export async function campaignReport(cwd: string, args: string[]): Promise<string> {
   const files = new Set<string>();
@@ -23,12 +23,13 @@ export async function campaignReport(cwd: string, args: string[]): Promise<strin
   };
   for (const input of inputs) await visit(path.resolve(cwd, input));
   const documents = await Promise.all([...files].sort().map(async id => ({ id, content: await readFile(id, 'utf8') })));
-  const results = diagnoseWritingBatch(documents, { cross: true });
+  const results = await diagnoseWritingBatchAssisted(documents, { cross: true }, { cwd });
   if (json) return JSON.stringify(Object.fromEntries(results), null, 2);
   const lines: string[] = [];
   for (const d of documents) for (const f of results.get(d.id)!.diagnostics) {
     const line = d.content.slice(0, f.start).split('\n').length;
-    lines.push(`${d.id}:${line}:${f.start - d.content.lastIndexOf('\n', f.start - 1)} [${f.tier ?? 'check'}] ${f.ruleId}: ${f.suggestion}`);
+    const assisted = f.confidence.kind === 'model-assisted' ? ` (model-assisted; confidence ${f.confidence.value})` : '';
+    lines.push(`${d.id}:${line}:${f.start - d.content.lastIndexOf('\n', f.start - 1)} [${f.tier ?? 'check'}] ${f.ruleId}${assisted}: ${f.suggestion}`);
   }
   return lines.join('\n') || 'No editorial pattern findings in this campaign.';
 }

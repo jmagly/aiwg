@@ -14,7 +14,10 @@ export async function validateCampaign(engine: WritingValidationEngine, files: s
   const results = new Map<string, ValidationResult>();
   for (const d of documents) {
     const result = await engine.validate(d.content, context, campaign.get(d.id));
+    const assisted = result.contextualDiagnostics!.diagnostics.filter(f => f.confidence.kind === 'model-assisted');
     result.contextualDiagnostics = diagnostics.get(d.id);
+    result.contextualDiagnostics!.diagnostics.push(...assisted);
+    result.contextualDiagnostics!.diagnostics.sort((a, b) => a.start - b.start || a.end - b.end || a.ruleId.localeCompare(b.ruleId));
     results.set(d.id, result);
   }
   return results;

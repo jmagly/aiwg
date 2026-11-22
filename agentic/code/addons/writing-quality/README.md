@@ -111,6 +111,33 @@ phrase-density component use rates per 50 prose words. Repeating
 the same prose in additional paragraphs does not increase those penalties merely
 because the document is longer. The contextual API has no score.
 
+## Optional structural judgment
+
+The Python scanner, asynchronous validation and campaign CLI can send loose
+mirrored-predicate, colon-reveal and three-fragment candidates through the existing
+`aiwg decision ask` / `askDecision()` engine. A candidate alone is never a finding.
+The shared questions distinguish rhetorical contrast from factual pairs, a
+withheld punchline from a list or definition, and a prose beat from runbook steps.
+The bounded context includes the masked paragraph and nearest Markdown heading.
+Protected spans remain excluded from candidates.
+
+This uses the decision engine's existing opt-in and sampling configuration; there
+are no additional writing flags or config keys. Only an answered yes with finite
+confidence at least 0.8 produces an advisory finding. JSON findings include
+`modelAssisted: true` and `confidence`; diagnostics use
+`confidence: { kind: 'model-assisted', value, calibrated: false }`. Text campaign
+reports label model assistance and confidence. These values are provider signals,
+not calibrated correctness or authorship probabilities. Author review still decides.
+
+With decision ask disabled (`AIWG_DECISION_ENABLED=0`), unavailable, or below
+threshold, deterministic behavior is unchanged: 49/56 annotated positives per
+surface and zero findings on 22 wholly negative files. The seven semantic gaps
+remain in `known-gaps.json`. The offline judgment stub reaches 56/56 with the
+same clean negatives; this does not establish live model accuracy. Default tests
+use stubs and make no network calls. Python uses the installed `aiwg` CLI and
+falls back when it is absent. Context is sent to the configured decision service
+only with its existing opt-in; review private text accordingly.
+
 ## Components
 
 ### Agents (3)

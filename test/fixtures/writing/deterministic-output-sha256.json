@@ -1,0 +1,212 @@
+{
+  "positives/contrast.md": {
+    "python": "16de2f7c587de45b1e8ec241d0e94791f5ee74efdc6cbcd560cb5bd617cdb66f",
+    "validation": "9912b6c311fbed90ec614af8918f6e9878bd9d78d143a97cc64428479416dbaa",
+    "diagnostics": "5bc3764d0f7acc2aac79610fb824fab9ad833495ce328a79aad4639c32dcd1e2"
+  },
+  "positives/x-not-y.md": {
+    "python": "94202ce75f53da9341da9315e74e2d6e43c280f60816f5d6c3d8fb37b2cbe45b",
+    "validation": "f820b1c70b39fab5dd4335c69b99395e2f869edfd20d730f6f0705617632b868",
+    "diagnostics": "6cdb0060d3de90ff4621142d835a59dce8067d3054baf03bda90904128f9210e"
+  },
+  "positives/rather-than.md": {
+    "python": "a7a9e8ba22531653071d4c004f732c798b227b71302df902b5a37edb4375702d",
+    "validation": "b7beca56f9245ab6056b507a0b79846d562bb61ee5cc86061d394f6d10919be2",
+    "diagnostics": "68ef5cf18ac94d8de5134df8a4a10b3107994f8cbaf573684f50424702fe76c1"
+  },
+  "positives/mirrored.md": {
+    "python": "4679517b6d63092a25609c8fe9dbca1793886e57c07e027d2c011efeffe988c9",
+    "validation": "7a00a02973af551a5b71a7f03d122a574e509903df50e1531c265dfec72c8a95",
+    "diagnostics": "f50ccc4b2e2607c7247b7db8c03e84e7480c10558065ae48cc385f6ede3e01c6"
+  },
+  "positives/endings.md": {
+    "python": "4fa9633a6e2a24d93f08eaa912bb7bd6d6eae39ef9a8e9d37aa7d4390570ae5b",
+    "validation": "30eb5c443abb7119ca14be1a9ae237addffc71992c0afb96c364d786628b0760",
+    "diagnostics": "3d9008d3d837ea226a0063a9c5ce80c405c3d195bd5d7031c08e68f4e4ce0fb4"
+  },
+  "positives/colons.md": {
+    "python": "e1fa0ca71156f3c6271f415f5d43fbf9afdbe8994e8b520914cca1f320e89c18",
+    "validation": "053487016aac255922a1002a41760c2666fc185d624574d8edef96790abadaef",
+    "diagnostics": "87e3ee3ad076cae649625b8036f4a563982f17fead1f1e4c1da8e98b6f5d0c3c"
+  },
+  "positives/fragments.md": {
+    "python": "51574b07cd0cc141027e17c76eb585993f2a73f92b9e6840c1ee8667e2c42a83",
+    "validation": "ed48da8f4924ab9062b51836b2d74b5d7e9a71569c652f506f3057f9570601cb",
+    "diagnostics": "4ccf9ec92a3ec165d600ed863a3dfea4165df6059352cadf264612400eb30e9d"
+  },
+  "positives/labels.md": {
+    "python": "d374bb54c43c865b36e8722a9148d32186511f3bb4d2d0324a783ad807d93bc0",
+    "validation": "a4ff800ad0bcad3e0c626899c3a84fda435b24691c868fba2ec51effa69ae0e2",
+    "diagnostics": "e02b19e5c95fb2ddba5d294b67668ce010ca64e7040bcf040726dd4292be67f3"
+  },
+  "positives/throat.md": {
+    "python": "547c40e17649733dd62b805eecb32772a330bd6fc24178edb2926bcba2f74ba4",
+    "validation": "1c0d2bf426ba4895412f566ae99eaf701c1cf800aabfab557cec21530660ac61",
+    "diagnostics": "eb245917b42264e9c8015c16afaa20aa4e134375d3d688c5da6ce7f3a71026c3"
+  },
+  "positives/engagement.md": {
+    "python": "1673c8c0b3303ca5d87ca463487ec87efb5f0536b18252829c2583c992adb0ad",
+    "validation": "dd909f2ae33f3cb96a3ee17b9579fe917420bd0fb74e590e879c0db6513a5003",
+    "diagnostics": "ca4358aaf8b6dc6b6e858059836217253aa6178490cde4038d266c3933102ada"
+  },
+  "positives/lexical.md": {
+    "python": "6c3f25c66734dce1e6333295dc2811dd1b38bea8717605e44374b59dc94ae99e",
+    "validation": "24648160b71acdca5c39530f416443019f62f4bb77dd530d80cca38498738298",
+    "diagnostics": "ef0e225c121cb1a1b7030bee540389c3f7a5dc8290e11c98bd23ec4661c29d75"
+  },
+  "negatives/contrast.md": {
+    "python": "16f31aa9dfd38ea1aff94e4ba5536cb5c624526a9199742bc85d494ad6e0b6a7",
+    "validation": "ec1b437262ec34381245909c67848d503986eb2a212e49761f975e6265149479",
+    "diagnostics": "d1cc91b62771f0c391481b0803eb08a85a73175406f3041b32ff08eaac0635e7"
+  },
+  "negatives/x-not-y.md": {
+    "python": "b2940bd58435dfa65ca28f90c71663c2b8e405a5d95e7fd63a4d61d316965679",
+    "validation": "01f7950a283bdab93c4f9e2ef7b7b40217226bba7160f22959192002e14b2914",
+    "diagnostics": "53b7416fd2ca5ccd872669d036db63fecf9503425a74ca6158a709e48717e848"
+  },
+  "negatives/rather-than.md": {
+    "python": "01256bdd041ad98aaf5a117fc4befb1c38120e160f9c4f44f3ad20a55bf8fe34",
+    "validation": "3990408301c2874dbd4d1e4f4c2c6438cd6b07234ded5dd9c92938738e36cc48",
+    "diagnostics": "1a8b854ece18110dfaaf57e64a5aafa9554c2b13572602eab75e4f4be371fc7e"
+  },
+  "negatives/mirrored.md": {
+    "python": "c1ad17cde528853ce903f50d50ed096d5eb6bc7e04c132672352c80ac8aca24b",
+    "validation": "4b713fdae03df0dfd0d55e9e92d728a5946a76891b24d1f684ae1a4e333a779f",
+    "diagnostics": "00bac00a19453400e22573dcc6f556331dc6c89c5c6f3acd2cd84e1d32803f71"
+  },
+  "negatives/endings.md": {
+    "python": "cec3236e1e06df5270966f2e75ed774e157e35bfd4baaaa08a8a8f400a92fe16",
+    "validation": "80f07f97eed050cba14965b4a941602cbc3ef39e7a9af202916089a702a230dd",
+    "diagnostics": "b1d905042a495dc98775bf91bed969033173590326ed665c68756c1c95432d0e"
+  },
+  "negatives/colons.md": {
+    "python": "d08ab385d830f78347ceef36b981e5c90713d4c1e13b32b82a2aad9b00263378",
+    "validation": "e8f8eb827ef0bab1e651b632f41b0f4919b69a75e4ee54cd624ddbb4fb7f5a2c",
+    "diagnostics": "c292be4b590c5a51511619d60a819c89afedd1f70d392e4c5ee25535120034ff"
+  },
+  "negatives/fragments.md": {
+    "python": "96e2a5a80d08c0abadbc4518e7b31168744ab2e644fe15035876ac43aabb6f49",
+    "validation": "02ca0c99050f0a9a7c162ec55611ee96bde41c5a08dc7ac7e2b6c6dfe6cb15f5",
+    "diagnostics": "94b07ad59cd26183515aadd47b38230438c9bea329908bec63b1a48d17464405"
+  },
+  "negatives/labels.md": {
+    "python": "a25265b94c6913d1bb4d00ab94b6cffde99eb61f7e2f3fef1c5a1bcf35c2422a",
+    "validation": "e00b249f29c27c50c8d50b48a7c321261960339b5f82fa2174e1cd3e0562d3f9",
+    "diagnostics": "eb8fd5b51480655f1b6abe5153a36ad27c69993511369e8a1f387bcb7821e6d3"
+  },
+  "negatives/throat.md": {
+    "python": "226a733b75cef6fc632256e885078c22b2c3a79f2d9ee4f682dc5ec28ddac12e",
+    "validation": "6493cedb5586b27d71fa7797ffdb77f49b638dc4b85cee7efbc4ca34041b925c",
+    "diagnostics": "ed1151e6c512d5f05abe2219471ca97004797def85930bb0bce0f478f14f8be4"
+  },
+  "negatives/engagement.md": {
+    "python": "eb52213c323e0355bdf4638943da6e33f89d49e7ea50e550f22da8d78a2d79ee",
+    "validation": "a2c5767413f763d68fceae13445e6ffca126b1c102ff2a564086e43ad9d97c4a",
+    "diagnostics": "5b6f15282a29211e1e9f8daf764b866a0ffac3ee32d6d3cee43624a6032af8e6"
+  },
+  "negatives/lexical-1.md": {
+    "python": "73be18f0365c26476398bb6fa80f1811d34229b8051e3b873ad64145755359be",
+    "validation": "fb5cf2ebe6a4f53674b2c66409d6eeb1a1b5ae9109e6d1479dd3ae345171aa35",
+    "diagnostics": "649b54ec0f6c1783c2faa77f0430f2e121f71be14ab204b39cbb905ac43c5da3"
+  },
+  "negatives/lexical-2.md": {
+    "python": "809f5204f0456f928111ed7798cf7f982439a033eca23c54e43d667fc4b1e15c",
+    "validation": "cf720f23ea191672c5580d482ca096d2f6c3e26f62dfe205ea20a4551043b4ef",
+    "diagnostics": "2d542d9ed77eeb77628e26065b9e87ab7339d0ae442a8e8bf4209577f5c2a7ab"
+  },
+  "negatives/lexical-3.md": {
+    "python": "809f5204f0456f928111ed7798cf7f982439a033eca23c54e43d667fc4b1e15c",
+    "validation": "3f9876f98ea8c66863346209eab56b6e31db1057811829135b67dc6abda31667",
+    "diagnostics": "353e20e50fb1012cd708ee8efe3ecba93326799f75fc94573c5a9e0aacfeadaa"
+  },
+  "negatives/markdown.md": {
+    "python": "8ca6ff4de316f4c01b068ece9c313e4a473874a28aac0e204d54baf56b320980",
+    "validation": "3926859f243fa0b950ebc908977ced0eb977fa70aa38501d210ee0eed8cb56b5",
+    "diagnostics": "1183bf643b67922f22c1842cc5e79b695bad3992110b9c7706b8f0c7fbcfb7de"
+  },
+  "negatives/passives.md": {
+    "python": "09c9d9493496bd3f10fba32caa4acbb78dd9a3c76b18abac89a8c71ec10d8cde",
+    "validation": "71913cafab11806be3012f6854f1a8975ef869185bcbe86725db35144beec5e7",
+    "diagnostics": "334df9a4516e97512dae8ba1025746080fc869f5f054906b4286878b45649e55"
+  },
+  "campaign/x-thread.md": {
+    "python": "0a4436d2f62fa745ea4909260490041d35994bb7e501fba0b39fd3401b277045",
+    "validation": "efbdd75bd8b3452b1b4d2497b4aafb7831a492a929a4597ad5467ee456d3019d",
+    "diagnostics": "7d246f0e704a489aa5439626d62cf4355144996a33b5376824f0a9ab8bf79e93"
+  },
+  "campaign/linkedin.md": {
+    "python": "0a4436d2f62fa745ea4909260490041d35994bb7e501fba0b39fd3401b277045",
+    "validation": "2a0af7621220cedac60e0d5f8309881256b85a8a0c590bed4e4d15424b431f92",
+    "diagnostics": "0ebc7155b34c6c8fe33d6c4ab09e80cf6ec995f72a84e61b8e5153016a7ee63a"
+  },
+  "campaign/telegram.md": {
+    "python": "b4246fd7e45c0d1d10a00927b07139f3e4c544dea35c01d00e821482d4b782a3",
+    "validation": "b2b095c4d2cf8820d2980fdba3791d58065fea892bdb0358a68835e5d0d7ac57",
+    "diagnostics": "52e024ee6748753e7ad1da236b9e5cba0a57adce828d95fccdc45472760dd0d7"
+  },
+  "negatives/cross-clean/a.md": {
+    "python": "d08ab385d830f78347ceef36b981e5c90713d4c1e13b32b82a2aad9b00263378",
+    "validation": "9d6c72b16ad3253fd63ce385542bb1bc48f00c2dc9501886522a7f928a7207bc",
+    "diagnostics": "398b3720d968a7ad835d8f773bbb662cb0e6b66c227b09a4e39d2c1b9869ca7f"
+  },
+  "negatives/cross-clean/b.md": {
+    "python": "d3668418a006bd546100f9d567a0b6d4ecc30dadaeb0926a34314ab592d701c7",
+    "validation": "be8c4dd7da1be800e373143f8b8cff650d726eab4e859278c4b252ae4ecf3da8",
+    "diagnostics": "63d2f30d8b70a7cc67e122a573f811b1c4c9da298e67c7aa9fe55461ea6e1a31"
+  },
+  "negatives/cross-clean/c.md": {
+    "python": "850b235a1e46589e1dc271ab884e2c1d1373a26b87edfddf301418ccea17d054",
+    "validation": "028be005b0f4f223eda61f54c0600088b65fb8e0258eb1d0332ae4d6a091630f",
+    "diagnostics": "2decced3b5213c22d817aaf27d1a551b62a0cfb647c179409432c7e56b6afb15"
+  },
+  "campaign-phrase/x.md": {
+    "python": "d14825ba341c4c7121c7f852289cb812d4406ce079735ce81814480b63133ed5",
+    "validation": "70f638e4943d8158e3516e12b636910c2da854e4c26b26c586af0e396860d423",
+    "diagnostics": "629185fe6aa778d43ca116c6bfdd2df93d1ec3bd46d62d3c182f526c69fae1ac"
+  },
+  "campaign-phrase/linkedin.md": {
+    "python": "226a733b75cef6fc632256e885078c22b2c3a79f2d9ee4f682dc5ec28ddac12e",
+    "validation": "a5f61ad0e442f304716a4df976188ef3974e54b07ca47f4408997188c8f8d4ea",
+    "diagnostics": "5dba3ab711242da7ad9ed45ffcb46f2ec262be7f4d431f2215b2fedbbef2dff2"
+  },
+  "campaign-phrase/telegram.md": {
+    "python": "226a733b75cef6fc632256e885078c22b2c3a79f2d9ee4f682dc5ec28ddac12e",
+    "validation": "934414298eff1c0b95256209b48a24c6e4865e7736a5e88299b4e1a910ec194b",
+    "diagnostics": "d475e0d117010b78f4b3c23ece87a1fcfa9ff00e063e7841569d772a28ba81dd"
+  },
+  "negatives/list.md": {
+    "python": "8ca6ff4de316f4c01b068ece9c313e4a473874a28aac0e204d54baf56b320980",
+    "validation": "45ec339e238f15aba7353df65e9562bd9db7153e0cde9a4e4e057ac6e59c50b0",
+    "diagnostics": "cbbd556c761bdda81cde42b3be69e96deacba83a575e8d1229f886067326adb8"
+  },
+  "positives/negate-assert.md": {
+    "python": "61344efef689f2a22f519e4c313c4f1ea2b39ec09cded38593d896643646f17a",
+    "validation": "ef2a2b7a30d06c974f0111f67c772b6d1bb8e8890955d281f9dccb89f1443bbc",
+    "diagnostics": "592a2701ab112d018f78224b0329abc6a0b4303ede0ed341939777753a5d304e"
+  },
+  "positives/antithesis.md": {
+    "python": "f5eaebac1c8a06bf0276f5fe164a709c49b7dc2b7d6579f7145f0aef6e78d5ef",
+    "validation": "bd1a129097a351fff29da2e8ac357b359f1f1990d625e566326f998c20093d36",
+    "diagnostics": "958c896bae6a225b99dff2d8659f5bab1e4688f87a24dd793871bfedf61c1481"
+  },
+  "negatives/negate-assert.md": {
+    "python": "16f31aa9dfd38ea1aff94e4ba5536cb5c624526a9199742bc85d494ad6e0b6a7",
+    "validation": "ec1b437262ec34381245909c67848d503986eb2a212e49761f975e6265149479",
+    "diagnostics": "d1cc91b62771f0c391481b0803eb08a85a73175406f3041b32ff08eaac0635e7"
+  },
+  "negatives/antithesis.md": {
+    "python": "c1ad17cde528853ce903f50d50ed096d5eb6bc7e04c132672352c80ac8aca24b",
+    "validation": "4b713fdae03df0dfd0d55e9e92d728a5946a76891b24d1f684ae1a4e333a779f",
+    "diagnostics": "00bac00a19453400e22573dcc6f556331dc6c89c5c6f3acd2cd84e1d32803f71"
+  },
+  "positives/asides.md": {
+    "python": "20590e204564c66ee14f78eca5418579853f02eedfce254af9b612e80c05b227",
+    "validation": "14d603d877da8ae5363f1551d77ee70c5028cedf869f70cb4ef984ce8ede640f",
+    "diagnostics": "3397cb87597093eb09bdeccf52643737358ca9b9717b3d894bb76a6595621fd9"
+  },
+  "negatives/legacy-regions.md": {
+    "python": "73be18f0365c26476398bb6fa80f1811d34229b8051e3b873ad64145755359be",
+    "validation": "18645cbc75a0c2111bf2526748b5239dfe9673f83bd068b43de16c484fcb84fc",
+    "diagnostics": "abb426b6631f844ece59591b01fb3e07c2a47660750d5107dc52a0554ee18905"
+  }
+}

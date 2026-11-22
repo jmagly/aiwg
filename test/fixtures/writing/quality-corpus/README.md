@@ -262,3 +262,21 @@ Regression demonstration: removing the validation allowance for
 fails. The suite also checks the comparator against a new negative flag and a
 fixed-but-listed gap. Remaining misses retain their original issue tags and have
 explicit precision reasons; new unexpected findings remain disallowed.
+
+### Optional judgment pass (#4137)
+
+The deterministic baseline is now 49/56 per surface (the comparative fragment
+and simple imperative reveal were recovered after the earlier results above).
+`known-gaps.json` stays unchanged at seven misses per surface.
+`structural-judgment.test.ts` supplies seven explicit editorial yes answers to
+an offline decision stub: all 56 annotations are then detected, with zero
+findings on all 22 wholly negative files. It also checks rejected/unavailable
+judgments, candidate and question parity, protected contexts, author exceptions,
+provider sampling through `askDecision()`, and the Python CLI bridge.
+
+`../deterministic-output-sha256.json` captures SHA-256 of the serialized full
+single-file reports from all three surfaces before the judgment implementation.
+The disabled test compares every report byte for byte through those hashes,
+including campaign fixture documents scanned individually. Campaign findings
+are independently checked by the existing corpus adapter with group isolation.
+The hashes are a compatibility baseline, not a live model accuracy claim.

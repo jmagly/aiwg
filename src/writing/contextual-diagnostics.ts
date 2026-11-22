@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
-import { scanCurrentPatterns, type PatternTier } from './current-patterns.js';
+import { scanCurrentPatterns, type PatternTier, type CurrentPatternFinding } from './current-patterns.js';
+import { modelAssistedPatterns, type WritingJudgmentOptions } from './structural-judgment.js';
 import { maskProse, protectedRegions } from './prose-mask.js';
 import { scanCampaignPatterns, type CampaignFinding } from './campaign-patterns.js';
 
@@ -32,7 +33,7 @@ export interface ContextualDiagnostic extends WritingSpan {
   suggestion: string;
   authority: 'advisory' | 'user';
   /** A heuristic match is not calibrated statistical confidence. */
-  confidence: { kind: 'heuristic'; calibrated: false };
+  confidence: { kind: 'heuristic'; calibrated: false } | { kind: 'model-assisted'; value: number; calibrated: false };
   resolution: 'review' | 'retained';
   reason?: string;
   tier?: PatternTier;
@@ -111,7 +112,20 @@ export function diagnoseWriting(content: string, options: DiagnosticOptions = {}
   return diagnoseDocument(content, options);
 }
 
-function diagnoseDocument(content: string, options: DiagnosticOptions, priorParagraphs = new Map<string, string>(), documentId = '', campaign: CampaignFinding[] = []): ContextualDiagnosticResult {
+/** Async callers may request advisory judgments; the synchronous API remains deterministic. */
+export async function reviewWritingPatterns(content: string, options: DiagnosticOptions = {}, runtime: WritingJudgmentOptions = {}) {
+  const contexts = [...(options.contexts ?? []), ...protectedContexts(content), ...protectedRegions(content)];
+  if (contexts.some(s => !validSpan(s, content.length))) throw new Error('Invalid context span');
+  const prose = maskProse(content, contexts.filter(c => c.context !== 'prose' && (c.context !== 'quote' || options.contexts?.includes(c))).map(c => ({ ...c, context: 'code' as const })));
+  const assisted = (options.language ?? 'en').split('-')[0] === 'en' ? await modelAssistedPatterns(content, runtime, prose) : [];
+  return { assisted, result: diagnoseDocument(content, options, undefined, undefined, undefined, assisted) };
+}
+
+export async function diagnoseWritingAssisted(content: string, options: DiagnosticOptions = {}, runtime: WritingJudgmentOptions = {}): Promise<ContextualDiagnosticResult> {
+  return (await reviewWritingPatterns(content, options, runtime)).result;
+}
+
+function diagnoseDocument(content: string, options: DiagnosticOptions, priorParagraphs = new Map<string, string>(), documentId = '', campaign: CampaignFinding[] = [], assisted: CurrentPatternFinding[] = []): ContextualDiagnosticResult {
   const contentHash = writingContentHash(content);
   const language = options.language ?? 'en';
   const notices: string[] = [];
@@ -138,10 +152,11 @@ function diagnoseDocument(content: string, options: DiagnosticOptions, priorPara
   };
   // The shared scanner masks automatic quotations; explicit caller contexts stay protected.
   const current = language.split('-')[0] === 'en' ? scanCurrentPatterns(maskProse(content, contexts.filter(c => c.context !== 'prose' && (c.context !== 'quote' || options.contexts?.includes(c))).map(c => ({ ...c, context: 'code' as const })))) : [];
-  for (const f of [...current, ...campaign]) {
+  for (const f of [...current, ...campaign, ...assisted]) {
     const override = rules.get(f.ruleId);
     if (override?.enabled === false) continue;
     emit(f, override ?? { id: f.ruleId, phrase: '', authority: 'advisory', explanation: f.explanation, suggestion: f.suggestion, tier: f.tier }, 'prose');
+    if (f.modelAssisted) diagnostics.at(-1)!.confidence = { kind: 'model-assisted', value: f.confidence!, calibrated: false };
     if ('scope' in f) Object.assign(diagnostics.at(-1)!, { scope: f.scope, related: f.related });
   }
   for (const rule of rules.values()) {
@@ -196,6 +211,17 @@ export function diagnoseWritingBatch(documents: Array<{ id: string; content: str
     if (results.has(document.id)) throw new Error(`Duplicate document ID: ${document.id}`);
     const result = diagnoseDocument(document.content, options, seen, document.id, campaign?.get(document.id));
     results.set(document.id, result);
+  }
+  return results;
+}
+
+/** Keep deterministic campaign findings while adding local advisory judgments once per document. */
+export async function diagnoseWritingBatchAssisted(documents: Array<{ id: string; content: string }>, options: DiagnosticOptions = {}, runtime: WritingJudgmentOptions = {}): Promise<Map<string, ContextualDiagnosticResult>> {
+  const results = diagnoseWritingBatch(documents, options);
+  for (const document of documents) {
+    const assisted = (await diagnoseWritingAssisted(document.content, options, runtime)).diagnostics.filter(f => f.confidence.kind === 'model-assisted');
+    results.get(document.id)!.diagnostics.push(...assisted);
+    results.get(document.id)!.diagnostics.sort((a, b) => a.start - b.start || a.end - b.end || a.ruleId.localeCompare(b.ruleId));
   }
   return results;
 }
