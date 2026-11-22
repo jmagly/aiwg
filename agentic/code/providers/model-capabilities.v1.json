@@ -1100,7 +1100,7 @@
         "id": "factory-direct",
         "provider": "factory",
         "adapterVersion": "1",
-        "supportedVersions": "1.0.0",
+        "supportedVersions": "1.0.x",
         "runtimeDriver": "installed:factory",
         "catalogAdapter": {
           "kind": "file",
@@ -1150,7 +1150,7 @@
         "invocationProfiles": {
           "direct-shell": {
             "transport": "shell",
-            "supportedVersions": "1.0.0",
+            "supportedVersions": "1.0.x",
             "controls": {
               "model": {
                 "support": "unqualified",
@@ -1179,8 +1179,8 @@
               },
               "finalOutput": {
                 "support": "unqualified",
-                "mapping": "unavailable as a file target: no -o/output-file flag is documented for exec (-o/--output-format selects stream shape, not a destination); the final is the last type:\"result\" line of the captured --output-format stream-json stdout stream",
-                "evidence": "H: droid-cli 1.0.0 exec --help documents -o/--output-format <text|json|stream-json|stream-jsonrpc|acp> with no file-path argument; D: https://docs.factory.com/droid-exec/overview documents the terminal result object shape; unqualified until live evidence"
+                "mapping": "unavailable as a file target: no -o/output-file flag is documented for exec (-o/--output-format selects stream shape, not a destination); the final is completion.finalText or legacy result from the captured --output-format stream-json stdout stream",
+                "evidence": "H: droid-cli 1.0.0 exec --help documents -o/--output-format <text|json|stream-json|stream-jsonrpc|acp> with no file-path argument; D: https://docs.factory.com/droid-exec/overview documents the legacy result shape; #4362 records droid 1.0.0 completion.finalText on 2026-11-21; unqualified until operator approval"
               },
               "stdin": {
                 "support": "unqualified",
@@ -1223,7 +1223,7 @@
               "Unknown model, effort, permission or required step mappings block dispatch.",
               "Native MCP/client, MSP/ACP, gateway and conversation capabilities do not establish worker authority.",
               "--skip-permissions-unsafe is Ralph-loop legacy and never part of the direct profile.",
-              "The stream-json/json event vocabulary (assistant/user/tool_call/tool_result/hook/error/result) is doc-sourced (docs.factory.com), not help-verified; it never promotes qualification status beyond unqualified.",
+              "Droid 1.0.0 stream-json ends with completion.finalText (#4362, 2026-11-21); legacy result requires subtype success, is_error false and non-empty result. Any error event fails the stream. This never promotes qualification status beyond unqualified.",
               "There is no -o/output-file flag on exec: the final is read from the captured stdout stream, never a separate file.",
               "Auth is the Factory account (FACTORY_API_KEY or keyring) or a BYOK customModels entry in ~/.factory/settings.json whose apiKey is an env reference; the launch env must carry that variable (OPENROUTER_API_KEY is allowlisted; a BYOK key under another name blocks with Custom model apiKey references the environment variable ... which is not set). HOME locates ~/.factory/settings.json."
             ],

@@ -105,13 +105,14 @@ by reading custom-model settings.
 
 The bundled `direct-shell` invocation profile in
 `agentic/code/providers/model-capabilities.v1.json` is version-bound to
-`droid-cli 1.0.0`. The titan eval (2026-11-06) help-verified `--auto low`,
+`droid-cli 1.0.x`. The titan eval (2026-11-06) help-verified `--auto low`,
 `-m`, `-r`, `--cwd` and `-o stream-json`. The stdin brief was echoed as the
 first stream-json message. That eval's built-in-model inference returned
 `402 No active subscription`; the later BYOK run above uses a separate custom
-model route. The direct profile stays `unqualified`. The terminal result
-vocabulary remains documentation-sourced (`D`); help and stdin evidence (`H`)
-do not establish successful inference. The adapter
+model route. The direct profile stays `unqualified`. Issue #4362's titan
+smoke (2026-11-21, Droid 1.0.0) observed a terminal `completion` event with
+`finalText: "factory-smoke-ok"`; the adapter also accepts the documented
+legacy `result` success shape. The adapter
 (`tools/ralph-external/lib/factory-adapter.mjs`) renders:
 
 ```
@@ -127,38 +128,58 @@ entirely, since the CLI's own no-flags default already is read-only.
 
 ## Manual smoke run
 
-The conductor runs this once, by hand, after `droid` is installed and
-`FACTORY_API_KEY` is exported in the environment, to record a pass/fail and
-the observed CLI version on the tracking issue. It is not part of default CI
-and performs exactly one live, billable call.
+The conductor runs this once on titan after explicit approval for the live
+call. Use an existing BYOK custom model and the operator's loader to supply
+`OPENROUTER_API_KEY` to the Droid child only, following the key-injection
+guidance above. No Factory subscription is required for this route;
+`FACTORY_API_KEY` alone does not supply OpenRouter inference access.
+Built-in plan models can fail with `402 No active subscription found`.
+This is not part of default CI and performs one live, billable call.
+
+Run from the AIWG checkout, with the confirmed selector for the installed
+custom model. The example assumes the operator's loader already scopes the
+key to the child environment. BYOK effort is not applicable, so omit `-r`.
 
 ```sh
-d=$(mktemp -d) && cd "$d" || exit 1
-MODEL="gpt-6-luna"
+AIWG_ROOT=$(pwd)
+d=$(mktemp -d)
+MODEL="custom:AIWG-OpenRouter-Qwen-3.8-27B-0"
+droid --version
 echo 'Reply with exactly: factory-smoke-ok' \
-  | droid exec --auto low -m "$MODEL" -r low --cwd "$d" \
-    --output-format stream-json ; echo "exit=$?"
+  | droid exec --auto low -m "$MODEL" --cwd "$d" \
+    --output-format stream-json > "$d/stdout.jsonl" 2> "$d/stderr.txt"
+status=$?
+cat "$d/stdout.jsonl"
+cat "$d/stderr.txt" >&2
+echo "exit=$status"
+test "$status" -eq 0 || exit 1
+node --input-type=module - "$AIWG_ROOT" "$d/stdout.jsonl" <<'JS'
+import { readFileSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
+const { FactoryDirectAdapter } = await import(pathToFileURL(
+  `${process.argv[2]}/tools/ralph-external/lib/factory-adapter.mjs`));
+const final = new FactoryDirectAdapter().parseOutput(readFileSync(process.argv[3], 'utf8'));
+if (final?.result?.trim() !== 'factory-smoke-ok') process.exit(1);
+console.log(`adapter-final=${final.result.trim()}`);
+JS
 ```
 
 ### Reading the result
 
-- **Exit code**: `echo "exit=$?"` must print `exit=0`. Any non-zero exit is a
+- **Exit code**: the command must print `exit=0`. Any non-zero exit is a
   fail.
-- **A terminal `result` line on stdout, with the same affirmative rule the
-  adapter's `observeHealthEvent` enforces**: `--output-format stream-json`
-  writes newline-delimited JSON objects to stdout. Grep the captured output
-  for the terminal line: `... | grep '"type":"result"'`. Success requires
-  ALL of: the line parses as JSON with `"type":"result"`; `"subtype"` is
-  exactly `"success"` (an `"interrupted"`, `"error_during_execution"`, or
-  missing/unknown subtype is a fail even if other fields look clean);
-  `"is_error"` is exactly `false` (not merely absent or non-`true`); and
-  `"result"` is present and non-empty. A standalone `"type":"error"` line
-  anywhere in the stream is also a fail, even alongside an otherwise-clean
-  terminal line. A clean exit code alone is never sufficient.
-- **`"result"` text**: the terminal line's `result` field should contain
-  `factory-smoke-ok`.
+- **Terminal stdout event**: Droid 1.0.0 emits `{"type":"completion",
+  "finalText":"factory-smoke-ok",...}`. `finalText` must be a non-empty
+  string. Legacy `result` events require `subtype: "success"`,
+  `is_error: false`, and a non-empty `result` string. An `error` event
+  anywhere, malformed JSON, or an unsuccessful terminal fails the stream.
+- **Adapter extraction**: the command must print
+  `adapter-final=factory-smoke-ok` and exit zero. Both terminal shapes
+  normalize their answer to the adapter's `result` field.
 
 Record the installed `droid --version` output, the command above, and the
-pass/fail outcome (exit code + terminal `result` line contents) on the
-tracking issue. This manual run is evidence only; it never marks the
+pass/fail outcome (exit code, terminal event and adapter extraction) on #3005.
+Tick its Factory row only after this updated smoke passes. The worker for
+#4362 used offline fixtures; the live rerun and tracker update remain
+deferred to the conductor. This manual run is evidence only; it never marks the
 registry profile as qualified for automated dispatch.

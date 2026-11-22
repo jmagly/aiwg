@@ -3,7 +3,7 @@ import { chmod, copyFile, mkdir, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 
 export async function copyWorkerAdapterRuntime(base, packageRoot) {
-  for (const name of ['provider-adapter.mjs', 'worker-health.mjs', 'strict-worker-json.mjs', 'session-attempt.mjs']) {
+  for (const name of ['provider-adapter.mjs', 'worker-health.mjs', 'strict-worker-json.mjs', 'session-attempt.mjs', 'factory-stream-final.mjs']) {
     const destination = join(packageRoot, 'lib', name);
     await copyFile(resolve('tools/ralph-external/lib', name), destination);
     await chmod(destination, 0o644);

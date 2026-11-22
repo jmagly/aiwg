@@ -115,6 +115,12 @@ const line = (event) => process.stdout.write(`${JSON.stringify(event)}\n`);
 const jsonStream = outputFormat === 'stream-json' || outputFormat === 'json';
 
 switch (scenario) {
+  case 'completion': {
+    // #4362: exact reported terminal fields; identifiers/time are synthetic.
+    if (jsonStream) process.stdout.write(readFileSync(new URL('./completion-1.0.0.ndjson', import.meta.url), 'utf8'));
+    process.exit(0);
+    break;
+  }
   case 'success': {
     if (outputFormat === 'stream-json') {
       line({ type: 'assistant', session_id: SESSION, text: 'synthetic reply' });

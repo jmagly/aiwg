@@ -5,7 +5,8 @@
     "test/unit/models/factory-project-models.test.ts"
   ],
   "T-OG-03": [
-    "test/conformance/orchestration-v1/factory-direct.test.ts"
+    "test/conformance/orchestration-v1/factory-direct.test.ts",
+    "test/unit/ralph-external/factory-completion.test.ts"
   ],
   "T-OG-15": [
     "test/conformance/orchestration-v1/factory-direct.test.ts",

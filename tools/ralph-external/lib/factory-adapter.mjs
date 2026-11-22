@@ -24,6 +24,7 @@
 
 import { ProviderAdapter, registerProvider } from './provider-adapter.mjs';
 import { classifyWorkerHealthFailure, healthEventMatchesBinding } from './worker-health.mjs';
+import { factoryTerminalResult, parseFactoryDirectFinal } from './factory-stream-final.mjs';
 
 /** Model mapping from generic names to Factory/Droid model IDs */
 const MODEL_MAP = {
@@ -46,7 +47,10 @@ const MODEL_MAP = {
  * `--cwd` and `-o/--output-format` are all `exec`-level flags on 1.0.0
  * `exec --help`. There is no file-output flag (`-o` selects the *format*,
  * not a destination path): the final is read from the captured stdout
- * stream instead, never a separate file. There is no positional `prompt`
+ * stream instead, never a separate file. Droid 1.0.0's observed terminal
+ * is `completion` with non-empty `finalText` (#4362, 2026-11-21); the
+ * documented legacy `result` success shape remains accepted. The catalog
+ * bounds this direct profile to 1.0.x. There is no positional `prompt`
  * requirement either — `exec --help`'s own Examples show
  * `echo "analyze code" | droid exec` and `cat prompt.txt | droid exec --auto
  * medium` with no `prompt` argument at all, so omitting the positional and
@@ -96,7 +100,7 @@ const MODEL_MAP = {
  * Ralph-loop registry only; the direct worker profile loads through the
  * installed loader.
  */
-export const FACTORY_SUPPORTED_VERSIONS = Object.freeze(['1.0.0']);
+export const FACTORY_SUPPORTED_VERSIONS = Object.freeze(['1.0.x']);
 /** Union of every reasoning-effort label observed across models in
  * `exec --help`'s "Model details" section (including `none`, the sole
  * level for "Auto Model" and one of the levels for GPT-6 Sol/Luna and
@@ -137,8 +141,8 @@ const FACTORY_RESERVED_MODEL_VALUES = Object.freeze(['auto']);
 export class FactoryAdapter extends ProviderAdapter {
   /**
    * Doc-sourced `assistant`/`user`/`tool_call`/`tool_result`/`hook`/`error`/
-   * `result` vocabulary (module doc above). No session-start event is
-   * evidenced, so the handshake stays `process-only`; a standalone `error`
+   * `result` plus observed `completion` vocabulary (module doc above).
+   * The handshake stays `process-only`; a standalone `error`
    * event is fatal exactly like a `result` with `is_error: true`, so a later
    * clean terminal can never paper over it. Session exports and another
    * provider's event names cannot qualify this grammar.
@@ -158,10 +162,8 @@ export class FactoryAdapter extends ProviderAdapter {
   observeHealthEvent(event, source, binding) {
     if (source?.kind !== 'stdout' || !event || typeof event !== 'object' || typeof event.type !== 'string') return null;
     if (!healthEventMatchesBinding({ sessionId: event.session_id }, binding)) return null;
-    if (event.type === 'result') {
-      const hasResultContent = typeof event.result === 'string' && event.result.trim().length > 0;
-      const success = event.subtype === 'success' && event.is_error === false && hasResultContent;
-      return { kind: 'terminal', success, key: event.subtype ?? 'result' };
+    if (event.type === 'result' || event.type === 'completion') {
+      return { kind: 'terminal', success: factoryTerminalResult(event) !== null, key: event.subtype ?? event.type };
     }
     if (event.type === 'error') {
       return { ...classifyWorkerHealthFailure({ type: 'error', message: event.message ?? event.error?.message }, { source, provider: 'factory' }),
@@ -251,30 +253,13 @@ export class FactoryAdapter extends ProviderAdapter {
    * `result` line that is not the documented success shape (`subtype ===
    * 'success'`, `is_error === false`, non-empty `result`) rejects the whole
    * stream. A later success never replaces an earlier failure, and an error
-   * after a success is never ignored. Returns the last successful `result`.
+   * after a success is never ignored. Also accepts the observed 1.0.0
+   * `completion.finalText`, normalized to `result` for claims extraction.
    * @param {string} stdout
    * @returns {Object|null}
    */
   parseDirectFinal(stdout) {
-    if (typeof stdout !== 'string' || !stdout.trim()) return null;
-    let final = null;
-    for (const line of stdout.split('\n')) {
-      const trimmed = line.trim();
-      if (!trimmed) continue;
-      let event;
-      try {
-        event = JSON.parse(trimmed);
-      } catch {
-        return null;
-      }
-      if (!event || typeof event !== 'object' || Array.isArray(event)) return null;
-      if (event.type === 'error') return null;
-      if (event.type !== 'result') continue;
-      const hasResultContent = typeof event.result === 'string' && event.result.trim().length > 0;
-      if (!(event.subtype === 'success' && event.is_error === false && hasResultContent)) return null;
-      final = event;
-    }
-    return final;
+    return parseFactoryDirectFinal(stdout);
   }
 
 
