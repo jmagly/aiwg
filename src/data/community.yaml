@@ -8,9 +8,9 @@ channels:
     url: https://discord.gg/BuAusFMxdA
     cta: Join the Discord
   - id: telegram
-    name: Telegram
-    url: https://t.me/+oJg9w2lE6A5lOGFh
-    cta: Join the Telegram
+    name: AIWG Telegram foyer
+    url: https://t.me/joinaiwg
+    cta: Visit the AIWG Telegram foyer (verify, then get an invite)
 star_cta:
   short: Star AIWG on GitHub
   long: If AIWG saved you time, a star at github.com/jmagly/aiwg helps others find it.

@@ -1111,7 +1111,7 @@ Package invariants include:
 - [GitHub issues](https://github.com/jmagly/aiwg/issues)
 - [Discussions](https://github.com/jmagly/aiwg/discussions)
 - [Discord](https://discord.gg/BuAusFMxdA)
-- [Telegram](https://t.me/+oJg9w2lE6A5lOGFh)
+- [AIWG Telegram foyer](https://t.me/joinaiwg) (verify, then get an invite)
 - [AIWG website](https://aiwg.io)
 
 For a security vulnerability, follow
