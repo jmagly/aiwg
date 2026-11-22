@@ -7,12 +7,49 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
 
 ## [Unreleased]
 
+## [2026.11.9] - 2026-11-22
+
 ### Changed
 
-- Writing review adds optional model-assisted judgments for mirrored predicates, colon reveals and three-fragment runs through the existing decision engine. Confident yes answers carry a model-assisted label and confidence; disabled, unavailable and low-confidence judgments preserve deterministic output. Offline corpus coverage is 56/56 with the stub, or 49/56 with judgment off, with zero findings on 22 wholly negative files (#4137).
-- Grok Build CLI qualification now includes Linux, simulated Windows PowerShell and WSL-path lifecycle tests, consistent safe home resolution, and a credential-free scheduled/release drift gate. Real Windows/WSL and live smoke remain deferred; the adapter stays experimental and distinct from Grok Bot and Grok web Build (#2580).
-
+- **`aiwg use` now indexes by default.** Deploying a framework or addon registers its skills, agents and commands for `aiwg discover` / `aiwg show` instead of copying them into provider folders. Use `aiwg use <bundle> --copy` (or `--copy-all`) when you want provider copies; existing copies are kept until you review `aiwg remove <bundle> --dry-run`. `aiwg new` accepts the same `--copy` / `--copy-all` flags. Bundled extension safety rules (net, sys, sec, it, dev, stream) are still delivered for index-only deployments, and provider trust/acceptance next steps stay the last line of `aiwg use` output (#4279, #4343, #4340).
+- **Windsurf is now presented as Devin.** User-facing names, help, docs and status say Devin / Devin Desktop and `devin` is the canonical provider id. `--provider windsurf` remains a deprecated alias that deploys the same files, pre-buyout Windsurf installs are still detected, and AIWG keeps writing the `.windsurf/` paths Devin Desktop 3.14 still imports (rules, skills, `~/.codeium/windsurf/mcp_config.json`) (#4347). Native `.devin/` output is planned (#4359).
+- Grok Build follows the index-only default: `--copy` / `--copy-all` compile AIWG agents into `.grok/agents`, model-worker wrappers carry no `model:` (Grok selects models with `-m`), and the direct worker profile is pinned to Grok Build 1.0.77 (#2577).
 - Writing-quality and voice-framework guidance shares tiered structural examples and fixes, campaign reuse rules and a substance requirement for articles and how-tos. It removes manufactured casualness and fragment advice, links the existing dated lexical catalogue with quarterly review, and states punctuation, passive-voice and authorship limits (#4141, #4137).
+
+### Added
+
+- Writing review can confirm semantic structural patterns (mirrored predicates without listed antonyms, colon reveals, three-fragment runs) through the existing decision engine. The rule-based scanners propose candidates; with decision ask enabled, one bounded yes/no judgment per candidate turns confident answers into findings labelled model-assisted with their confidence. With decision ask off, output is unchanged (#4137).
+- Grok Build qualification: Linux and simulated Windows PowerShell/WSL lifecycle tests (install, update, deploy, verify, refresh, uninstall), safe cross-platform home resolution, ACP contract tests replaying a live `grok agent stdio` capture, worktree ownership metadata, secret-gated live smoke tooling, and a credential-free Gitea workflow that enforces the stable-promotion contract and checks upstream drift weekly. Real Windows/WSL hosts and authenticated live qualification remain deferred (#2577, #2580).
+- The Grok Build session importer rejects symlink-escaping `GROK_HOME` roots and fails closed on unknown CLI output (#2578).
+- DeepSeek Harness workers can use an opt-in OpenRouter route through the bundled `dsh-llm-pi-ai` plugin; only the `OPENROUTER_API_KEY` variable name is allowlisted (#4313).
+- A Nix development shell (`flake.nix`) for running builds and tests (#4298).
+- Marketplace search covers public sources with an explicit refresh and a coverage report (#4308).
+
+### Fixed
+
+- `aiwg index query --fulltext` on the default Fortemi Core backend no longer skips files larger than 256 KiB; sync stores full source bodies and reports size omissions. Run `aiwg index sync` to pick up large files in existing indexes (#4352).
+- Cursor workers stay usable after cursor-agent self-updates: builds from 2026.11.13 onward are supported, newer-than-tested builds warn with the re-smoke command, older builds still block (#4306).
+- The Antigravity worker profile works with agy 1.5.10+: effort maps onto agy's effort-suffixed Gemini 4 model ids and stdin uses the structured message envelope (#4348).
+- The Factory worker profile recognizes droid 1.0.0's `completion` terminal event (#4362).
+- DeepSeek Harness worker patches always activate a matching permission preset (#4313).
+- On Windows, doctor's discovery self-probes and the refresh health check work when Node is installed under a path with spaces such as `C:\Program Files\nodejs` (GitHub #437).
+- `aiwg status` and its probe agree on deployment health, include a staleness check against the running version, stop counting `.aiwg-manifest.json` as an artifact, and list every configured provider including muse (#4316, #4317, #4318, #4319).
+- `aiwg refresh` restamps current managed agents and commands to the running version (#4320).
+- The duplicate prompt-hook warning fires only for a global loader that does not defer, and only for Claude (#4324, #4315).
+- Doctor counts only the Claude skills that are listed, and muse can clear its flagship-inheritance warning (#4314, #4325).
+- Discovery ranks a skill first when the request names it, including long, typo-filled requests and project-local skills (#4321, #4301).
+- The steward agent reads the active provider from `runtime-info`, and `aiwg issues --help` prints real help (#4322, #4323).
+- `aiwg new` is safe to probe, and config and workspace-context help is documented (#4278).
+- Doctor scopes blocking group diagnostics to the CLI passed with `--cli` (#4296); repository access reads itops workspace specs (#4303); release notes that name context files are treated as descriptive by the security scanner (#4299).
+
+### Security
+
+- hono and @hono/node-server bumped to clear Dependabot alerts; the unpatched picomatch ReDoS is accepted with an expiring baseline entry (#4294, #4292).
+
+### Testing and CI
+
+- Test isolation fixes so results do not depend on host load: workspace-command fixtures out of the source tree, Cursor probe records and `aiwg new` copy-flag temp files out of the temp root, and offload snapshot tests no longer race the intentional recording deadline (#4346, #4361, #4344, #4247).
+- New Gitea workflow `grok-build-qualification.yml` (free; no secrets or paid calls).
 
 ## [2026.11.8] - 2026-11-17
 

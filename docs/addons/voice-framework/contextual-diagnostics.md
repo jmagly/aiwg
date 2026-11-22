@@ -4,6 +4,33 @@
 
 Your assistant can use the diagnostics API to return located findings and record author-reviewed span exceptions.
 
+## Shared structural editing rules
+
+Profiles inherit the [shared structural rules](https://github.com/jmagly/aiwg/blob/main/agentic/code/addons/writing-quality/patterns/common-ai-tells.md)
+and [review checklist](https://github.com/jmagly/aiwg/blob/main/agentic/code/addons/writing-quality/validation/banned-patterns.md).
+Review negate-then-assert frames, mirrored pairs, moral endings, labelled
+significance, asserted importance and definition openings, effect triads,
+summary closers, colon reveals, fragment runs, faux-casual quips,
+throat-clearing and engagement bait in context. Tiers prioritize edits; they
+are not authorship detection or automatic publication gates.
+
+Campaign review covers thesis lines across channels, release openers and
+closers, recycled jokes and signature moves used as lede formulas. The substance
+requirement for articles and how-tos asks for a usable configuration, command,
+prompt, script or result. Never invent missing supporting material.
+These general guidelines require editorial judgment beyond scanner coverage.
+
+The diagnostics include local contrasts and significance labels, adjacent
+mirrored sentences, explicit moral endings, fragment runs and colon reveals.
+`diagnoseWritingBatch(documents, { cross: true })` adds repeated sentences,
+phrases and opening/closing skeletons across a supplied campaign. See the
+[scanner coverage and limits](https://github.com/jmagly/aiwg/blob/main/agentic/code/addons/writing-quality/README.md#current-scanner-coverage-november-2026)
+for thresholds and known residuals. Keep factual negations and useful summaries
+when they serve the reader. Em dashes, colons, semicolons, passive voice, plain
+transitions and real lists are not problems on their own. The existing
+[dated lexical catalogue](https://github.com/jmagly/aiwg/blob/main/agentic/code/addons/writing-quality/skills/ai-pattern-detection/references/current-patterns.json)
+is reviewed quarterly; word choice alone does not establish quality.
+
 ## Command reference
 
 The JavaScript package exports `diagnoseWriting`, `diagnoseWritingBatch` and
@@ -49,64 +76,34 @@ Intentional punctuation and necessary uncertainty are not banned patterns.
 
 Repetition review covers adjacent duplicate words, separated identical
 paragraphs and identical paragraphs across documents. It does not establish
-semantic redundancy or detect all sentence skeletons by default. Use `repetition:word`
+semantic redundancy or detect all sentence skeletons. Use `repetition:word`
 and `repetition:paragraph` overrides or reasoned span exceptions to retain
 intentional repetition. Batch results are keyed by unique document ID and use
 the same located-finding/exception contract. Do not put personal content in IDs;
 cross-document explanations include the relevant ID.
 
-## Structural and campaign review
+## Optional model-assisted structural review
 
-All three shipped surfaces (Python scanner, validation and contextual diagnostics)
-share the corpus contract for moral endings, colon reveals, fragment runs and
-mirrored sentences. The [addon catalogue](../../../agentic/code/addons/writing-quality/skills/ai-pattern-detection/references/current-patterns.json)
-records thresholds and tiers. These run on masked prose and retain source offsets:
-TypeScript spans are UTF-16 code units, Python positions and columns count Unicode
-code points; positions start at zero and columns/lines at one. The same units
-apply to structural/campaign findings and related source lines.
+`await diagnoseWritingAssisted(content, options)` and
+`await diagnoseWritingBatchAssisted(documents, options)` add a bounded judgment
+pass for loose mirrored predicates, colon reveals and three short fragments.
+The existing synchronous APIs remain deterministic. Validation and
+`aiwg writing --cross` use the asynchronous path. The Python scanner uses the
+same questions through `aiwg decision ask`.
 
-```js
-const results = diagnoseWritingBatch([
-  { id: 'linkedin', content: linkedinText },
-  { id: 'telegram', content: telegramText },
-  { id: 'x-thread', content: threadText },
-], { cross: true });
-```
+The existing decision opt-in, sampling defaults and fallback policy apply; no
+writing configuration is added. Only an answered yes with finite confidence at
+least 0.8 becomes a finding, with
+`confidence: { kind: 'model-assisted', value, calibrated: false }`.
+These are advisory editing signals; exceptions, protected contexts, disabled
+rules and author decisions still apply. Section headings accompany the masked
+paragraph so a judgment can distinguish prose beats from runbook statuses.
 
-Campaign mode reports six-word repeated sentences, eight-word phrase runs shared
-by three documents, and three-word opening/closing forms shared by three documents.
-Only skeleton comparison normalizes numbers and versions. Findings include
-`scope: "cross"` and `related` document IDs/lines; every affected occurrence is
-reported. Existing overrides and reasoned exceptions apply by rule ID and span.
-Explicit protected context spans also apply before comparison. Campaign IDs are
-caller-provided labels and should not contain private content.
-
-Fragment review excludes questions and runs made entirely of one identical
-sentence; exact repetition is handled by campaign comparison. This preserves
-questionnaire punctuation and keeps repetition distinct from staccato rhythm.
-
-Use `aiwg writing --cross [--json] <file-or-dir>...` for the same review, or
-`WritingValidationEngine.validateBatch(files, context, { cross: true })` for legacy
-validation output with campaign findings included in issue summaries. The Python
-scanner supports `--cross [--report] <file-or-dir>...` (JSON by default).
-Directory scans include Markdown files recursively. Supply a single campaign;
-unrelated releases can repeat legitimate phrases. Sets over 200 documents fail
-with a clear size error; split larger sets. Related-location output can grow with
-repetition even within this limit.
-
-Moral detection requires explicit moral/lesson openers of 3–10 words, excluding
-numbers, identifiers and protected spans. Generic closers are not detected.
-Short generic statements and factual technical negations remain residuals; useful
-instructions beginning with “always” or “never” still need author judgment.
-Mirroring requires a parallel predicate with an aligned polarity flip or one
-listed antonym, plus the same first two words. Different verbs with the same
-negated opener are insufficient. Colon reveals require a short withheld
-complement and short final punchline; frequency alone never suffices. Lists,
-definitions, digits/citations and protected material are excluded.
-Sentence splitting handles common abbreviations and versions, not every language
-convention. Fragment runs require four consecutive short statements in one
-paragraph; the original #4138 paragraph contains only two. Its colon introduces a
-conditional/list and its moral embeds a protected quotation; both remain unflagged.
+Decision ask off, unavailable or below threshold retains deterministic output.
+The corpus remains at 49/56 with it off and reaches 56/56 with an offline stub;
+both have zero findings on the 22 wholly negative files. Stub coverage is not a
+live accuracy result. See the [scanner documentation](https://github.com/jmagly/aiwg/blob/main/agentic/code/addons/writing-quality/README.md#optional-structural-judgment)
+for labels, the Python CLI dependency and data handling.
 
 ## Compatibility
 
