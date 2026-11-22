@@ -12,6 +12,15 @@ const end = JSON.stringify({ type: 'end', stopReason: 'end_turn' });
 const stream = (...events: unknown[]) => events.map(event => JSON.stringify(event)).join('\n');
 
 describe('Grok Build live smoke gate', () => {
+  it('keeps credential provisioning behind manual/scheduled opt-in and CI secrets', () => {
+    const workflow = readFileSync(resolve(__dirname, '../../../.gitea/workflows/grok-build-qualification.yml'), 'utf8');
+    const gate = workflow.split('- name: Fetch opt-in Grok credential from Vault')[1].split('env:')[0];
+    for (const guard of ["gitea.event_name == 'schedule'", "gitea.event_name == 'workflow_dispatch'",
+      "vars.AIWG_GROK_BUILD_LIVE_SMOKE == '1'", "secrets.VAULT_CI_ROLE_ID != ''", "secrets.VAULT_CI_SECRET_ID != ''"]) {
+      expect(gate).toContain(guard);
+    }
+  });
+
   it('skips without opt-in or a provisioned binary', () => {
     const env = { ...process.env };
     delete env.AIWG_GROK_BUILD_LIVE_SMOKE;
@@ -23,6 +32,43 @@ describe('Grok Build live smoke gate', () => {
     });
     expect(missing.status).toBe(0);
     expect(JSON.parse(missing.stdout)).toMatchObject({ status: 'skipped', reason: 'Grok Build binary unavailable' });
+  });
+
+  it('skips missing credentials before checking a binary pin or executing it', () => {
+    const root = mkdtempSync(join(tmpdir(), 'aiwg-grok-smoke-no-key-'));
+    try {
+      const binary = join(root, 'fake-grok');
+      writeFileSync(binary, '#!/usr/bin/env node\nprocess.exit(99);\n', { mode: 0o700 });
+      const result = spawnSync(process.execPath, [script], { cwd: root,
+        env: { PATH: process.env.PATH, AIWG_GROK_BUILD_LIVE_SMOKE: '1', AIWG_GROK_BUILD_BIN: binary },
+        encoding: 'utf8', timeout: 5_000 });
+      expect(result.status).toBe(0);
+      expect(JSON.parse(result.stdout)).toMatchObject({ status: 'skipped', reason: 'XAI_API_KEY unavailable' });
+    } finally { rmSync(root, { recursive: true, force: true }); }
+  });
+
+  it('bounds terminal background work even when the fake CLI ignores TERM', () => {
+    const root = mkdtempSync(join(tmpdir(), 'aiwg-grok-smoke-background-'));
+    const pidFile = join(root, 'pid');
+    try {
+      const binary = join(root, 'fake-grok');
+      const body = `#!/usr/bin/env node
+if(process.argv.includes('--version')) console.log('grok 1.0.77 synthetic');
+else { require('fs').writeFileSync(${JSON.stringify(pidFile)},String(process.pid));
+process.on('SIGTERM',()=>{});console.log(${JSON.stringify(end)});setInterval(()=>{},1000); }
+`;
+      writeFileSync(binary, body, { mode: 0o700 });
+      const result = spawnSync(process.execPath, [script], { cwd: root,
+        env: { PATH: process.env.PATH, AIWG_GROK_BUILD_LIVE_SMOKE: '1', AIWG_GROK_BUILD_BIN: binary,
+          AIWG_GROK_BUILD_EXPECTED_SHA256: createHash('sha256').update(body).digest('hex'), XAI_API_KEY: 'synthetic' },
+        encoding: 'utf8', timeout: 5_000, killSignal: 'SIGKILL' });
+      expect(result.error).toBeUndefined();
+      expect(result.status).toBe(0);
+      expect(JSON.parse(result.stdout)).toMatchObject({ status: 'passed', terminal: true });
+    } finally {
+      try { process.kill(Number(readFileSync(pidFile, 'utf8')), 'SIGKILL'); } catch { /* already reaped */ }
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 
   it('refuses an unpinned binary before execution', () => {

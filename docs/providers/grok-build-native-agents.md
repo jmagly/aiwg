@@ -1,20 +1,20 @@
 # Grok Build native agents and automation (#2577)
 
-The 2026-11-09 and 2026-11-10 Grok Build 1.0.77 captures establish project-agent
-discovery, ignored model frontmatter, headless, ACP frame and standalone-copy contracts below. Tests replay sanitized captures
-offline. The provider stays experimental; live ACP dispatch qualification and
+The 2026-11-09, 2026-11-10 and 2026-11-21 Grok Build 1.0.77 captures establish project-agent
+discovery, ignored model frontmatter, headless, live ACP protocol and standalone-copy contracts below. Tests replay sanitized captures
+offline. The provider stays experimental; managed ACP dispatch integration and
 combined fan-out flag enforcement remain deferred.
 
 | Matrix claim | Evidence and disposition for 1.0.77 |
 |---|---|
 | Headless transport | [Captured shape fixtures](https://github.com/jmagly/aiwg/blob/main/test/fixtures/providers/grok-build/headless-1.0.77/README.md), replayed by [headless tests](https://github.com/jmagly/aiwg/blob/main/test/unit/providers/grok-build-headless.test.ts): successful streaming-json; cancelled JSON and message stream; synthetic plain, success, truncation, error, timeout, abort and background-process vectors. No new model runs. |
-| `agent_teams: false` | Unverified: needs native team creation, communication and teardown capture. Independent tools/subagents do not establish teams. |
+| `agent_teams: false` | [Conservative matrix regression](https://github.com/jmagly/aiwg/blob/main/test/unit/providers/grok-build-headless.test.ts) (“keeps unverified native lifecycle claims conservative across the matrix”); unverified: needs native team creation, communication and teardown capture. Independent tools/subagents do not establish teams. |
 | `tasks: false` | Unverified: needs native background task submission, status, completion and cancellation capture. Regression test “does not advertise native background tasks from headless tool events” keeps routing conservative. |
-| `cron: false` / loops | Unverified: needs recurring execution and cancellation capture; neither follows from background tasks. |
-| `mission_control: false` | Unverified: needs native mission lifecycle capture. `aiwg-mc` emulation names AIWG orchestration, not a Grok native capability. |
-| `daemon: false`, unsupported tier | Deferred: resident lifecycle is unverified. [ACP tests](https://github.com/jmagly/aiwg/blob/main/test/unit/providers/grok-build-acp.test.ts) replay initialize/authMethods, logged-in session creation amid `_x.ai/*` notifications, prompt completion with `_meta` usage, cancellation and compact/summary notifications. Frame replay does not qualify live ACP dispatch. |
+| `cron: false` / loops | Same conservative matrix regression; unverified: needs recurring execution and cancellation capture; neither follows from background tasks. |
+| `mission_control: false` | Same conservative matrix regression; unverified: needs native mission lifecycle capture. `aiwg-mc` emulation names AIWG orchestration, not a Grok native capability. |
+| `daemon: false`, unsupported tier | Deferred: resident lifecycle is unverified. [ACP tests](https://github.com/jmagly/aiwg/blob/main/test/unit/providers/grok-build-acp.test.ts) replay initialize/authMethods, logged-in session creation amid `_x.ai/*` notifications, prompt completion with `_meta` usage, cancellation and compact/summary notifications. The [2026-11-21 live capture](../../test/fixtures/providers/grok-build/captured-20261121/README.md) satisfies criterion 5's ACP protocol check; managed-dispatch and resident lifecycle remain unverified live. |
 | `mcp: true` | [Native integration tests](https://github.com/jmagly/aiwg/blob/main/test/unit/providers/grok-build-native-integration.test.ts) cover AIWG TOML rendering, ownership and fake inspect/doctor behavior. Live server connection and tool execution remain unverified by these captures. |
-| `behaviors: false` | Unverified: needs native registration, trigger and execution capture. |
+| `behaviors: false` | Same conservative matrix regression; unverified: needs native registration, trigger and execution capture. |
 | Agent paths and role compilation | [Writer tests](https://github.com/jmagly/aiwg/blob/main/test/unit/providers/grok-build-provider.test.ts) replay [set-b excerpts](https://github.com/jmagly/aiwg/blob/main/test/fixtures/providers/grok-build/captured-20261110/native-agents.json): `grok inspect` lists `.grok/agents/*.md` as `source.type: project`; valid and invalid frontmatter model pins leave the session on its default model. AIWG emits only `name`, `description` and a body prompt. [Use integration](https://github.com/jmagly/aiwg/blob/main/test/integration/grok-build-use.test.ts) tests full deployment and `$GROK_HOME/agents/` mirroring offline; native user-agent discovery remains unverified. |
 | Context, rules and skills paths | Writer and [inspect tests](https://github.com/jmagly/aiwg/blob/main/test/unit/providers/grok-build-inspect.test.ts) cover AIWG files. Supplied trusted/untrusted inspect captures establish AGENTS.md and rules loading; nested precedence and cross-agent mirrors remain unverified here. |
 | Parallelism | [Headless tests](https://github.com/jmagly/aiwg/blob/main/test/unit/providers/grok-build-headless.test.ts) replay default permission cancellations and the `workflow` bypass with two child ownership records. [Dispatch tests](https://github.com/jmagly/aiwg/blob/main/test/unit/providers/grok-build-dispatch.test.ts) test cap-one headless/ACP argv and shared admission slots. [Direct profile tests](https://github.com/jmagly/aiwg/blob/main/test/conformance/orchestration-v1/grok-build-direct.test.ts) assert both guards in profile and rendered argv. Combined live enforcement is unverified. |
@@ -62,7 +62,15 @@ tolerates setup/model/settings notifications, exposes compact/summary updates,
 and retains redacted completion `_meta` usage and `cancellationCategory`.
 `session/cancel` returns `stopReason: cancelled` and `MidTurnAbort`; AbortSignal
 cancellation still rejects with AbortError. Synthetic tests cover timeouts and
-stderr limits/redaction. Live ACP dispatch qualification remains deferred.
+stderr limits/redaction, finite bounds, split UTF-8 updates, foreign-session filtering, malformed frames and callback failures.
+Criterion 5 now also cites the [2026-11-21 live capture](../../test/fixtures/providers/grok-build/captured-20261121/README.md):
+all 72 frames replay initialize/auth selection, the exact session id, command,
+thought and message chunks, `end_turn` usage (`modelId: grok-4.7`, modelUsage
+key `grok-4.7-build`) and `cancelled` with `MidTurnAbort` after session/cancel.
+The conductor reports CLI 1.0.77 on titan with grok.com login and exit 0;
+initialize advertises agentVersion 1.0.92, preserved in the fixture. Three
+command inventories are reduced to generic commands; other protocol fields
+are retained. Managed ACP dispatch integration remains unverified live.
 Neither transport auto-approves tool use.
 
 A sanitized ACP initialize observation from the Linux 1.0.40 released binary
@@ -70,8 +78,8 @@ is in `test/fixtures/providers/grok-build-acp-init-1.0.40.json`; the pinned
 Linux 1.0.38 observation is in
 `test/fixtures/providers/grok-build-acp-init-1.0.38.json`. Each tested binary
 advertised only `grok.com` authentication in its isolated account state. AIWG
-fails closed because that interactive ACP flow has not been qualified; a
-fixture-backed `cached_token` contract does not prove it works.
+fails closed because that interactive ACP flow has not been qualified;
+the live cached-token success above applies to a different logged-in state.
 
 `GrokBuildDispatcher.forProject(root)` resolves the project's
 `parallelism.max_parallel_subagents` (default 4; Ralph loops 2; missions 4) and admits no more than that many
@@ -123,7 +131,7 @@ credential through the Vault CI bootstrap and configured
 `XAI_API_KEY_VAULT_PATH`/`XAI_API_KEY_VAULT_FIELD` variables; the opt-in gate,
 binary path, and expected hash are repository variables. The script skips cleanly when the gate,
 binary, or credential is unavailable; it fails on a binary hash mismatch or a
-malformed/incomplete provider response. It emits only status and counts. Fixture
+malformed/incomplete provider response. Credential absence is checked before pin validation or binary execution. Smoke uses the same bounded headless parser and TERM-to-KILL cleanup as dispatch, with subagents and workflow disabled. It emits only status and counts (stderr bytes count the redacted retained output). Fixture
 tests do not substitute for a credentialed run on Linux, Windows, and WSL;
 stable promotion remains governed by the cross-platform qualification contract.
 

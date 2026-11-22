@@ -306,6 +306,16 @@ describe('Grok Build 1.0.77 captured headless contracts', () => {
       .rejects.toThrow(/callback.*\[REDACTED\]/);
   });
 
+  it('keeps unverified native lifecycle claims conservative across the matrix', () => {
+    const caps = getProviderCapabilities('grok-build')!;
+    expect(caps.native_features).toEqual({ agent_teams: false, tasks: false, cron: false,
+      mission_control: false, daemon: false, mcp: true, behaviors: false });
+    expect(caps.daemon_tier).toBe('unsupported');
+    for (const feature of ['agent_teams', 'tasks', 'cron', 'mission_control', 'daemon', 'behaviors'] as const) {
+      expect(caps.emulation[feature]).not.toBe('native');
+    }
+  });
+
   it('does not advertise native background tasks from headless tool events', () => {
     const caps = getProviderCapabilities('grok-build');
     expect(caps?.native_features.tasks).toBe(false);
