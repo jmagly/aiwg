@@ -494,7 +494,7 @@ Research Framework is part of the AIWG project. See main project documentation f
 - **Documentation**: `@$AIWG_ROOT/agentic/code/frameworks/research-complete/`
 - **Issues**: https://github.com/jmagly/aiwg/issues
 - **Discord**: https://discord.gg/BuAusFMxdA
-- **Telegram**: https://t.me/+oJg9w2lE6A5lOGFh
+- **Telegram**: [AIWG Telegram foyer](https://t.me/joinaiwg) (verify, then get an invite)
 
 ---
 

@@ -726,7 +726,7 @@ For RLM deployment issues:
 
 - **GitHub Issues**: https://github.com/jmagly/aiwg/issues
 - **Discord**: https://discord.gg/BuAusFMxdA
-- **Telegram**: https://t.me/+oJg9w2lE6A5lOGFh
+- **Telegram**: [AIWG Telegram foyer](https://t.me/joinaiwg) (verify, then get an invite)
 
 ## References
 

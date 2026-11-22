@@ -104,7 +104,7 @@ Agents and stewards setting up AIWG end-to-end should use the
 [**Get Started**](#quick-start) · [**Features**](#what-you-get) · [**Agents**](#agents) · [**Decision Support**](#decision-support--bounded-decisions-offloaded-to-jev) · [**Documentation**](#documentation) · [**Community**](#community--support) · [**Badges**](https://aiwg.io/badges)
 
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white&style=flat-square)](https://discord.gg/BuAusFMxdA)
-[![Telegram](https://img.shields.io/badge/Telegram-Join-26A5E4?logo=telegram&logoColor=white&style=flat-square)](https://t.me/+oJg9w2lE6A5lOGFh)
+[![Telegram](https://img.shields.io/badge/Telegram-Foyer-26A5E4?logo=telegram&logoColor=white&style=flat-square)](https://t.me/joinaiwg)
 
 </div>
 
@@ -2238,7 +2238,7 @@ rule that determined each result. Follow the
 
 - **Website:** [aiwg.io](https://aiwg.io)
 - **Discord:** [Join Server](https://discord.gg/BuAusFMxdA)
-- **Telegram:** [Join Group](https://t.me/+oJg9w2lE6A5lOGFh)
+- **Telegram:** [AIWG Telegram foyer](https://t.me/joinaiwg): verify there, then get an invite to the group
 - **Issues:** [GitHub Issues](https://github.com/jmagly/aiwg/issues)
 - **Discussions:** [GitHub Discussions](https://github.com/jmagly/aiwg/discussions)
 - **Security:** Report vulnerabilities per [SECURITY.md](SECURITY.md); do not file public issues for private

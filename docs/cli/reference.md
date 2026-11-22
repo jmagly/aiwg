@@ -6673,7 +6673,7 @@ aiwg ralph-resume
 - **Documentation**: [https://aiwg.io/docs](https://aiwg.io/docs)
 - **GitHub Issues**: [https://github.com/jmagly/aiwg/issues](https://github.com/jmagly/aiwg/issues)
 - **Discord**: [https://discord.gg/BuAusFMxdA](https://discord.gg/BuAusFMxdA)
-- **Telegram**: [https://t.me/+oJg9w2lE6A5lOGFh](https://t.me/+oJg9w2lE6A5lOGFh)
+- **Telegram**: [AIWG Telegram foyer](https://t.me/joinaiwg) (verify, then get an invite)
 
 ---
 

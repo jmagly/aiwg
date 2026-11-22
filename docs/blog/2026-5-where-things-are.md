@@ -55,7 +55,7 @@ agentic-sandbox is MIT, in the open, and the code is at [github.com/jmagly/agent
 The Discord and Telegram rooms have been the daily channel for the whole `2026.3.x` → `2026.5.x` stretch and they're going to stay that way. If you want to ask questions, see what's about to land, or just lurk, those are the places.
 
 - **Discord:** [discord.gg/nyFRDqQR89](https://discord.gg/nyFRDqQR89)
-- **Telegram:** [t.me/+isN9TIm_4mlmZmEx](https://t.me/+isN9TIm_4mlmZmEx)
+- **Telegram:** [AIWG Telegram foyer](https://t.me/joinaiwg): verify there, then get an invite to the group
 - **GitHub:** [github.com/jmagly/aiwg](https://github.com/jmagly/aiwg)
 - **Site:** [aiwg.io](https://aiwg.io)
 - **Issues:** [github.com/jmagly/aiwg/issues](https://github.com/jmagly/aiwg/issues)

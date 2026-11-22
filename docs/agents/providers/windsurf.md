@@ -357,4 +357,4 @@ See the [Devin Desktop MCP Sidecar Guide](../../integrations/windsurf-mcp-sideca
 
 **Devin Desktop Documentation**: [legacy documentation URL](https://docs.windsurf.com)
 **AIWG Repository**: [github.com/jmagly/aiwg](https://github.com/jmagly/aiwg)
-**Support**: [Discord](https://discord.gg/BuAusFMxdA) | [Telegram](https://t.me/+oJg9w2lE6A5lOGFh)
+**Support**: [Discord](https://discord.gg/BuAusFMxdA) | [AIWG Telegram foyer](https://t.me/joinaiwg)
