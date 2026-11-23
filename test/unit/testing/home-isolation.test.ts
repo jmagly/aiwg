@@ -32,9 +32,9 @@ describe('default lane temporary home', () => {
   });
 
   it('isolates native, provider, XDG and child-process home resolution', () => {
-    const home = inject('defaultLaneHome');
-    expect(path.dirname(home)).toBe(path.resolve(os.tmpdir()));
-    expect(path.basename(home)).toMatch(/^aiwg-default-home-/);
+    const home = process.env.HOME!;
+    expect(path.dirname(home)).toBe(inject('defaultLaneHome'));
+    expect(path.basename(home)).toMatch(/^file-/);
     expect(os.homedir()).toBe(home);
     expect(process.env.HOME).toBe(home);
     expect(process.env.USERPROFILE).toBe(home);
@@ -53,6 +53,7 @@ describe('default lane temporary home', () => {
   });
 
   it('lets tests override HOME and CODEX_HOME and restores the lane defaults', () => {
+    const home = process.env.HOME;
     const fixture = createTemporaryHome('aiwg-home-override-');
     try {
       vi.stubEnv('HOME', fixture.home);
@@ -60,7 +61,7 @@ describe('default lane temporary home', () => {
       expect(process.env.HOME).toBe(fixture.home);
       expect(resolveMcpConfigPath('codex')).toBe(path.join(fixture.home, '.codex/config.toml'));
       vi.unstubAllEnvs();
-      expect(process.env.HOME).toBe(inject('defaultLaneHome'));
+      expect(process.env.HOME).toBe(home);
       expect(process.env.CODEX_HOME).toBeUndefined();
     } finally { fixture.cleanup(); }
   });

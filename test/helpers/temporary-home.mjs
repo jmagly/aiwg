@@ -18,8 +18,8 @@ function inheritedSafeDirectories() {
   }
 }
 
-export function createTemporaryHome(prefix) {
-  const home = mkdtempSync(path.join(os.tmpdir(), prefix));
+export function createTemporaryHome(prefix, directory = os.tmpdir()) {
+  const home = mkdtempSync(path.join(directory, prefix));
   const safe = inheritedSafeDirectories();
   if (safe.length) {
     writeFileSync(path.join(home, '.gitconfig'), `[safe]\n${safe.map(dir => `\tdirectory = ${dir}\n`).join('')}`);
