@@ -11,7 +11,7 @@ export default defineConfig({
   root: path.resolve(import.meta.dirname, '..'),
   test: {
     globalSetup: ['./test/helpers/default-home-setup.mjs', './test/helpers/prebuilt-relations-setup.mjs', './test/helpers/deployment-cache-setup.mjs'],
-    setupFiles: ['./test/helpers/deployment-cache-isolation.mjs'],
+    setupFiles: ['./test/helpers/default-home-isolation.mjs', './test/helpers/deployment-cache-isolation.mjs'],
     // Test file patterns
     include: [
       'test/**/*.test.ts',
@@ -124,7 +124,9 @@ export default defineConfig({
     sequence: { sequencer: DurationSequencer },
 
     // Parallel execution for speed
-    pool: 'threads',
+    // Native os.homedir() in threads reads the parent process HOME, ignoring
+    // the thread-local process.env set by per-file home isolation.
+    pool: 'forks',
     fileParallelism: true,
     maxWorkers: 8,
     minWorkers: 1,
