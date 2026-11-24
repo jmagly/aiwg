@@ -2,7 +2,7 @@
 // drained pipes, owned-group authority, and the spawn-attempt error path.
 import { createHash } from 'node:crypto';
 import { EventEmitter } from 'node:events';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -22,6 +22,9 @@ function fakeChild() {
 
 function setup({ bytes, plan }: { bytes: Buffer | null; plan: (options: any) => Promise<any> }) {
   const root = mkdtempSync(path.join(tmpdir(), 'aiwg-stdin-native-')); roots.push(root);
+  // The worker tree gets its own directory so the quarantine created beside it
+  // (path.dirname(cwd)) is private to this test, not the shared system temp dir.
+  const workerTree = path.join(root, 'worker'); mkdirSync(workerTree);
   const planDirectWorkerLaunch = vi.fn(plan);
   const deps = {
     loadRalphExternal: async (relative: string) => relative === 'session-launcher.mjs' ? { planDirectWorkerLaunch }
@@ -31,7 +34,7 @@ function setup({ bytes, plan }: { bytes: Buffer | null; plan: (options: any) => 
     describeGateFailures: () => 'gate',
   };
   const options = { memoryMaxGb: 2, stdinRuntimeRoot: root, servedRoot: root, isolation: { mode: 'systemd-unit' } };
-  const invocation: any = { briefPath: path.join(root, 'brief.md'), briefDigest: digest, envNames: [], isolation: 'native-sandbox', invocationId: 'inv-1', cwd: root, selected: { group: 'codex-0-low' } };
+  const invocation: any = { briefPath: path.join(root, 'brief.md'), briefDigest: digest, envNames: [], isolation: 'native-sandbox', invocationId: 'inv-1', cwd: workerTree, selected: { group: 'codex-0-low' } };
   return { planDirectWorkerLaunch, deps, options, invocation };
 }
 
