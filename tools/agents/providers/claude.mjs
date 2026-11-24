@@ -1,4 +1,5 @@
 import { removeSkillCopy } from './skill-copy-prune.mjs';
+import { CLAUDE_BUILTINS, validateClaudeCommands, prepareClaudeSkills, claudeKernelNames, migrateClaudeReservedSkills } from './claude-skill-names.mjs';
 import { withModelWrapper } from './model-wrapper.mjs';
 import { postDeploy } from './claude-post-deploy.mjs';
 export { postDeploy };
@@ -227,12 +228,8 @@ export function transformCommand(srcPath, content, opts) {
 
 /**
  * Claude built-in command names that must never be used as bare skill slugs.
- * Mirrors the list in src/smiths/skillsmith/collision-detector.ts.
+ * The provider's data inventory also includes the steward collision (#4380).
  */
-const CLAUDE_BUILTINS = new Set([
-  'help', 'clear', 'compact', 'review', 'init', 'doctor',
-  'memory', 'settings', 'logout', 'login', 'mcp', 'migrate',
-]);
 
 /**
  * After deploying skills, remove stale bare-named skills that collide with
@@ -291,6 +288,7 @@ export function deployAgents(agentFiles, targetDir, opts) {
  * Deploy commands to .claude/commands/
  */
 export function deployCommands(commandFiles, targetDir, opts) {
+  validateClaudeCommands(commandFiles);
   const destDir = path.join(targetDir, paths.commands);
   ensureDir(destDir, opts.dryRun);
   return deployFiles(commandFiles, destDir, opts, transformCommand);
@@ -320,10 +318,8 @@ export function deploySkills(skillDirs, targetDir, opts) {
   // index-driven discovery. The deploySkillsWithKernelRouting helper
   // does the actual partition + cleanup.
   // does the same priority resolution centrally.
-  deploySkillsWithKernelRouting(skillDirs, standardDestDir, kernelDestDir, {
-    ...opts,
-    transformSkillMd: transformSkillModelPolicy,
-  });
+  deploySkillsWithKernelRouting(skillDirs, standardDestDir, kernelDestDir,
+    prepareClaudeSkills(skillDirs, standardDestDir, kernelDestDir, opts, transformSkillModelPolicy));
   // Remove legacy bare-named skills superseded by their aiwg- prefixed replacements
   cleanupLegacyBuiltinCollisions(standardDestDir, opts);
 }
@@ -512,6 +508,7 @@ async function deploySelected(opts) {
     dryRun
   } = opts;
 
+  migrateClaudeReservedSkills(path.join(target, kernelSkillsPath), opts);
   const verbose = opts.verbose || false;
 
   if (verbose) {
@@ -639,7 +636,7 @@ async function deploySelected(opts) {
     // (once per framework + once per addon batch). Per-call cleanup
     // would prune kernel skills owned by a sibling call.
     const kernelDestDir = path.join(target, kernelSkillsPath);
-    pruneStaleAiwgSkills(kernelDestDir, computeAllKernelNames(srcRoot), opts);
+    pruneStaleAiwgSkills(kernelDestDir, claudeKernelNames(computeAllKernelNames(srcRoot)), opts);
   }
 
   if (shouldDeployRules || rulesOnly) {

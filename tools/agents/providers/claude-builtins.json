@@ -1,0 +1,13 @@
+{
+  "sources": [
+    "src/smiths/skillsmith/collision-detector.ts (existing Claude inventory)",
+    "docs/migration/skill-namespace-migration.md (help, doctor)",
+    "Issue #4380: Claude Code 2.1.331 binary: PR Steward declares readsSkillFolders; ISt=[\".claude/skills/steward/SKILL.md\",\".claude/skills/babysit/SKILL.md\"]; reads the first regular, single-link file as project PR instructions on each watch pass"
+  ],
+  "reservedFolders": ["steward", "babysit"],
+  "names": [
+    "help", "clear", "compact", "review", "init", "doctor",
+    "memory", "settings", "logout", "login", "mcp", "migrate",
+    "steward", "babysit"
+  ]
+}

@@ -15,7 +15,7 @@ description: Regenerate CLAUDE.md for Claude Code with hook file architecture
 > aiwg show skill <name> --body
 > ```
 >
-> Only kernel-listed skills (`aiwg-doctor`, `aiwg-refresh`, `aiwg-status`, `aiwg-help`, `use`, `steward`) are directly invokable as slash commands. See [skill-discovery rule](../../rules/skill-discovery.md).
+> Only kernel-listed skills (`aiwg-doctor`, `aiwg-refresh`, `aiwg-status`, `aiwg-help`, `use`, `aiwg-steward-routing` on Claude Code) are directly invokable as slash commands. See [skill-discovery rule](../../rules/skill-discovery.md).
 >
 > **Exception**: The "Available Slash Commands (Claude Code)" template block below is *generated output* destined for end-user CLAUDE.md files, where Claude Code's slash-command syntax applies. Slash prefixes in that block are preserved intentionally.
 

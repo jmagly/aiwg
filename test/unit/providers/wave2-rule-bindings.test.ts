@@ -155,7 +155,7 @@ describe('Wave 2 canonical rule delivery (#2942)', () => {
     for (const { name, data } of rules) for (const [kind, ids] of Object.entries(data.bound_to) as Array<[string, string[]]>) {
       for (const id of ids) {
         const definitions = outputs.filter(file => file.includes(`/${kind === 'flows' ? 'skills' : kind}/`) &&
-          (kind !== 'agents' ? file.endsWith(`/${id}/SKILL.md`) : new RegExp(`/${id}\\.(?:md|toml)$`).test(file)));
+          (kind !== 'agents' ? file.endsWith(`/${provider === 'claude' && id === 'steward' ? 'aiwg-steward-routing' : id}/SKILL.md`) : new RegExp(`/${id}\\.(?:md|toml)$`).test(file)));
         expect(definitions.length, `${provider} ${kind}:${id}`).toBeGreaterThan(0);
         for (const file of definitions) {
           const content = read(file);

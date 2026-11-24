@@ -34,6 +34,8 @@ const MIRRORED_KERNEL_COMMAND_SKILLS = new Set([
   'aiwg-mission',
   'use',
   'steward',
+  // Claude deploys the steward skill as aiwg-steward-routing (#4380).
+  'aiwg-steward-routing',
 ]);
 
 

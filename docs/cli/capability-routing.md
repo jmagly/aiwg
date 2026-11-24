@@ -235,7 +235,7 @@ These deploy regardless of framework. They exist so the agent retains *self-repa
 
 | Skill | Purpose |
 |---|---|
-| `steward` | Provider capability awareness + command routing |
+| `aiwg-steward-routing` (Claude; `steward` on other providers) | Provider capability awareness + command routing |
 | `aiwg-doctor` | Installation health check with remediation steps |
 | `aiwg-refresh` | Update CLI + redeploy frameworks (alias: `aiwg sync`) |
 | `aiwg-status` | Workspace status dashboard |
@@ -245,6 +245,8 @@ These deploy regardless of framework. They exist so the agent retains *self-repa
 | `aiwg-issue` | File an AIWG project issue with environment capture |
 | `aiwg-pr` | AIWG pull-request delivery workflow |
 | `aiwg-mission` | Launch a durable, audited dynamic agent Mission |
+
+`aiwg-steward-routing` is unrelated to Claude Code's built-in `/steward` (PR Steward).
 
 These pair with the always-deployed `aiwg-steward` agent for orchestrated repair: status → doctor → refresh → re-doctor.
 
@@ -569,8 +571,10 @@ The 14 self-maintenance ops kernel skills exist precisely for this case. If `aiw
 1. **`aiwg-doctor`** — diagnose what's broken (missing `$AIWG_ROOT`, corrupted index, version mismatch, etc.)
 2. **`aiwg-status`** — see what's currently deployed
 3. **`aiwg-refresh`** — update CLI + redeploy frameworks
-4. **`steward`** — get provider-specific routing advice
+4. **`aiwg-steward-routing` (Claude; `steward` on other providers)** — get provider-specific routing advice
 5. Re-run `aiwg discover` to confirm
+
+`aiwg-steward-routing` is unrelated to Claude Code's built-in `/steward` (PR Steward).
 
 The `aiwg-steward` agent (always-deployed alongside the framework agents) orchestrates this sequence end-to-end. Invoke it via `@aiwg-steward` in your platform's agent UI.
 

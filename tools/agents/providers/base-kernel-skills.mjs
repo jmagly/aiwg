@@ -85,6 +85,7 @@ export function deploySkillsWithKernelRouting(
   // at their source path under $AIWG_ROOT and are reached via the
   // artifact index.
   const copyStandardSkills = opts?.copyStandardSkills === true;
+  const skillName = dir => opts?.resolveSkillName?.(dir) || path.basename(dir);
 
   const kernel = [];
   const standard = [];
@@ -95,8 +96,8 @@ export function deploySkillsWithKernelRouting(
 
   // Names of skills in the deploy manifest — bound the cleanup to
   // names AIWG manages so user-authored content survives.
-  const standardNames = new Set(standard.map(p => path.basename(p)));
-  const allSkillNames = new Set([...standardNames, ...kernel.map(p => path.basename(p))]);
+  const standardNames = new Set(standard.map(skillName));
+  const allSkillNames = new Set([...standardNames, ...kernel.map(skillName)]);
 
   if (kernel.length > 0 && kernelDestDir) {
     ensureDir(kernelDestDir, opts?.dryRun);
@@ -126,7 +127,7 @@ export function deploySkillsWithKernelRouting(
     !opts?.dryRun &&
     kernel.length > 0
   ) {
-    const kernelNames = new Set(kernel.map(p => path.basename(p)));
+    const kernelNames = new Set(kernel.map(skillName));
     for (const entry of fs.readdirSync(standardDestDir, { withFileTypes: true })) {
       if (!entry.isDirectory() || !kernelNames.has(entry.name)) continue;
       const target = path.join(standardDestDir, entry.name);

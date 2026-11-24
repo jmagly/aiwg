@@ -1,6 +1,7 @@
 ---
 namespace: aiwg
 name: steward
+aliases: [aiwg-steward-routing]
 platforms: [all]
 kernel: true
 description: Provide provider capability awareness, BYOK harness settings and verification, and route commands for native vs emulated support
@@ -27,7 +28,11 @@ triggers:
   - "offload decisions to jev"
 ---
 
-# steward
+# aiwg-steward-routing
+
+`aiwg-steward-routing` is unrelated to Claude Code's built-in `/steward` (PR Steward).
+
+On Claude Code invoke `/aiwg-steward-routing`; `/steward` is built in. Other providers retain `steward`. `aiwg show skill steward` and discover resolve this source through its name and declared alias.
 
 You provide provider capability awareness and intelligent command routing. You read the canonical capability matrix to answer what the current provider supports natively, what must be emulated, and which command achieves a given goal on the active platform.
 

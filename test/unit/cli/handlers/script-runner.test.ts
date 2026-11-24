@@ -50,6 +50,22 @@ describe('DefaultScriptRunner', () => {
     expect(warn).toHaveBeenCalledExactlyOnceWith(warning);
   });
 
+  it.each([false, true])('surfaces PR Steward notices from captured successful deployment (subprocess=%s)', async subprocess => {
+    const notice = "Notice: Claude Code's built-in /steward (PR Steward) reads /project/.claude/skills/steward/SKILL.md; unmanaged guidance left untouched.";
+    const file = deployer(`
+      export async function main() {
+        console.warn(${JSON.stringify(notice)});
+        console.error('unrelated diagnostic');
+        return 0;
+      }
+      if (process.argv[1].endsWith('/deploy-agents.mjs')) await main();
+    `);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const result = await runner.run(file, [], { capture: true, ...(subprocess ? { timeout: 10_000 } : {}) });
+    expect(result.exitCode).toBe(0);
+    expect(warn).toHaveBeenCalledExactlyOnceWith(notice);
+  });
+
   it.each([false, true])('reports captured critical-rule retirement even with suppressed console output (subprocess=%s)', async subprocess => {
     const warning = 'Removing /project/.claude/rules/retired.md (critical rule retired because the selected deployment no longer projects its source at this path)';
     const file = deployer(`

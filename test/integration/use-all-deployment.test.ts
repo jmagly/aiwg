@@ -321,12 +321,15 @@ describe.skipIf(!GIT_AVAILABLE)('aiwg use all — deployment coverage', { timeou
         'aiwg-issue.md',
         'aiwg-pr.md',
         'use.md',
-        'steward.md',
+        // #4380: Claude Code has a built-in /steward, so the steward skill
+        // deploys and mirrors as aiwg-steward-routing on Claude.
+        'aiwg-steward-routing.md',
       ];
 
       for (const file of kernelBootstrapCommands) {
         expect(existsSync(path.join(commandsDir, file)), `${file} should be copied in as a Claude bootstrap command`).toBe(true);
       }
+      expect(existsSync(path.join(commandsDir, 'steward.md')), 'no /steward command may shadow the Claude Code built-in').toBe(false);
     });
 
   });

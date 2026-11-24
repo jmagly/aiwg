@@ -50,6 +50,29 @@ Skills already carrying the `aiwg-` prefix are unchanged:
 
 ---
 
+## Claude Code steward collision (2.1.331+)
+
+Invoke `/aiwg-steward-routing` on Claude Code.
+`aiwg-steward-routing` is unrelated to Claude Code's built-in `/steward` (PR Steward).
+Other providers keep `steward`. The source directory remains `skills/steward/`,
+with shared identifier `steward` and declared Claude alias `aiwg-steward-routing`.
+`aiwg show skill steward` and `aiwg discover "steward"` still resolve the skill;
+`steward` is a lookup alias only on Claude, never a deployed folder.
+Both `.claude/skills/steward/` and `.claude/skills/babysit/` are reserved: Claude
+Code 2.1.331 PR Steward reads their `SKILL.md` as project PR instructions.
+Managed `babysit` copies are archived outside native skills under
+`.claude/.aiwg-reserved-skill-backups/`; unmanaged guidance stays untouched
+and deploy prints a notice that PR Steward reads it.
+
+Run `aiwg refresh --skip-update --provider claude` to migrate managed project
+and user copies. Only directories with `.aiwg-managed` move. Original bytes
+are retained under `aiwg-steward-routing/.aiwg-backup-steward/`; non-conflicting
+resources also remain at their original relative paths. Archived `SKILL.md` files
+use an `.original` suffix so Claude cannot load them. Unmanaged directories
+are untouched. An unmanaged replacement or an existing migration backup causes
+a clear error; the managed reserved folder is archived outside native skills
+before stopping so it cannot become PR Steward instructions.
+
 ## Migration Steps
 
 ### 1. Re-deploy with the new namespaced layout
