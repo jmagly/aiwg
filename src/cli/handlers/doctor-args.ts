@@ -36,8 +36,5 @@ export function parsePublicDoctorFlags(args: string[]) {
     throw new Error('Approval management must run separately from other doctor modes');
   }
   if (values.get('--forget-approval') && !hasSwitch('--yes')) throw new Error('--forget-approval requires --yes');
-  if (hasSwitch('--json') && !hasSwitch('--probe-workers') && !hasSwitch('--deployment') && !hasSwitch('--decision-offload') && !hasSwitch('--resources')) {
-    throw new Error('--json requires --probe-workers or --deployment or --decision-offload or --resources');
-  }
   return { hasSwitch, values };
 }

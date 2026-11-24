@@ -24,7 +24,7 @@ Options:
   --fix                 With --decision-offload, repair unsafe journal modes and collapsed group masks on non-secret outputs
   --probe-workers       Run bounded worker CLI version probes (default: config-only, no subprocess)
   --project-local       Include project-local artifact diagnostics
-  --json                Emit machine-readable output (with --probe-workers: one worker-probe record per CLI; with --deployment: deployment verification; with --decision-offload: offline snapshot; with --resources: host capacity)
+  --json                Emit offline model/delegation checks (with --probe-workers: one worker-probe record per CLI; with --deployment: deployment verification; with --decision-offload: offline snapshot; with --resources: host capacity)
   --verbose, -v         Include verbose diagnostics
   --help, -h            Show this help
 

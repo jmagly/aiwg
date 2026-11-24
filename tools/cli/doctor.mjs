@@ -733,6 +733,10 @@ export async function runDoctor() {
   }
 
   if (options.resources) return runResourceDoctor(process.cwd(), options);
+  if (jsonMode && !probeWorkers && !options.decisionOffload) {
+    const { reportDoctorModels } = await import('./doctor-delegation-inheritance.mjs');
+    return reportDoctorModels(process.cwd(), AIWG_ROOT, providerArg, detectDeployedProviders);
+  }
   if (options.decisionOffload) {
     const decisionOffload = await collectDecisionOffloadReport(process.cwd(), { fix: options.fix });
     const warnings = await readNativeSandboxWarnings(process.cwd()).catch(() => []);

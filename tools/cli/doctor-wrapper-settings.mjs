@@ -5,7 +5,7 @@ import os from 'node:os';
 import { load as loadYaml } from 'js-yaml';
 import { getStaticTOMLValue, parseTOML } from 'toml-eslint-parser';
 
-export async function readWrapperSettings(provider, projectDir) {
+export async function readWrapperSettings(provider, projectDir, scope = 'agent') {
   const home = (process.platform === 'win32' ? process.env.USERPROFILE : process.env.HOME) || os.homedir();
   const configHome = process.env.XDG_CONFIG_HOME || path.join(home, '.config');
   let files = [];
@@ -31,6 +31,7 @@ export async function readWrapperSettings(provider, projectDir) {
   }
   const string = value => typeof value === 'string' && value.trim() ? value.trim() : undefined;
   if (provider === 'claude') {
+    if (scope === 'skill') return { inheritedModel: string(settings.model) };
     const env = { ...process.env, ...settings.env };
     return { inheritedModel: string(env.CLAUDE_CODE_SUBAGENT_MODEL) ?? string(settings.model),
       inheritedEffort: string(settings.effortLevel) ?? string(settings.effort),
