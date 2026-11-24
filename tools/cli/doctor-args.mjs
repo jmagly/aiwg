@@ -93,10 +93,6 @@ function parseDoctorArgs(argv) {
   assertNoUnknownDoctorFlags(argv);
   if (out.fix && !out.decisionOffload) throw new Error('--fix requires --decision-offload');
   if (out.group !== undefined && !out.resources) throw new Error('--group requires --resources');
-  // JSON is available for worker probes or the explicit offline offload report.
-  if (out.json && !out.probeWorkers && !out.decisionOffload && !out.resources) {
-    throw new Error('Unknown flag combination: --json requires --probe-workers or --decision-offload or --resources. See \'aiwg doctor --help\'.');
-  }
   if (out.resources && (out.probeWorkers || out.decisionOffload || ['--deployment', '--user', '--project-local'].some(flag => hasDoctorFlagSwitch(argv, flag, DOCTOR_VALUE_FLAGS)) || requireDoctorFlagValue(argv, { rejectEmpty: true }, '--scope') !== undefined)) {
     throw new Error('--resources must run separately from other doctor modes');
   }

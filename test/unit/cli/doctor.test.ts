@@ -989,9 +989,9 @@ describe('doctor: worker-probe JSON output and visible empty state (#3066)', () 
     expect(content).toContain('process.exit(2)');
   });
 
-  it('parses --json and requires --probe-workers for it', () => {
+  it('parses --json for offline model checks or explicit probe modes', () => {
     expect(content).toContain("hasDoctorFlagSwitch(argv, '--json'");
-    expect(content).toContain('--json requires --probe-workers');
+    expect(content).toContain('reportDoctorModels');
   });
 
   it('maps one JSON record per CLI from the install-kind findings', () => {
@@ -1144,11 +1144,11 @@ describe('doctor: real-process worker-probe behavior (#3066)', () => {
     expect(result.stderr).toContain('--provider requires a value');
   }, 60_000);
 
-  it('rejects --json without --probe-workers with exit 2', async () => {
+  it('reports offline model checks with --json without --probe-workers', async () => {
     const projectDir = makeProbeProject(null);
     const result = await runDoctorWithArgs(['--json'], projectDir);
-    expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain('--json requires --probe-workers');
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout)).toEqual({ checks: [] });
   }, 60_000);
 
   it('prints one visible empty-state line in text mode when nothing is configured', async () => {
