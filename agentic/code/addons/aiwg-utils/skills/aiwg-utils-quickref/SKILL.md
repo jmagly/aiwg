@@ -53,7 +53,7 @@ These ops **skills** are kernel-resident — already in your context regardless 
 
 | Skill (preferred) | Purpose | CLI it wraps |
 |---|---|---|
-| `steward` | Provider capability awareness + command routing | (no single CLI — orchestrates several) |
+| `aiwg-steward-routing` (Claude; `steward` on other providers) | Provider capability awareness + command routing | (no single CLI — orchestrates several) |
 | `aiwg-doctor` | Installation health check + remediation | `aiwg doctor` |
 | `aiwg-refresh` | Update CLI + redeploy frameworks with dry-run preview | `aiwg refresh` (alias: `aiwg sync`) |
 | `aiwg-regenerate` | Regenerate AIWG.md + AGENTS.md preserving team directives | `aiwg regenerate` |
@@ -62,6 +62,8 @@ These ops **skills** are kernel-resident — already in your context regardless 
 | `aiwg-issue` | Filing AIWG project issues (template, env, duplicate detection) | (no single CLI) |
 | `aiwg-pr` / `aiwg-delivery-pr` | AIWG-specific delivery PRs only (delivery-policy, no-attribution, CI gate); not generic repository PR work | (no single CLI) |
 | `use` | Deploy a framework or addon with validation gates | `aiwg use <name>` |
+
+`aiwg-steward-routing` is unrelated to Claude Code's built-in `/steward` (PR Steward).
 
 Pair with the `aiwg-steward` agent (always-deployed) for orchestrated repair: health check → refresh → re-doctor.
 

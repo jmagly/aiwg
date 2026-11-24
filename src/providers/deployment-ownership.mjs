@@ -257,7 +257,7 @@ export function recordDeploymentOutputs(before, roots, opts = {}) {
   const declared = new Map();
   const preserved = new Set();
   for (const [file, bytes] of after) {
-    if (path.basename(file) !== SIDECAR) continue;
+    if (path.basename(file) !== SIDECAR || opts.replacedSkillCopies?.has(file)) continue;
     const receipt = parse(bytes), previous = parse(before.get(file));
     // Legacy writers replace their managed map. Retain already recorded,
     // untouched metadata files/resources they omit; this never adopts a file.
@@ -290,7 +290,7 @@ export function recordDeploymentOutputs(before, roots, opts = {}) {
     }
   }
   for (const [file, bytes] of after) {
-    if (path.basename(file) === SIDECAR || /(?:^|[/\\])aiwg\.config$/.test(file)
+    if (opts.replacedSkillCopies?.has(file) || path.basename(file) === SIDECAR || /(?:^|[/\\])aiwg\.config$/.test(file)
       || /(?:\.bak\.|\.aiwg-backup-)/.test(path.basename(file))) continue;
     if (preserved.has(file)) continue;
     const legacyOwner = opts.provider === 'codex'

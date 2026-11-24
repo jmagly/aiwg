@@ -42,6 +42,7 @@ export function pruneMissingStandardSkills(destDir, opts) {
  *   - If explicit restriction list → only deploy if opts.provider is in the list; keep list in deployed copy
  */
 export function deploySkillDir(skillDir, destDir, opts) {
+  if (opts.resolveSkillName) opts = { ...opts, skillName: opts.resolveSkillName(skillDir) };
   const { force = false, dryRun = false, provider, transformSkillMd } = opts;
   const verbose = opts.verbose === true;
   const skillName = opts.skillName || path.basename(skillDir);

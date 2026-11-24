@@ -25,7 +25,8 @@ let deploymentQueue: Promise<unknown> = Promise.resolve();
 
 function reportDeploymentWarnings(message: string, sink = console): void {
   for (const line of message.split(/\r?\n/)) {
-    if (line.startsWith('Flue (experimental):')) sink.warn(line);
+    if (line.startsWith('Flue (experimental):')
+      || line.startsWith("Notice: Claude Code's built-in /steward (PR Steward) reads ")) sink.warn(line);
     else if (/^Removing .+ \((?:critical )?rule retired because /.test(line)) process.stderr.write(`${line}\n`);
   }
 }

@@ -985,7 +985,7 @@ keeps durable categories and examples.
 
 | Category | Examples |
 |----------|---------|
-| **Capability discovery and setup** | `aiwg-utils-quickref`, `steward`, `aiwg-status`, `aiwg-doctor`, `use`, provider regeneration |
+| **Capability discovery and setup** | `aiwg-utils-quickref`, `aiwg-steward-routing` (Claude; `steward` on other providers), `aiwg-status`, `aiwg-doctor`, `use`, provider regeneration |
 | **SDLC and delivery** | `intake-wizard`, `sdlc-accelerate`, gate evaluation, delivery-track flows, deployment, guided implementation |
 | **Testing and quality** | `test-conformance`, `test-normalize`, `test-platform-research`, TDD, mutation, flaky-test review, factory generation |
 | **Security and forensics** | supply-chain hardening, auth-factor design, degraded-mode review, DFIR readiness, log analysis, IOC extraction |
@@ -996,6 +996,8 @@ keeps durable categories and examples.
 | **Memory and persistence** | line-memory operations, compound-memory review, semantic-memory capture/query, llm-wiki topology |
 | **Operations and automation** | runbook execution, ops verification, activity logs, hooks, daemon sessions, schedule support |
 | **Authoring and development** | skill creation, addon/framework scaffolding, validation, schema governance, doc synchronization |
+
+`aiwg-steward-routing` is unrelated to Claude Code's built-in `/steward` (PR Steward).
 
 ---
 

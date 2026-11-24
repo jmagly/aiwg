@@ -380,6 +380,12 @@ async function mainUnlocked(args, internal) {
     }
     if (preparationActive) return;
 
+    if (provider.name === 'claude') {
+      const { migrateClaudeReservedSkills } = await import('./providers/claude-skill-names.mjs');
+      migrateClaudeReservedSkills(path.join(cfg.target, '.claude', 'skills'), opts);
+      migrateClaudeReservedSkills(path.join(os.homedir(), '.claude', 'skills'), opts);
+    }
+
     // User settings are outside staging: write only after a real promotion.
     if (cfg.userScope && !cfg.dryRun) {
       const { installUserHooks } = await import('./providers/user-hooks.mjs');
