@@ -60,7 +60,9 @@ else process.exit(90);
   const run = async (args: string[], direct = false) => {
     try {
       const result = await exec(process.execPath, [path.join(installed, direct ? 'tools/cli/doctor.mjs' : 'bin/aiwg.mjs'),
-        ...(direct ? args.slice(1) : args)], { cwd: project, env, timeout: 60_000, maxBuffer: 2 * 1024 * 1024 });
+        // `models refresh --json` prints the full model catalog (2.6 MB on 2026-11-24), so
+        // leave headroom for catalog growth instead of failing with ERR_CHILD_PROCESS_STDIO_MAXBUFFER.
+        ...(direct ? args.slice(1) : args)], { cwd: project, env, timeout: 60_000, maxBuffer: 32 * 1024 * 1024 });
       return { code: 0, ...result };
     } catch (error: any) { return { code: error.code, stdout: error.stdout ?? '', stderr: error.stderr ?? '' }; }
   };
