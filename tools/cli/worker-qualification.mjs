@@ -371,9 +371,24 @@ export async function qualifyProbedWorkers({ projectDir, packageRoot, config, re
         modelObservations: { provider: adapter.provider, source: observed?.source ?? 'native', observedAt: observed?.observedAt ?? verifiedAt,
           runtimeVersion: row.installedVersion, accountScope: 'local-account', accountBinding: accountScope, models: approvedModels } });
       if (result.status !== 'ENABLED') throw new Error(result.reason);
-      results.push({ cli: row.cli, status: 'qualified', models: approvedModels.map(model => model.id), invocationChecks,
+      let warning;
+      if (missing.length) {
+        warning = `No exact current model observations for ${missing.join(', ')}. `;
+        if (adapter.provider === 'cursor' && !cliConfig.localModels) {
+          const listCommand = `'${executable.replaceAll("'", "'\\''")}' --list-models`;
+          warning += observed?.error ? `Cursor model discovery failed: ${observed.error}. `
+            : 'Cursor native discovery did not list these selectors as accessible. ';
+          warning += `Inspect \`${listCommand}\` (the configured executable), correct its login/list failure or the exact selectors in parallelism.groups, `
+            + `then run \`aiwg doctor --probe-workers --qualify --cli ${row.cli} --yes\` to record fresh observations and approval.`;
+        } else warning += 'Refresh model discovery before qualifying again.';
+      } else if (!invocationChecks.length) {
+        warning = `No model invocation checks ran for ${row.cli}. Configure an enabled model/role member in parallelism.groups, `
+          + `then run \`aiwg doctor --probe-workers --qualify --cli ${row.cli} --yes\`.`;
+      }
+      const partial = !invocationChecks.length || (adapter.provider === 'cursor' && missing.length > 0);
+      results.push({ cli: row.cli, status: partial ? 'partial' : 'qualified', models: approvedModels.map(model => model.id), invocationChecks,
         ...(codexSandboxChecks.length ? { codexSandboxChecks } : {}),
-        ...(missing.length ? { warning: `No exact current model observations for ${missing.join(', ')}. Refresh model discovery before qualifying again.` } : {}) });
+        ...(warning ? { warning } : {}) });
     } catch (error) { results.push({ cli: row.cli, status: 'failed', message: error.message }); }
   }
   return { status: !ready.length || results.some(result => result.status === 'failed') ? 'failed'

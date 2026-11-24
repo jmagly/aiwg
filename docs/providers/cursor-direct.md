@@ -90,6 +90,26 @@ reads the current list directly for each Cursor installation, unless
 `localModels` is configured. An absent selector or a failed list command
 cannot be approved from an older cache.
 
+If qualification reports no exact current observations, it reports `partial`
+for that CLI, including when no model invocation checks ran. Check the native
+list using the executable configured at `parallelism.clis.cursor.executable`
+(a pinned executable may differ from `cursor-agent` on PATH). Match enabled
+group members to exact listed selectors, then record fresh observations and
+approval with:
+
+```bash
+aiwg doctor --probe-workers --qualify --cli cursor --yes
+aiwg models resolve --role coding --task implementation --group cursor \
+  --brief brief.md --workdir "$PWD" --final-output out.md --transport shell --format json
+```
+
+Qualification reads the configured executable's list again; a separate
+`aiwg models refresh` is optional. Old observations or a different installed
+build cannot substitute for the current list. A failed list command is
+reported with its redacted diagnostic; correct that failure before retrying
+the qualification command. These checks build an invocation without calling
+a model; the manual smoke below remains the conductor's live check.
+
 The parser accepts `id - name` rows, removes zero-width characters and
 trailing parenthetical notes from display names, and ignores the header,
 blank lines and CLI usage tip. Malformed rows produce diagnostics without

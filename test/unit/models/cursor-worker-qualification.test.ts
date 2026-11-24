@@ -17,13 +17,15 @@ async function fixture(model = 'gpt-5.3-codex-high', failed = false, limits = tr
   // suite covers the entire capture; these exact first rows cover dispatch.
   const capture = (await readFile(new URL('../../fixtures/providers/cursor/list-models.txt', import.meta.url), 'utf8'))
     .split('\n').slice(0, 14).join('\n');
+  const listing = path.join(f.root, 'cursor-models.txt');
+  await writeFile(listing, capture);
   await writeExecutable(binary, `#!${process.execPath}
-import { appendFileSync } from 'node:fs';
+import { appendFileSync, readFileSync } from 'node:fs';
 appendFileSync(${JSON.stringify(calls)}, JSON.stringify(process.argv.slice(2)) + '\\n');
 if (process.argv.slice(2).join(' ') === '--version') console.log(${JSON.stringify(version)});
 else if (process.argv.slice(2).join(' ') === '--list-models') {
   if (${failed}) { console.error('Not logged in; token=synthetic-secret'); process.exit(1); }
-  console.log(${JSON.stringify(capture)});
+  console.log(readFileSync(${JSON.stringify(listing)}, 'utf8'));
 } else process.exit(90);
 `);
   const configFile = path.join(f.project, '.aiwg/aiwg.config');
@@ -38,7 +40,7 @@ else if (process.argv.slice(2).join(' ') === '--list-models') {
     roleGuidance: { coding: { groups: ['workers'], tier: 'standard', initialEffort: 'high', effortLadder: ['high'] } },
     guards: { denySelfDelegation: false }, dataPolicy: { allowUnknown: true },
   } } }));
-  return { ...f, calls };
+  return { ...f, calls, listing };
 }
 
 it('caches listed Cursor observations, approves the exact configured model, and resolves a launchable route', async () => {
@@ -102,13 +104,64 @@ it.each(['absent-model', 'auto', 'failed-list'] as const)('does not approve %s e
   } } }));
   const result = await f.run(['doctor', '--probe-workers', '--qualify', '--cli', 'cursor', '--yes', '--json']);
   const report = JSON.parse(result.stdout).qualification;
-  expect(report).toMatchObject({ status: 'partial', results: [{ cli: 'cursor', models: [],
+  expect(report).toMatchObject({ status: 'partial', results: [{ cli: 'cursor', status: 'partial', models: [], invocationChecks: [],
     warning: expect.stringContaining(`No exact current model observations for ${model}`) }] });
+  expect(report.results[0].warning).toContain('aiwg doctor --probe-workers --qualify --cli cursor --yes');
+  expect(report.results[0].warning).toContain('--list-models');
+  expect(report.results[0].warning).not.toContain('Refresh model discovery before qualifying again');
+  if (state === 'failed-list') {
+    expect(report.results[0].warning).toContain('Cursor model discovery failed: Not logged in');
+    expect(report.results[0].warning).toContain('[REDACTED]');
+  }
   const receipts = await readFile(path.join(f.config, 'worker-installations.json'), 'utf8');
   expect(receipts).not.toContain('synthetic-secret');
   expect(JSON.stringify(report)).not.toContain('synthetic-secret');
   const store = JSON.parse(receipts);
   expect(store.registrations.find(record => record.cli === 'cursor').modelObservations.models).toEqual([]);
+});
+
+it.each(['missing', 'stale'] as const)('#4374 recovers changed Cursor selectors with %s cached observations', async state => {
+  const model = 'grok-4.7-high';
+  const f = await fixture(model, false, true, '2026.11.19-f005e9d');
+  if (state === 'stale') {
+    const observedAt = new Date(Date.now() - 169 * 3600_000).toISOString();
+    await mkdir(path.join(f.root, '.cache/aiwg'), { recursive: true });
+    await writeFile(path.join(f.root, '.cache/aiwg/model-catalog.v1.json'), JSON.stringify({ discovery: { providers: {
+      cursor: { observedAt, runtimeVersion: '2026.11.13-eacade1', models: [{ id: model, apiModelId: model,
+        llmProvider: 'cursor', worker: { observedAt, runtimeVersion: '2026.11.13-eacade1',
+          accountScope: 'synthetic-account', availability: 'accessible' } }] },
+    } } }));
+  }
+  const unavailable = await f.run(['doctor', '--probe-workers', '--qualify', '--cli', 'cursor', '--yes', '--json']);
+  expect(unavailable.code).toBe(1);
+  expect(JSON.parse(unavailable.stdout).qualification.results[0]).toMatchObject({ status: 'partial', models: [], invocationChecks: [] });
+
+  // The account's list changes from older selectors to Grok 4.7. Do not reuse
+  // a stale catalog. The exact doctor command must refresh observations itself;
+  // the refresh-and-qualify sequence is exercised separately above.
+  await writeFile(f.listing, 'Available models\ngrok-4.7-high - Grok 4.7 High\ngrok-4.7-low - Grok 4.7 Low\n');
+  const qualified = await f.run(['doctor', '--probe-workers', '--qualify', '--cli', 'cursor', '--yes', '--json']);
+  expect(qualified.code, qualified.stdout + qualified.stderr).toBe(0);
+  expect(JSON.parse(qualified.stdout).qualification.results[0]).toMatchObject({ status: 'qualified', models: [model],
+    invocationChecks: [{ model, status: 'passed' }] });
+  const resolved = await f.resolve();
+  expect(resolved.code, resolved.stdout + resolved.stderr).toBe(0);
+  expect(JSON.parse(resolved.stdout).invocation).toMatchObject({ readiness: 'launchable', selected: { model } });
+  const store = JSON.parse(await readFile(path.join(f.config, 'worker-installations.json'), 'utf8'));
+  expect(store.registrations.find(record => record.cli === 'cursor').modelObservations.models[0].worker)
+    .toMatchObject({ runtimeVersion: '2026.11.19-f005e9d', accountScope: 'synthetic-account' });
+});
+
+it('#4374 does not qualify a CLI with no enabled model/role invocation checks', async () => {
+  const f = await fixture();
+  const file = path.join(f.project, '.aiwg/aiwg.config');
+  const config = JSON.parse(await readFile(file, 'utf8'));
+  config.parallelism.groups.workers.members[0].enabled = false;
+  await writeFile(file, JSON.stringify(config));
+  const result = await f.run(['doctor', '--probe-workers', '--qualify', '--cli', 'cursor', '--yes', '--json']);
+  expect(result.code, result.stdout + result.stderr).toBe(1);
+  expect(JSON.parse(result.stdout).qualification).toMatchObject({ status: 'partial', results: [{ status: 'partial',
+    models: [], invocationChecks: [], warning: expect.stringContaining('parallelism.groups') }] });
 });
 
 it('refuses resolution when a listed and approved selector lacks context limits and names the operator key', async () => {
