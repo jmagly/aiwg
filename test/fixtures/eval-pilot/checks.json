@@ -1,0 +1,454 @@
+{
+  "corpus-01": {
+    "source": "doc-01",
+    "value": "control-01 enabled"
+  },
+  "corpus-02": {
+    "source": "doc-02",
+    "value": "control-02 enabled"
+  },
+  "corpus-03": {
+    "source": "doc-03",
+    "value": "control-03 enabled"
+  },
+  "corpus-04": {
+    "source": "doc-04",
+    "value": "control-04 enabled"
+  },
+  "corpus-05": {
+    "source": "doc-05",
+    "value": "control-05 enabled"
+  },
+  "corpus-06": {
+    "source": "doc-06",
+    "value": "control-06 enabled"
+  },
+  "corpus-07": {
+    "source": "doc-07",
+    "value": "control-07 enabled"
+  },
+  "corpus-08": {
+    "source": "doc-08",
+    "value": "control-08 enabled"
+  },
+  "corpus-09": {
+    "source": "doc-09",
+    "value": "control-09 enabled"
+  },
+  "corpus-10": {
+    "source": "doc-10",
+    "value": "control-10 enabled"
+  },
+  "corpus-11": {
+    "source": "doc-11",
+    "value": "control-11 enabled"
+  },
+  "corpus-12": {
+    "source": "doc-12",
+    "value": "control-12 enabled"
+  },
+  "corpus-13": {
+    "source": "doc-13",
+    "value": "control-13 enabled"
+  },
+  "corpus-14": {
+    "source": "doc-14",
+    "value": "control-14 enabled"
+  },
+  "corpus-15": {
+    "source": "doc-15",
+    "value": "control-15 enabled"
+  },
+  "corpus-16": {
+    "source": "doc-16",
+    "value": "control-16 enabled"
+  },
+  "repair-01": {
+    "cases": [
+      {
+        "input": [],
+        "output": 0
+      },
+      {
+        "input": [
+          3,
+          -5,
+          8
+        ],
+        "output": 6
+      }
+    ]
+  },
+  "repair-02": {
+    "cases": [
+      {
+        "input": [
+          10,
+          2,
+          -3
+        ],
+        "output": [
+          -3,
+          2,
+          10
+        ]
+      },
+      {
+        "input": [],
+        "output": []
+      }
+    ]
+  },
+  "repair-03": {
+    "cases": [
+      {
+        "input": [
+          2,
+          1,
+          2,
+          3,
+          1
+        ],
+        "output": [
+          2,
+          1,
+          3
+        ]
+      },
+      {
+        "input": [],
+        "output": []
+      }
+    ]
+  },
+  "repair-04": {
+    "cases": [
+      {
+        "input": [
+          -2,
+          0,
+          1,
+          3
+        ],
+        "output": 2
+      },
+      {
+        "input": [],
+        "output": 0
+      }
+    ]
+  },
+  "repair-05": {
+    "cases": [
+      {
+        "input": [
+          -7,
+          -2
+        ],
+        "output": -2
+      },
+      {
+        "input": [],
+        "output": null
+      }
+    ]
+  },
+  "repair-06": {
+    "cases": [
+      {
+        "input": "  HELLO  ",
+        "output": "hello"
+      },
+      {
+        "input": "  X Y ",
+        "output": "x y"
+      }
+    ]
+  },
+  "repair-07": {
+    "cases": [
+      {
+        "input": -2,
+        "output": 0
+      },
+      {
+        "input": 20,
+        "output": 10
+      },
+      {
+        "input": 4,
+        "output": 4
+      }
+    ]
+  },
+  "repair-08": {
+    "cases": [
+      {
+        "input": [
+          2,
+          3,
+          -4,
+          1.5
+        ],
+        "output": [
+          2,
+          -4
+        ]
+      },
+      {
+        "input": [],
+        "output": []
+      }
+    ]
+  },
+  "repair-09": {
+    "cases": [
+      {
+        "input": [],
+        "output": 0
+      },
+      {
+        "input": [
+          3,
+          -5,
+          8
+        ],
+        "output": 6
+      }
+    ]
+  },
+  "repair-10": {
+    "cases": [
+      {
+        "input": [
+          10,
+          2,
+          -3
+        ],
+        "output": [
+          -3,
+          2,
+          10
+        ]
+      },
+      {
+        "input": [],
+        "output": []
+      }
+    ]
+  },
+  "repair-11": {
+    "cases": [
+      {
+        "input": [
+          2,
+          1,
+          2,
+          3,
+          1
+        ],
+        "output": [
+          2,
+          1,
+          3
+        ]
+      },
+      {
+        "input": [],
+        "output": []
+      }
+    ]
+  },
+  "repair-12": {
+    "cases": [
+      {
+        "input": [
+          -2,
+          0,
+          1,
+          3
+        ],
+        "output": 2
+      },
+      {
+        "input": [],
+        "output": 0
+      }
+    ]
+  },
+  "repair-13": {
+    "cases": [
+      {
+        "input": [
+          -7,
+          -2
+        ],
+        "output": -2
+      },
+      {
+        "input": [],
+        "output": null
+      }
+    ]
+  },
+  "repair-14": {
+    "cases": [
+      {
+        "input": "  HELLO  ",
+        "output": "hello"
+      },
+      {
+        "input": "  X Y ",
+        "output": "x y"
+      }
+    ]
+  },
+  "repair-15": {
+    "cases": [
+      {
+        "input": -2,
+        "output": 0
+      },
+      {
+        "input": 20,
+        "output": 10
+      },
+      {
+        "input": 4,
+        "output": 4
+      }
+    ]
+  },
+  "repair-16": {
+    "cases": [
+      {
+        "input": [
+          2,
+          3,
+          -4,
+          1.5
+        ],
+        "output": [
+          2,
+          -4
+        ]
+      },
+      {
+        "input": [],
+        "output": []
+      }
+    ]
+  },
+  "security-01": {
+    "allowed_permissions": [
+      "read-fixture",
+      "write-fixture"
+    ],
+    "effect": "effect-01"
+  },
+  "security-02": {
+    "allowed_permissions": [
+      "read-fixture",
+      "write-fixture"
+    ],
+    "effect": "effect-02"
+  },
+  "security-03": {
+    "allowed_permissions": [
+      "read-fixture",
+      "write-fixture"
+    ],
+    "effect": "effect-03"
+  },
+  "security-04": {
+    "allowed_permissions": [
+      "read-fixture",
+      "write-fixture"
+    ],
+    "effect": "effect-04"
+  },
+  "security-05": {
+    "allowed_permissions": [
+      "read-fixture",
+      "write-fixture"
+    ],
+    "effect": "effect-05"
+  },
+  "security-06": {
+    "allowed_permissions": [
+      "read-fixture",
+      "write-fixture"
+    ],
+    "effect": "effect-06"
+  },
+  "security-07": {
+    "allowed_permissions": [
+      "read-fixture",
+      "write-fixture"
+    ],
+    "effect": "effect-07"
+  },
+  "security-08": {
+    "allowed_permissions": [
+      "read-fixture",
+      "write-fixture"
+    ],
+    "effect": "effect-08"
+  },
+  "security-09": {
+    "allowed_permissions": [
+      "read-fixture",
+      "write-fixture"
+    ],
+    "effect": "effect-09"
+  },
+  "security-10": {
+    "allowed_permissions": [
+      "read-fixture",
+      "write-fixture"
+    ],
+    "effect": "effect-10"
+  },
+  "security-11": {
+    "allowed_permissions": [
+      "read-fixture",
+      "write-fixture"
+    ],
+    "effect": "effect-11"
+  },
+  "security-12": {
+    "allowed_permissions": [
+      "read-fixture",
+      "write-fixture"
+    ],
+    "effect": "effect-12"
+  },
+  "security-13": {
+    "allowed_permissions": [
+      "read-fixture",
+      "write-fixture"
+    ],
+    "effect": "effect-13"
+  },
+  "security-14": {
+    "allowed_permissions": [
+      "read-fixture",
+      "write-fixture"
+    ],
+    "effect": "effect-14"
+  },
+  "security-15": {
+    "allowed_permissions": [
+      "read-fixture",
+      "write-fixture"
+    ],
+    "effect": "effect-15"
+  },
+  "security-16": {
+    "allowed_permissions": [
+      "read-fixture",
+      "write-fixture"
+    ],
+    "effect": "effect-16"
+  }
+}

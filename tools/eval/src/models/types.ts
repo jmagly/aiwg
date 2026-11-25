@@ -3,6 +3,8 @@
  * Extends matric-eval types from @matric/eval-client
  */
 
+import type { PilotTask, PilotRun, PilotSummary } from '../pilot-types.js';
+
 export interface GenerationOptions {
   temperature?: number;
   maxTokens?: number;
@@ -29,6 +31,7 @@ export interface TestCase {
   prompt: string;
   expected: Record<string, unknown>;
   scoring: Record<string, number>;
+  pilot?: PilotTask;
 }
 
 export interface EvalResult {
@@ -39,6 +42,7 @@ export interface EvalResult {
   details: Record<string, unknown>;
   latencyMs: number;
   modelResponse: string;
+  pilot?: PilotRun;
 }
 
 export type IntegrityMode = 'standard' | 'fresh' | 'locked' | 'full-locked';
@@ -133,6 +137,7 @@ export interface EvalReport extends Partial<EvalIntegrityMetadata> {
   overall: number;
   overallTier: 'opus' | 'sonnet' | 'haiku' | 'not-recommended';
   totalLatencyMs: number;
+  pilot?: PilotSummary;
   /** Standard benchmark scores from matric-eval, present when --include-matric-benchmarks is set */
   matricBenchmarks?: import('@matric/eval-client').ModelResult;
 }

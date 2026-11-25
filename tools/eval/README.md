@@ -181,3 +181,38 @@ and still interfere with lexical selection. These small, dependent observations
 support the no-change decision for this pilot; they do not estimate production
 benefit or reproduce the cited paper. The JSON report retains every insertion,
 query, paired delta, descriptive interval and failure for inspection.
+
+## Offline H1/H2 fixture pilot
+
+From the repository root, using its existing development dependencies:
+
+```bash
+node --import tsx tools/eval/src/index.ts offline-fixture --output markdown
+```
+
+The reserved `offline-fixture` model identity selects the fixture path before any
+model client is created. It runs 48 frozen tasks (16 corpus verification, 16 coding
+repairs, 16 mixed security/testing; 12 development and 36 held-out) across four H1
+configuration tapes and four H2 FlowGraph controls. It uses no HTTP, model CLI,
+paid evaluator or human labels. H1's discover/expert selections are frozen fixture
+contexts, not fresh discovery or expert decisions. H2 invokes the existing Flow
+runtime with a local adapter and includes a weakened-join negative control.
+
+The existing runner also exposes
+`AiwgEvalRunner.runOfflinePilot(datasetPath, fixtureRoot)` for callers that need
+JSON results without CLI output. The frozen manifest lives in
+`datasets/composition-pilot.json`; synthetic replay tapes, context, graphs and
+hidden vectors live in `test/fixtures/eval-pilot/`. The returned EvalReport's
+optional `pilot` projection retains every EvalResult, check outcome, failed and
+partial run, resource observation and blinded executable-adjudication entry.
+Human adjudication is `NOT RUN`. Resources are fixture observations, and context
+tokens use `ceil(UTF-8 bytes / 4)` rather than a model tokenizer.
+
+Held-out comparisons use paired task bootstrap intervals (2,000 resamples, seed
+3315) and success per total tokens, charging failed and partial runs. Development
+summaries remain separate. Fixture replay never opens the empirical claim gate:
+it remains **BLOCKED** until real, trusted runs and independent adjudication exist.
+See [the contract brief](../../docs/contracts/eval-pilot.v1.md) for authority,
+compatibility, hidden-check boundaries and deferred H3-H6 work. To freeze a new
+revision, review changes to the manifest and referenced file digests explicitly;
+the runner never rewrites its commitments.

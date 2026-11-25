@@ -9,6 +9,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import yaml from 'js-yaml';
+import { validateEvalContract } from './contracts.js';
 import type { EvalSummary } from '@matric/eval-client';
 import type {
   GenerationModel,
@@ -46,6 +47,10 @@ export interface RunnerOptions {
 }
 
 export class AiwgEvalRunner {
+  static async runOfflinePilot(datasetPath: string, fixtureRoot: string): Promise<EvalReportWithIntegrity> {
+    const { runOfflinePilot } = await import('./pilot.js');
+    return runOfflinePilot(datasetPath, fixtureRoot);
+  }
   private model: GenerationModel;
   private datasetsDir: string;
 
@@ -173,12 +178,14 @@ export class AiwgEvalRunner {
         if (!file.endsWith('.yaml') && !file.endsWith('.yml')) continue;
         const content = await fs.readFile(path.join(dimDir, file), 'utf-8');
         const parsed = yaml.load(content) as TestCase;
-        if (parsed?.id) testCases.push(parsed);
+        validateEvalContract('TestCase', parsed);
+        testCases.push(parsed);
       }
 
       return testCases;
-    } catch {
-      return [];
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
+      throw error;
     }
   }
 
