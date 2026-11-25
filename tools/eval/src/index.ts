@@ -11,6 +11,7 @@
  */
 
 import { Command } from 'commander';
+import { registerJudgeCollector } from './judge-cli.js';
 import path from 'path';
 import { promises as fs } from 'fs';
 import { fileURLToPath } from 'url';
@@ -97,4 +98,5 @@ program
     console.log(`\nReport saved: ${reportPath}`);
   });
 
-program.parse();
+registerJudgeCollector(program);
+program.parseAsync().catch(error => { console.error(error.message); process.exitCode = 1; });

@@ -1,4 +1,5 @@
 // Typed projections of the existing eval contract's offline criterion calibration.
+import type { JudgeCollection } from './judge-types.js';
 import type { EvalResult } from './models/types.js';
 export interface Criterion {
   id: string;
@@ -36,18 +37,27 @@ export interface Vote {
   config_digest: string;
   execution_id: string;
   retry_of: string | null;
-  status: 'completed' | 'partial' | 'provider-error';
+  status: 'completed' | 'partial' | 'provider-error' | 'missing';
   label: string | null;
   evidence: string[];
   rationale: string;
   critical_flags: string[];
   raw_response: string;
   raw_digest: string;
-  cost_usd: number;
-  tokens: number;
-  latency_ms: number;
+  cost_usd: number | 'unknown';
+  tokens: number | 'unknown';
+  latency_ms: number | 'unknown';
   option_order: string[];
   confidence: number | null;
+  prompt?: string;
+  prompt_digest?: string;
+  settings?: Record<string, unknown>;
+  settings_digest?: string;
+  observed_model?: string;
+  observed_vendor?: string;
+  observed_family?: string;
+  revision?: string;
+  secondary_flags?: string[];
 }
 export interface Human {
   episode_id: string;
@@ -62,6 +72,7 @@ export interface Human {
 }
 export interface Adjudicated extends Omit<Human, 'annotator' | 'blinded'> { adjudicator: string }
 export interface CalibrationStudy {
+  collection?: JudgeCollection;
   version: 'qualitative-v1';
   provenance: { repository: string; commit: string; analysis: string; protocol: string };
   dataset_commitment: string;

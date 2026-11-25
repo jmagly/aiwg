@@ -127,3 +127,78 @@ synthetic labels. A future version must preregister criterion-specific sensitivi
 false-positive, coverage and cost/latency bounds before examining locked human
 labels, and collect enough independent families. Preserve failed calibration and
 unresolved disagreements. Vendor diversity alone cannot qualify an evaluator.
+
+## Collecting judge votes
+
+The collector extends the existing eval CLI. It replays the committed pilot
+locally, verifies the frozen rubric and output commitments, and sends only
+`blindedPacket(bundle)` plus one versioned criterion. Each configuration gets
+one completed judgment per packet/criterion. Repeated-vote experiments require
+separate configuration IDs. This command plans 768 calls per configuration on
+`dev`, or 1,536 on `heldout`; retry limits increase the maximum attempt count.
+
+```bash
+# Offline planning: no judge launches, HTTP requests or run-directory writes.
+npx tsx tools/eval/src/index.ts judge-collect --evaluators test/fixtures/eval-pilot/judges.cli.json --run-dir /tmp/pilot-judge-dev --tranche dev --seed 4240 --max-calls 24 --dry-run
+
+# Live collection (conductor only); rerun identically to resume.
+npx tsx tools/eval/src/index.ts judge-collect --evaluators test/fixtures/eval-pilot/judges.cli.json --run-dir /tmp/pilot-judge-dev --tranche dev --seed 4240 --max-calls 24
+
+# Raise the cumulative call cap to continue; the frozen configuration stays fixed.
+npx tsx tools/eval/src/index.ts judge-collect --evaluators test/fixtures/eval-pilot/judges.cli.json --run-dir /tmp/pilot-judge-dev --tranche dev --seed 4240 --max-calls 48
+
+# Held-out collection uses its own directory, never development prompt examples.
+npx tsx tools/eval/src/index.ts judge-collect --evaluators test/fixtures/eval-pilot/judges.cli.json --run-dir /tmp/pilot-judge-heldout --tranche heldout --seed 4240 --max-calls 24
+
+# Optional paid HTTP judge: configure the desired model in a copy of this JSON.
+# OPENROUTER_API_KEY must already be exported by the operator; do not put it in JSON.
+npx tsx tools/eval/src/index.ts judge-collect --evaluators test/fixtures/eval-pilot/judges.http.json --run-dir /tmp/pilot-judge-http --tranche dev --seed 4240 --max-calls 12 --max-usd 0.50
+```
+
+Choose a fresh run directory and keep archives private. Configure the named
+AIWG groups and review role before collecting. For every CLI attempt the
+collector executes the stdout of this resolver invocation unchanged:
+
+```text
+aiwg models resolve --role <role> --task review --group <group> --brief <file> --workdir <dir> --final-output <file> --transport shell --format shell
+```
+
+The brief asks for a JSON judgment with `label`, `evidence` (approved span IDs),
+`rationale`, `critical_flags`, `secondary_flags` and optional `confidence` (MET
+probability). If a CLI enforces the workerClaims wrapper, put this JSON as the
+JSON-encoded `summary`. A fresh empty workspace for every attempt keeps local
+pilot identities and previous votes outside the judge workdir. Harnesses must
+honor that workdir and avoid reading the parent archive.
+
+`study.json` is both the atomic resume state and a `CalibrationStudy` archive
+accepted directly by `calibrate(archive, fixedRecords)`. Each attempt directory
+also retains the prompt, resolver output, stdout, stderr, final and normalized
+vote. Observed identities unavailable through the transport say `unknown`;
+requested model names never count as observations. Exact prompts, settings and
+raw payloads have canonical JSON SHA-256 hashes in each vote. CLI resource
+accounting is unknown unless supplied by a supported transport; zero is never
+substituted. A missing final, malformed/partial final, provider error and completed
+abstention remain different statuses. All attempts count against `--max-calls`.
+`--max-attempts` defaults to two; completed judgments are never retried.
+
+For HTTP, `max_call_usd` is the operator's conservative per-attempt reservation,
+not a provider-enforced price guarantee. Before each call the remaining budget
+must cover it. Reported cost replaces the reservation; unknown cost consumes the
+whole reservation. An unexpectedly higher invoice can exceed the requested cap
+by the last call; set a provider account spending limit for a hard monetary
+ceiling. Unknown accounting blocks any cost recommendation. Neither authorization
+headers nor environment credentials enter the archive. Tests override HTTP only
+with a loopback fixture server.
+
+The collector checkpoints before dispatch. After an interrupted process it
+recovers a committed `vote.json`; without one it stops with `in-flight` for
+operator reconciliation, avoiding a duplicate paid judgment. A leftover
+`collector.lock` also requires operator review before removing it. Do not remove
+it while the collector is active.
+
+The pilot's executable artifact correctness labels are archived separately as
+`executable-reference`, with pinned check references, outcome hash and output
+status. They never enter `humans`, adjudications, or Q1–Q6 reference denominators.
+None of the frozen qualitative criteria is decidable from those checks; all six
+are listed as needing human labels. No human labels are generated, and the
+original insufficient-evidence claim gate remains blocked.
