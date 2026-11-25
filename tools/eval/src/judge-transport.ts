@@ -1,8 +1,10 @@
 // Resolve CLI invocations verbatim and capture optional OpenRouter responses without credentials.
 import { spawn } from 'node:child_process';
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { observeCli } from './judge-cli-observation.js';
+import { stageJudgeAttempt } from './judge-project.js';
+import { captureJudgmentArtifact } from './judge-artifact.js';
 import type { CollectOptions, JudgeConfiguration, Observation } from './judge-types.js';
 
 async function execute(file: string, args: string[], cwd: string) {
@@ -25,30 +27,40 @@ export async function invokeJudge(config: JudgeConfiguration, prompt: string, at
   const observation = unavailable();
   await writeFile(path.join(attemptDir, 'brief.txt'), prompt);
   if (config.transport === 'cli') {
-    const brief = path.join(attemptDir, 'brief.txt'), final = path.join(attemptDir, 'final.json');
-    const workdir = path.join(attemptDir, 'workspace');
-    await mkdir(workdir, { recursive: true }); await writeFile(brief, prompt);
-    const resolver = options.resolver ?? { file: 'aiwg', args: [] };
-    const args = [...resolver.args, 'models', 'resolve', '--role', config.role!, '--task', 'review', '--group', config.group!,
-      '--brief', brief, '--workdir', workdir, '--final-output', final, '--transport', 'shell', '--format', 'shell'];
-    const rendered = await execute(resolver.file, args, workdir);
-    await writeFile(path.join(attemptDir, 'resolver.stdout'), rendered.stdout);
-    await writeFile(path.join(attemptDir, 'resolver.stderr'), rendered.stderr);
-    observation.settings = { transport: 'cli', group: config.group, role: config.role, task: 'review',
-      resolver: { file: resolver.file, args }, command: rendered.stdout, defaults: 'unknown' };
-    if (rendered.code !== 0 || !rendered.stdout.trim()) {
-      observation.status = 'provider-error'; observation.raw = JSON.stringify(rendered); observation.flags.push('resolver-error'); return observation;
-    }
-    // Pass exactly the resolver stdout as the shell program, including its final newline.
-    const result = await execute('/bin/sh', ['-c', rendered.stdout], workdir);
-    await writeFile(path.join(attemptDir, 'stdout'), result.stdout);
-    await writeFile(path.join(attemptDir, 'stderr'), result.stderr);
-    let finalText = ''; try { finalText = await readFile(final, 'utf8'); } catch (error: any) { if (error.code !== 'ENOENT') throw error; }
-    observation.raw = JSON.stringify({ ...result, final: finalText }); observation.content = finalText;
-    if (result.code !== 0) { observation.status = 'provider-error'; observation.flags.push('nonzero-exit'); }
-    else if (!finalText) observation.status = 'missing';
-    await observeCli(config, result.stdout, observation);
-    return observation;
+    const workdir = options.judgeProject!;
+    const staged = await stageJudgeAttempt(workdir, attemptDir);
+    try {
+      const brief = path.join(staged.directory, 'brief.txt'), final = path.join(staged.directory, 'final.json');
+      await writeFile(brief, prompt);
+      const resolver = options.resolver ?? { file: 'aiwg', args: [] };
+      const args = [...resolver.args, 'models', 'resolve', '--role', config.role!, '--task', config.task ?? 'inventory', '--group', config.group!,
+        '--brief', brief, '--workdir', workdir, '--final-output', final, '--transport', 'shell', '--format', 'shell'];
+      const rendered = await execute(resolver.file, args, workdir);
+      await writeFile(path.join(attemptDir, 'resolver.stdout'), rendered.stdout);
+      await writeFile(path.join(attemptDir, 'resolver.stderr'), rendered.stderr);
+      observation.settings = { transport: 'cli', group: config.group, role: config.role, task: config.task ?? 'inventory',
+        resolver: { file: resolver.file, args, cwd: workdir }, command: rendered.stdout, defaults: 'unknown' };
+      const blocked = resolverBlock(rendered);
+      if (blocked) {
+        observation.status = 'provider-error'; observation.raw = JSON.stringify(rendered);
+        observation.flags.push('resolver-blocked'); observation.settings.diagnostic = blocked;
+        return observation;
+      }
+      if (rendered.code !== 0 || !rendered.stdout.trim()) {
+        observation.status = 'provider-error'; observation.raw = JSON.stringify(rendered); observation.flags.push('resolver-error'); return observation;
+      }
+      // Pass exactly the resolver stdout as the shell program, including its final newline.
+      const result = await execute('/bin/sh', ['-c', rendered.stdout], workdir);
+      await writeFile(path.join(attemptDir, 'stdout'), result.stdout);
+      await writeFile(path.join(attemptDir, 'stderr'), result.stderr);
+      let finalText = ''; try { finalText = await readFile(final, 'utf8'); } catch (error: any) { if (error.code !== 'ENOENT') throw error; }
+      observation.raw = JSON.stringify({ ...result, final: finalText }); observation.content = finalText;
+      if (result.code !== 0) { observation.status = 'provider-error'; observation.flags.push('nonzero-exit'); }
+      else if (!finalText) observation.status = 'missing';
+      await observeCli(config, result.stdout, observation);
+      if (!observation.status) await captureJudgmentArtifact(observation, staged.directory);
+      return observation;
+    } finally { await staged.archive(); }
   }
   const endpoint = options.httpEndpoint ?? 'https://openrouter.ai/api/v1/chat/completions';
   if (options.httpEndpoint && !/^http:\/\/(127\.0\.0\.1|localhost):\d+\//.test(endpoint)) throw new Error('HTTP fixture override must be loopback');
@@ -86,4 +98,21 @@ export async function invokeJudge(config: JudgeConfiguration, prompt: string, at
   } catch { observation.status = observation.raw && !httpFailed ? 'partial' : 'provider-error'; observation.flags.push('http-transport-error'); }
   finally { observation.raw = observation.raw.split(key).join('[REDACTED]'); }
   return observation;
+}
+
+function resolverBlock(result: { stdout: string; stderr: string }) {
+  for (const stream of [result.stderr, result.stdout]) {
+    try {
+      const diagnostic = JSON.parse(stream);
+      if (diagnostic.status === 'blocked') {
+        if (!diagnostic.diagnostics?.length) {
+          diagnostic.diagnostics = (diagnostic.exclusions ?? []).flatMap((exclusion: any) =>
+            (exclusion.diagnostics ?? []).map((item: any) => ({ ...item, group: exclusion.group,
+              member: exclusion.member, model: exclusion.model, effort: exclusion.effort })));
+        }
+        return diagnostic;
+      }
+    } catch { /* Shell success output and ordinary process errors are not resolver blocks. */ }
+  }
+  return undefined;
 }

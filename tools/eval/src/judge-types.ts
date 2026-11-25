@@ -6,6 +6,7 @@ export interface JudgeConfiguration {
   transport: 'cli' | 'openrouter';
   group?: 'workers' | 'cursor' | 'muse-external';
   role?: string;
+  task?: string;
   model?: string;
   max_call_usd?: number;
   max_tokens?: number;
@@ -24,7 +25,7 @@ export interface JudgeCollection {
   tranche: 'dev' | 'heldout';
   max_attempts: number;
   evaluators: JudgeConfiguration[];
-  stop_reason: 'complete' | 'max-calls' | 'max-usd' | 'in-flight';
+  stop_reason: 'complete' | 'max-calls' | 'max-usd' | 'in-flight' | 'resolver-blocked';
   human_labels_needed: string[];
   executable_references: ExecutableReference[];
 }
@@ -33,12 +34,14 @@ export interface CollectOptions {
   records: FixedOutput[];
   evaluators: JudgeConfiguration[];
   runDir: string;
+  judgeProject?: string;
   tranche: 'dev' | 'heldout';
   seed: number;
   maxCalls: number;
   maxUsd?: number;
   maxAttempts?: number;
   dryRun?: boolean;
+  retryBlocked?: boolean;
   resolver?: { file: string; args: string[] };
   // Loopback-only override for offline fixture servers. Production always uses OpenRouter.
   httpEndpoint?: string;
@@ -46,6 +49,8 @@ export interface CollectOptions {
 export interface Observation {
   raw: string;
   content: string;
+  judgmentArtifact?: Buffer;
+  judgmentError?: string;
   status?: Exclude<Vote['status'], 'completed'>;
   flags: string[];
   tokens: number | 'unknown';

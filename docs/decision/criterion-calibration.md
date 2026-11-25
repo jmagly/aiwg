@@ -137,38 +137,108 @@ one completed judgment per packet/criterion. Repeated-vote experiments require
 separate configuration IDs. This command plans 768 calls per configuration on
 `dev`, or 1,536 on `heldout`; retry limits increase the maximum attempt count.
 
+CLI judges require a dedicated AIWG project, separate from the source tree and
+all run archives. Prepare two declared native inputs: an `aiwg.config` with
+`parallelism.worker_dispatch: true`, CLI installation/account/quota bindings and
+the judge groups; and `models.json` with
+`defaults.workerSelection.roleGuidance.efficiency.groups` naming those groups.
+Choose model IDs, tiers, efforts and permissions supported by your installed
+CLIs. The synthetic examples `test/fixtures/eval-pilot/judge-project.config.json`
+and `judge-project.models.json` show the shape; replace their synthetic models
+and scopes before using them with installed CLIs. See
+[worker dispatch configuration](../getting-started/worker-dispatch.md).
+
+The setup subcommand validates these inputs against existing AIWG owners, then
+copies them byte-for-byte into a fresh project. It refuses an existing directory
+and never qualifies or launches a model. From the repository root:
+
+```bash
+npx tsx tools/eval/src/index.ts judge-setup --judge-project /tmp/pilot-judge-project --config /tmp/judge-inputs/aiwg.config --models /tmp/judge-inputs/models.json --evaluators test/fixtures/eval-pilot/judges.cli.json
+
+# One-time operator qualification, from the exact judge project workspace.
+(cd /tmp/pilot-judge-project && aiwg effect keys init && aiwg doctor --probe-workers --qualify --yes)
+```
+
+Configure the existing effect-ledger key provider in the declared config as
+needed by `effect keys init`. Qualification binds the installed CLIs to this
+workspace; repeat it after changes that invalidate the binding. Offline tests
+exercise both setup commands with a fake resolver and synthetic markers only.
+
 ```bash
 # Offline planning: no judge launches, HTTP requests or run-directory writes.
-npx tsx tools/eval/src/index.ts judge-collect --evaluators test/fixtures/eval-pilot/judges.cli.json --run-dir /tmp/pilot-judge-dev --tranche dev --seed 4240 --max-calls 24 --dry-run
+npx tsx tools/eval/src/index.ts judge-collect --judge-project /tmp/pilot-judge-project --evaluators test/fixtures/eval-pilot/judges.cli.json --run-dir /tmp/pilot-judge-dev --tranche dev --seed 4240 --max-calls 24 --dry-run
 
 # Live collection (conductor only); rerun identically to resume.
-npx tsx tools/eval/src/index.ts judge-collect --evaluators test/fixtures/eval-pilot/judges.cli.json --run-dir /tmp/pilot-judge-dev --tranche dev --seed 4240 --max-calls 24
+npx tsx tools/eval/src/index.ts judge-collect --judge-project /tmp/pilot-judge-project --evaluators test/fixtures/eval-pilot/judges.cli.json --run-dir /tmp/pilot-judge-dev --tranche dev --seed 4240 --max-calls 24
 
 # Raise the cumulative call cap to continue; the frozen configuration stays fixed.
-npx tsx tools/eval/src/index.ts judge-collect --evaluators test/fixtures/eval-pilot/judges.cli.json --run-dir /tmp/pilot-judge-dev --tranche dev --seed 4240 --max-calls 48
+npx tsx tools/eval/src/index.ts judge-collect --judge-project /tmp/pilot-judge-project --evaluators test/fixtures/eval-pilot/judges.cli.json --run-dir /tmp/pilot-judge-dev --tranche dev --seed 4240 --max-calls 48
 
 # Held-out collection uses its own directory, never development prompt examples.
-npx tsx tools/eval/src/index.ts judge-collect --evaluators test/fixtures/eval-pilot/judges.cli.json --run-dir /tmp/pilot-judge-heldout --tranche heldout --seed 4240 --max-calls 24
+npx tsx tools/eval/src/index.ts judge-collect --judge-project /tmp/pilot-judge-project --evaluators test/fixtures/eval-pilot/judges.cli.json --run-dir /tmp/pilot-judge-heldout --tranche heldout --seed 4240 --max-calls 24
 
 # Optional paid HTTP judge: configure the desired model in a copy of this JSON.
 # OPENROUTER_API_KEY must already be exported by the operator; do not put it in JSON.
 npx tsx tools/eval/src/index.ts judge-collect --evaluators test/fixtures/eval-pilot/judges.http.json --run-dir /tmp/pilot-judge-http --tranche dev --seed 4240 --max-calls 12 --max-usd 0.50
 ```
 
-Choose a fresh run directory and keep archives private. Configure the named
-AIWG groups and review role before collecting. For every CLI attempt the
-collector executes the stdout of this resolver invocation unchanged:
+Choose a fresh run directory and keep archives private. CLI declarations accept
+an optional `task`. Its default is `inventory`, the resolver's read-only bounded
+assessment class mapped to `efficiency`. The other built-ins are
+`implementation` (coding), `architecture` and `review` (reasoning). Project classes
+come from `models.json` at `defaults.workerSelection.taskClasses`, for example
+`"assessment": "efficiency"`. Unknown classes and role conflicts fail before
+collection. A reasoning judge must explicitly select a compatible task and role
+guidance; collection never authorizes premium escalation.
+
+For every CLI attempt the collector runs the resolver from the judge project,
+then executes its stdout unchanged from that same directory:
 
 ```text
-aiwg models resolve --role <role> --task review --group <group> --brief <file> --workdir <dir> --final-output <file> --transport shell --format shell
+aiwg models resolve --role <role> --task <task-or-inventory> --group <group> --brief <absolute-attempt-brief> --workdir <judge-project> --final-output <absolute-attempt-final> --transport shell --format shell
 ```
+
+`src/models/worker-installation.mjs` compares the real workdir with the exact
+qualified workspace; subtrees are rejected. Briefs and finals must also stay
+within the qualified input/output roots. Each attempt therefore stages its
+absolute brief and final paths under `<judge-project>/.judge-attempts/<execution>`.
+Only one attempt occupies this workspace: after execution, all staged files are
+copied to the archive and removed before another judge starts. A project lock
+prevents concurrent collectors, including collectors using different archives.
+Run directories must be outside the judge project and cannot contain it, including
+through symlinks. Judges receive no archive path in their brief. Previous attempt
+outputs are absent from the working tree; filesystem read confinement outside
+that tree remains the configured CLI's responsibility. Use appropriate native or
+external isolation for CLIs that can read outside their workdir.
 
 The brief asks for a JSON judgment with `label`, `evidence` (approved span IDs),
 `rationale`, `critical_flags`, `secondary_flags` and optional `confidence` (MET
 probability). If a CLI enforces the workerClaims wrapper, put this JSON as the
-JSON-encoded `summary`. A fresh empty workspace for every attempt keeps local
-pilot identities and previous votes outside the judge workdir. Harnesses must
-honor that workdir and avoid reading the parent archive.
+JSON-encoded `summary`.
+
+Each brief lists the exact citable span IDs: the bundle's non-null top-level
+evidence keys in sorted order. Missing evidence is expressed by `CANNOT_ASSESS`
+and the rationale, never by citing an absent or null span. The `CalibrationStudy`
+schema permits empty citation arrays; the validator permits them only for
+`CANNOT_ASSESS` and permitted `NOT_APPLICABLE` judgments. Assessed labels require
+at least one present span. Null fields remain visible in the packet as missing
+evidence, but are excluded from the citable list.
+
+Brief changes alter each vote's `prompt_digest`. Resume compares archived prompts
+against the current rendered brief and refuses prompt drift. After updating the
+brief, use a fresh run directory; preserve existing archives with their original
+prompts and hashes rather than editing them to resume.
+
+A resolver `blocked` response stops collection after its first receipt, with
+`stop_reason: resolver-blocked`; the CLI prints its diagnostics and the archive
+retains the exact argv, cwd, rendered command and raw resolver streams. It consumes
+one attempt with unknown cost. Resuming that archive preserves the stop, avoiding
+repeated configuration failures. After correcting the project/qualification,
+resume with `--retry-blocked` to explicitly recheck it. Cumulative call and retry
+caps still apply; another block stops immediately again. Ordinary transport
+failures retain bounded retry/resume behavior.
+After interruption, reconcile any staged attempt before removing `.judge-attempts`
+or `.judge-collector.lock`; never remove them while a collector is active.
 
 `study.json` is both the atomic resume state and a `CalibrationStudy` archive
 accepted directly by `calibrate(archive, fixedRecords)`. Each attempt directory
