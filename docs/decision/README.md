@@ -37,6 +37,9 @@ Read the [normative specification](specification.md), [architecture](architectur
 
 Structured entry fields, version migration, and rollback rules are described in
 [structured entries](structured-entries.md).
+The research design for [evidence-gated memory and prompt updates](memory-update-controls.md)
+maps #3318 onto #3282–#3285 and proposes an H5 experiment with shuffled-memory
+and earlier-task retention controls; it reports no measured improvement.
 Probabilistic downstream feature export is described in
 [feature export](feature-export.md).
 The default-off conformal prediction research spike and its open-data v2
