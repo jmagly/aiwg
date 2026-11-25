@@ -1,0 +1,52 @@
+{
+  "apiVersion": "cicd.aiwg.io/v1",
+  "kind": "CIPipeline",
+  "metadata": {
+    "name": "ci-flag"
+  },
+  "spec": {
+    "triggers": [
+      {
+        "type": "manual"
+      }
+    ],
+    "environments": [
+      "ci-production"
+    ],
+    "stages": [
+      {
+        "id": "ci-release",
+        "jobs": [
+          {
+            "id": "ci-publish",
+            "capability": "docker-push",
+            "inputs": {}
+          }
+        ],
+        "rollout": {
+          "strategy": "flag",
+          "steps": [
+            {
+              "percentage": 5,
+              "pause": "10m"
+            },
+            {
+              "percentage": 100
+            }
+          ],
+          "rollback": {
+            "on": [
+              "gate-failure"
+            ],
+            "capability": "ci-deploy-handoff"
+          }
+        }
+      }
+    ],
+    "render": {
+      "targets": [
+        "github-actions"
+      ]
+    }
+  }
+}

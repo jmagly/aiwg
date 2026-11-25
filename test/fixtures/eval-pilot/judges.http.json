@@ -1,0 +1,3 @@
+[
+  { "id": "openrouter", "transport": "openrouter", "model": "openai/gpt-4.1-mini", "max_tokens": 512, "max_call_usd": 0.05 }
+]

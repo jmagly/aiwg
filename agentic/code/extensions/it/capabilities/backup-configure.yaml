@@ -1,0 +1,58 @@
+apiVersion: ops.aiwg.io/v1
+kind: OpsCapability
+metadata:
+  name: backup-configure
+  labels:
+    category: provisioning
+  annotations:
+    blast-radius: >-
+      single-host backup policy — changes scheduled backups and retention; retention changes can remove
+      historical recovery points
+spec:
+  description: >-
+    Configure restic or borgbackup for hostname using schedule, retention in days (a decimal string), and
+    paths. Resolve repository credentials from existing host configuration. Verify the schedule, retained
+    policy and protected paths, then perform an initial backup and restore probe before success. Emit a
+    governed, redacted JSON verification_report containing the named observed results; verification reads that
+    output path. Fail if any requested check is missing or fails.
+  version: 1.0.0
+  inputs:
+    - name: hostname
+      type: string
+      required: true
+    - name: method
+      type: string
+      required: true
+    - name: schedule
+      type: string
+      required: true
+    - name: retention
+      type: string
+      required: true
+    - name: paths
+      type: list
+      required: true
+  outputs:
+    - name: status
+      type: string
+    - name: configured
+      type: boolean
+    - name: backup_ref
+      type: string
+    - name: restore_verified
+      type: boolean
+    - name: verification_report
+      type: path
+  target_requirements:
+    os:
+      - linux
+    capabilities:
+      - ssh
+      - jq
+  agent: ops-runbook-executor
+  idempotent: true
+  verification:
+    command: >-
+      jq -e '.schedule_verified == true and .retention_verified == true and .paths_verified == true and
+      .initial_backup_verified == true and .restore_verified == true' '{{ verification_report }}'
+    expect: "true"

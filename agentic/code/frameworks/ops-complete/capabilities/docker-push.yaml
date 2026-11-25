@@ -1,0 +1,34 @@
+apiVersion: ops.aiwg.io/v1
+kind: OpsCapability
+metadata:
+  name: docker-push
+  labels:
+    category: ci
+  annotations:
+    blast-radius: "authorized registry image publication; tags may change"
+spec:
+  description: "Publish a scanned container image to its authorized registry and persist the immutable digest in digest_record. Require a passing scan for the same digest and secret-reference authentication; verify the remote digest matches the local image. Follow dev-pipeline-safety and dev-secret-hygiene."
+  version: "1.0.0"
+  inputs:
+    - name: image
+      type: string
+      required: true
+    - name: digest_record
+      type: path
+      required: true
+    - name: scan_evidence
+      type: path
+      required: true
+  outputs:
+    - name: image_digest
+      type: string
+    - name: remote_digest
+      type: string
+    - name: digest_record
+      type: path
+    - name: evidence_path
+      type: path
+  idempotent: true
+  verification:
+    command: "jq -e '(.image_digest | test(\"^sha256:[a-f0-9]{64}$\")) and .remote_digest == .image_digest' '{{ evidence_path }}'"
+    expect: "true"

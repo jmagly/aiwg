@@ -9,7 +9,25 @@
     "apiVersion": { "const": "dev.ops.aiwg.io/v1" },
     "kind": { "enum": ["DevBuildPlaybook"] },
     "metadata": { "$ref": "#/definitions/metadata" },
-    "spec": { "type": "object", "additionalProperties": true }
+    "spec": {
+      "type": "object",
+      "required": ["targets", "steps"],
+      "additionalProperties": false,
+      "properties": {
+        "description": { "type": "string", "minLength": 1 },
+        "inventory": { "type": "string", "minLength": 1 },
+        "targets": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "groups": { "type": "array", "items": { "type": "string" } },
+            "hosts": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "vars": { "type": "object", "additionalProperties": true },
+        "steps": { "type": "array", "minItems": 1, "items": { "$ref": "#/definitions/step" } }
+      }
+    }
   },
   "definitions": {
     "metadata": {
@@ -20,6 +38,63 @@
         "name": { "type": "string" },
         "namespace": { "type": "string" },
         "labels": { "type": "object", "additionalProperties": { "type": "string" } }
+      }
+    },
+    "step": {
+      "description": "OpsPlaybook capability step with structured input bindings and retry policy.",
+      "type": "object",
+      "required": ["id", "capability"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "capability": { "type": "string", "minLength": 1 },
+        "depends_on": { "type": "array", "items": { "type": "string" } },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name"],
+            "additionalProperties": false,
+            "properties": {
+              "name": { "type": "string" },
+              "value": {},
+              "from": {
+                "type": "string",
+                "pattern": "^(vars\\.[A-Za-z_][A-Za-z0-9_-]*|steps\\.[A-Za-z0-9_-]+\\.outputs\\.[A-Za-z0-9_-]+)$"
+              }
+            },
+            "oneOf": [
+              { "properties": { "value": {} }, "required": ["value"], "not": { "properties": { "from": {} }, "required": ["from"] } },
+              { "properties": { "from": {} }, "required": ["from"], "not": { "properties": { "value": {} }, "required": ["value"] } }
+            ]
+          }
+        },
+        "outputs": {
+          "type": "array",
+          "items": {
+            "type": "object", "required": ["name"], "additionalProperties": false,
+            "properties": { "name": { "type": "string" } }
+          }
+        },
+        "retry": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "limit": { "type": "integer", "minimum": 0 },
+            "backoff": { "type": "string" },
+            "on": { "type": "string" }
+          }
+        },
+        "gate": {
+          "type": "object",
+          "required": ["type", "message", "blast_radius"],
+          "additionalProperties": false,
+          "properties": {
+            "type": { "enum": ["automated", "manual"] },
+            "message": { "type": "string", "minLength": 1 },
+            "blast_radius": { "enum": ["low", "medium", "high"] }
+          }
+        }
       }
     }
   }

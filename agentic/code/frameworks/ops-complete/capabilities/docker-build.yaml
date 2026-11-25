@@ -1,0 +1,38 @@
+apiVersion: ops.aiwg.io/v1
+kind: OpsCapability
+metadata:
+  name: docker-build
+  labels:
+    category: ci
+  annotations:
+    blast-radius: "local builder storage and resource consumption; no registry publication"
+spec:
+  description: "Build a container image from a bounded context and Dockerfile with explicit tags and arguments. Record immutable image digest, duration and build evidence; credentials are secret references only. Follow dev-idempotent-builds and dev-secret-hygiene."
+  version: "1.0.0"
+  inputs:
+    - name: context
+      type: path
+      required: true
+    - name: dockerfile
+      type: path
+      required: true
+    - name: tags
+      type: list
+      required: true
+    - name: build_args
+      type: object
+      required: false
+      default: {}
+  outputs:
+    - name: image_digest
+      type: string
+    - name: tags
+      type: list
+    - name: duration_seconds
+      type: number
+    - name: evidence_path
+      type: path
+  idempotent: true
+  verification:
+    command: "jq -e '(.image_digest | test(\"^sha256:[a-f0-9]{64}$\")) and (.tags | length > 0)' '{{ evidence_path }}'"
+    expect: "true"

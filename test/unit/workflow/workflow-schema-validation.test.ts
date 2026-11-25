@@ -384,3 +384,33 @@ describe('agentic fan-out steps (#1547)', () => {
     expect(validate(doc)).toBe(false);
   });
 });
+
+describe('WorkflowExtension framework ownership (#4427)', () => {
+  const extension = (extendsFramework: string) => ({
+    apiVersion: 'workflow.aiwg.io/v1',
+    kind: 'WorkflowExtension',
+    metadata: { name: 'cicd-provider' },
+    spec: { extends: extendsFramework, description: 'CI provider extension', version: '1.0.0' },
+  });
+
+  it.each(['ops-complete', 'cicd-complete'])('accepts the %s parent', parent => {
+    const validate = makeAjv().compile(loadSchema('workflow-extension.schema.json'));
+    expect(validate(extension(parent)), JSON.stringify(validate.errors)).toBe(true);
+  });
+
+  it('rejects an unknown parent with enum', () => {
+    const validate = makeAjv().compile(loadSchema('workflow-extension.schema.json'));
+    expect(validate(extension('unknown-framework'))).toBe(false);
+    expect(validate.errors?.map(error => error.keyword)).toContain('enum');
+  });
+
+  it('preserves the ops-only OpsExtension contract', () => {
+    const schemaPath = path.join(REPO_ROOT, 'agentic/code/frameworks/ops-complete/schemas/metalanguage/ops-extension.schema.json');
+    const validate = makeAjv().compile(JSON.parse(fs.readFileSync(schemaPath, 'utf8')));
+    const doc = { ...extension('ops-complete'), apiVersion: 'ops.aiwg.io/v1', kind: 'OpsExtension' };
+    expect(validate(doc), JSON.stringify(validate.errors)).toBe(true);
+    doc.spec.extends = 'cicd-complete';
+    expect(validate(doc)).toBe(false);
+    expect(validate.errors?.map(error => error.keyword)).toContain('const');
+  });
+});

@@ -252,6 +252,7 @@ Per-framework approximate skill counts:
 | `forensics-complete` | ~20 | Incident response, forensic investigation |
 | `media-curator` | ~20 | Personal media archive |
 | `security-engineering` | ~27 | Security/cryptography reviews |
+| `cicd-complete` | 1 | End-user CI/CD lifecycle and pipeline/environment contracts |
 
 The big cost is when you stack everything: full install ≈ 480+ skills. A focused install (sdlc + utils) is ~228 skills and fits comfortably in default Claude Code budgets.
 

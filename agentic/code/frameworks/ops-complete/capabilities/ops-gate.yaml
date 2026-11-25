@@ -1,0 +1,65 @@
+apiVersion: ops.aiwg.io/v1
+kind: OpsCapability
+metadata:
+  name: ops-gate
+  labels:
+    category: governance
+  annotations:
+    blast-radius: >-
+      workflow checkpoint — authorizes subsequent operations at the caller-supplied impact level; this
+      capability does not itself change infrastructure
+spec:
+  description: >-
+    Evaluate a workflow checkpoint using OpsGate semantics: type approval, quality or automated; accept manual
+    as an alias for approval. Show message and impact blast_radius, honor timeout in seconds, dry_run_first
+    and approvers. Automated/quality gates must verify recorded prerequisite evidence and fail closed when
+    absent or failed. Approval gates require an explicit authorized operator decision; elapsed time is never
+    approval. Emit verification_report with passed and decision (approved, passed, rejected or timed-out),
+    plus approval_recorded for approval gates. Gate decisions are scoped to this execution and cannot be
+    reused. Emit a governed, redacted JSON verification_report containing the named observed results;
+    verification reads that output path. Fail if any requested check is missing or fails.
+  version: 1.0.0
+  inputs:
+    - name: type
+      type: string
+      required: true
+    - name: message
+      type: string
+      required: true
+    - name: blast_radius
+      type: string
+      required: false
+      default: low
+    - name: timeout
+      type: number
+      required: false
+      default: 300
+    - name: dry_run_first
+      type: boolean
+      required: false
+      default: false
+    - name: approvers
+      type: list
+      required: false
+  outputs:
+    - name: status
+      type: string
+    - name: passed
+      type: boolean
+    - name: decision
+      type: string
+    - name: approval_recorded
+      type: boolean
+    - name: verification_report
+      type: path
+  target_requirements:
+    capabilities:
+      - ops-verify
+      - jq
+  agent: ops-runbook-executor
+  idempotent: false
+  verification:
+    command: >-
+      jq -e '.passed == true and ((.decision == "approved" and .approval_recorded == true) or .decision ==
+      "passed")' '{{ verification_report }}'
+    expect: "true"

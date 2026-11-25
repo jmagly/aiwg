@@ -1,0 +1,91 @@
+---
+name: ci-pipeline-spec-template
+title: CI Pipeline Spec
+description: Design a provider-neutral CIPipeline with a gated canary rollout and rollback.
+outputKind: ci-pipeline-spec
+aliases:
+  - CI pipeline spec
+  - ci canary pipeline specification
+---
+# Template frontmatter is the first YAML document; copy only this second document
+# into your pipeline artifact. Validate it against ../schemas/ci-pipeline.schema.json.
+# Fill all example names and resolve resources before use. This example validates
+# structure; it does not install capabilities, evaluate gates or run a deployment.
+# Planning requirements: reference the completed SDLC artifact from
+# $AIWG_ROOT/agentic/code/frameworks/sdlc-complete/templates/deployment/ci-cd-pipeline-template.md
+# Provider mapping patterns (adapt by reference, never blindly copy):
+# $AIWG_ROOT/agentic/code/frameworks/ops-complete/templates/ci-pipeline.yaml
+# $AIWG_ROOT/agentic/code/extensions/dev/templates/pipeline.md
+apiVersion: cicd.aiwg.io/v1
+kind: CIPipeline
+metadata:
+  # Fill a stable pipeline name and string labels for ownership.
+  name: ci-example-service
+  labels:
+    owner: ci-example-team
+spec:
+  # Manual is intentional for the deployment example. Add approved push/PR/schedule
+  # triggers only after separating untrusted validation from privileged deployment.
+  triggers:
+    - type: manual
+      branches: [main]
+  # Resolve this name to a separately schema-validated CIEnvironment document.
+  environments: [ci-production]
+  stages:
+    # Replace capabilities with installed ops.aiwg.io/v1 resource names and validate
+    # each inputs map against that capability. Keep dependencies acyclic.
+    - id: ci-verify
+      jobs:
+        - id: ci-build-test
+          capability: ci-example-build-test
+          inputs:
+            environment: ci-production
+          # Never re-run to green. Diagnostic reproduction belongs in incident work.
+          retry:
+            max_attempts: 1
+            backoff: 30s
+    - id: ci-deploy
+      depends_on: [ci-verify]
+      jobs:
+        - id: ci-release-artifact
+          capability: ci-example-deploy
+          inputs:
+            environment: ci-production
+            # Replace with the immutable artifact digest from the verified build.
+            artifact_ref: ci-verified-artifact-record
+      rollout:
+        strategy: canary
+        # Fill allocation and observation time; exactly one of weight/percentage
+        # per step. The named GatePack must block progression when health fails.
+        steps:
+          - weight: 10
+            pause: 5m
+            gate: ci-example-canary-health
+          - weight: 100
+            pause: 5m
+            gate: ci-example-canary-health
+        gates:
+          - pack: ci-example-canary-health
+            after: ci-deploy
+            # Example parameters only: match the installed GatePack definition,
+            # metric source, thresholds and observation window before approval.
+            parameters:
+              metric_source: ci-service-health-dashboard
+              max_error_rate_percent: 1
+              observation_window: 5m
+        rollback:
+          on: [gate-failure, manual]
+          capability: ci-example-rollback
+  # Resolve this gates.aiwg.io/v1alpha1 pack; it blocks entry to deployment.
+  gates:
+    - pack: ci-example-quality
+      after: ci-verify
+  # Select only supported, reviewed render targets. Record renderer version and
+  # output paths/digests in the runbook, then validate actual provider semantics.
+  render:
+    targets: [github-actions]
+# For strategy: flag, read project feature_flags.provider and link the existing
+# SDLC flag-fit decision/card; do not add provider/lifecycle properties to this spec.
+# Card: $AIWG_ROOT/agentic/code/frameworks/sdlc-complete/templates/deployment/feature-toggle-card.md
+# Governing rules by name: dev-pipeline-safety, dev-secret-hygiene,
+# dev-idempotent-builds, dev-ci-self-contained, ci-action-pinning.

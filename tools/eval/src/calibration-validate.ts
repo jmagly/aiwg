@@ -24,7 +24,7 @@ export function blindedPacket(bundle: Bundle) {
 
 export function validateStudy(study: CalibrationStudy, records: FixedOutput[]): Bundle[] {
   validateEvalContract('CalibrationStudy', study);
-  const { evaluators, votes, humans, adjudications, commitment, ...frozen } = study;
+  const { evaluators, votes, humans, adjudications, collection: _collection, commitment, ...frozen } = study;
   if (digest(frozen) !== commitment) throw new Error('Frozen rubric/split commitment mismatch');
   if (digest(study.prompt) !== study.prompt_digest) throw new Error('Prompt digest mismatch');
   if (new Set(study.criteria.map(c => c.id)).size !== 6) throw new Error('Duplicate criterion');
@@ -65,6 +65,8 @@ export function validateStudy(study: CalibrationStudy, records: FixedOutput[]): 
     const key = `${vote.evaluator_id}:${vote.episode_id}:${vote.criterion_id}`;
     const prior = latest.get(key);
     if ((prior?.execution_id ?? null) !== vote.retry_of || prior?.status === 'completed') throw new Error('Invalid retry lineage');
+    if (vote.prompt !== undefined && digest(vote.prompt) !== vote.prompt_digest) throw new Error('Vote prompt digest mismatch');
+    if (vote.settings !== undefined && digest(vote.settings) !== vote.settings_digest) throw new Error('Vote settings digest mismatch');
     if (digest(vote.raw_response) !== vote.raw_digest) throw new Error('Raw response digest mismatch');
     if ((vote.status === 'completed') !== (vote.label !== null)) throw new Error('Incomplete/provider error cannot supply a judgment');
     validateLabel({ ...vote, label: vote.label ?? 'CANNOT_ASSESS' });

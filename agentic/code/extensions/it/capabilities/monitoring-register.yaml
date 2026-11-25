@@ -1,0 +1,57 @@
+apiVersion: ops.aiwg.io/v1
+kind: OpsCapability
+metadata:
+  name: monitoring-register
+  labels:
+    category: provisioning
+  annotations:
+    blast-radius: >-
+      single-host monitoring — updates scrape targets, exporters, dashboard and alert routing;
+      misconfiguration can hide outages or generate alerts
+spec:
+  description: >-
+    Register hostname and ip with monitoring, configure requested exporters, dashboard_template and
+    alert_group, and confirm samples reach the monitoring backend and alert routing resolves. Emit a governed,
+    redacted JSON verification_report containing the named observed results; verification reads that output
+    path. Fail if any requested check is missing or fails.
+  version: 1.0.0
+  inputs:
+    - name: hostname
+      type: string
+      required: true
+    - name: ip
+      type: string
+      required: true
+    - name: exporters
+      type: list
+      required: true
+    - name: dashboard_template
+      type: string
+      required: true
+    - name: alert_group
+      type: string
+      required: true
+  outputs:
+    - name: status
+      type: string
+    - name: registered
+      type: boolean
+    - name: exporters_reporting
+      type: list
+    - name: dashboard_ref
+      type: string
+    - name: verification_report
+      type: path
+  target_requirements:
+    os:
+      - linux
+    capabilities:
+      - ssh
+      - jq
+  agent: ops-runbook-executor
+  idempotent: true
+  verification:
+    command: >-
+      jq -e '.target_registered == true and .all_exporters_reporting == true and .dashboard_configured == true
+      and .alert_route_verified == true' '{{ verification_report }}'
+    expect: "true"

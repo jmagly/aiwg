@@ -1,0 +1,29 @@
+apiVersion: ops.aiwg.io/v1
+kind: OpsCapability
+metadata:
+  name: ci-lint
+  labels:
+    category: ci
+  annotations:
+    blast-radius: "workspace analysis and local report files"
+spec:
+  description: "Run the project lint command in its workspace, preserve diagnostics and fail on a nonzero exit. Follow dev-ci-self-contained; no provider workflow syntax belongs in this definition."
+  version: "1.0.0"
+  inputs:
+    - name: workspace
+      type: path
+      required: true
+    - name: command
+      type: string
+      required: true
+  outputs:
+    - name: exit_code
+      type: integer
+    - name: diagnostics
+      type: list
+    - name: evidence_path
+      type: path
+  idempotent: true
+  verification:
+    command: "jq -e '.exit_code == 0 and (.diagnostics | type == \"array\")' '{{ evidence_path }}'"
+    expect: "true"

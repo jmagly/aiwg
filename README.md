@@ -818,6 +818,7 @@ capabilities through manifests, docs, scripts, or nested skill packages.
 | **[Media Curator](agentic/code/frameworks/media-curator/)** | 6 agents, 21 skills | Assess mixed media collections, research sources, acquire approved material, tag metadata, verify integrity, create transcript sidecars, and prepare exports or research handoffs |
 | **[Research Complete](agentic/code/frameworks/research-complete/)** | 8 agents, 41 skills, 16 templates | Turn literature searches and PDFs into reviewable research artifacts: source records, grounded summaries, citation work, GRADE/FAIR-style quality checks, gap notes, and provenance |
 | **[Knowledge Base](agentic/code/frameworks/knowledge-base/)** | 3 skills, 5 templates | Build a linked AI-assisted wiki from loose sources, notes, entities, concepts, comparisons, and synthesis pages without forcing formal literature-review overhead |
+| **[CI/CD Complete](agentic/code/frameworks/cicd-complete/)** | 1 quickref, 2 schemas | Design your own CI/CD pipelines through assess, design, implement and operate phases; execution tooling planned (#4423–#4425) |
 | **[Ops Complete](agentic/code/frameworks/ops-complete/)** | 12 agents, 1 skill, 17 templates, 6 rules | Convert operational procedures into executable runbooks, inventories, incident reports, troubleshooting trees, and extension-backed ops workflows |
 | **[Security Engineering](agentic/code/frameworks/security-engineering/)** | 2 agents, 27 skills, 7 templates, 13 rules | Make applied security decisions for crypto primitives, chains of trust, auth factors, degraded modes, runtime secrets, supply-chain trust, physical threats, and DFIR readiness |
 | **[Validation Complete](agentic/code/frameworks/validation-complete/)** | 1 skill | Add focused validation workflow support where a project needs reviewable checks without adopting a full lifecycle framework |
@@ -2187,6 +2188,7 @@ attestation, or substitute for domain-specific review.
 - **[Research Complete](agentic/code/frameworks/research-complete/README.md)** — Research pipeline, source notes,
   citation, and archive workflows
 - **[Knowledge Base](agentic/code/frameworks/knowledge-base/README.md)** — Source ingest, wiki pages, and corpus health
+- **[CI/CD Complete](agentic/code/frameworks/cicd-complete/README.md)** — End-user CI/CD lifecycle and governed pipeline/environment schemas.
 - **[Ops Complete](agentic/code/frameworks/ops-complete/README.md)** — Runbooks, infrastructure reviews, and
   operational workflows
 

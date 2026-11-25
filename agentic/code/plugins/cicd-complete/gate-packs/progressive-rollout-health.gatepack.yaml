@@ -1,0 +1,96 @@
+apiVersion: gates.aiwg.io/v1alpha1
+kind: GatePack
+metadata:
+  id: aiwg:cicd-complete/progressive-rollout-health
+  version: 1.0.0
+  description: Health for each percentage ramp. The rollout consumer waits for propagation, polls at pollIntervalSeconds with backoffMultiplier capped by maxPollIntervalSeconds, and stops at timeoutSeconds. Parameters describe consumer scheduling; GatePack evaluation itself never sleeps or polls. Evaluate fresh observations per window; HOLD pauses promotion and observed health failure signals ROLLBACK to progressive-rollout. Use aiwg:dev/ci-flake separately.
+spec:
+  parameters:
+    maxErrorRate:
+      type: value
+      direction: lower-is-stricter
+      default: 0.01
+      description: Maximum error fraction (0 through 1) in a post-propagation observation window.
+    maxLatencyMs:
+      type: value
+      direction: lower-is-stricter
+      default: 500
+      description: Maximum measured p95 latency in milliseconds for a post-propagation observation window.
+    pollIntervalSeconds:
+      type: value
+      direction: lower-is-stricter
+      default: 10
+      description: Positive initial delay between polls in seconds; consumed by the rollout implementation.
+    backoffMultiplier:
+      type: value
+      direction: lower-is-stricter
+      default: 2
+      description: Polling delay multiplier at least 1; consumed by the rollout implementation.
+    maxPollIntervalSeconds:
+      type: value
+      direction: lower-is-stricter
+      default: 60
+      description: Positive cap on poll delay; consumed by the rollout implementation.
+    propagationAllowanceSeconds:
+      type: value
+      direction: higher-is-stricter
+      default: 120
+      description: Minimum elapsed seconds since the latest flag change before a health window is eligible.
+    timeoutSeconds:
+      type: value
+      direction: lower-is-stricter
+      default: 600
+      description: Positive total polling deadline in seconds; consumer HOLDs on timeout or absent evidence.
+  metrics:
+    measurement:
+      provider: test.scalar/v1
+      kind: scalar
+      description: Precomputed numeric observations per named slice; never pool slices with different units.
+  gates:
+    - id: propagation-complete
+      kind: value-threshold
+      description: Wait for flag propagation before promotion. Consumer must collect health windows after this allowance.
+      metric:
+        provider: test.scalar/v1
+        name: measurement
+      threshold:
+        op: gte
+        param: propagationAllowanceSeconds
+      scope:
+        mode: listed
+        slices: [propagation-age-seconds]
+      direction: higher-is-stricter
+      onFail: HOLD
+      onInsufficient: HOLD
+    - id: error-rate-maximum
+      kind: value-threshold
+      description: Rollback on an observed error fraction above the allowed ceiling.
+      metric:
+        provider: test.scalar/v1
+        name: measurement
+      threshold:
+        op: lte
+        param: maxErrorRate
+      scope:
+        mode: listed
+        slices: [error-rate]
+      direction: lower-is-stricter
+      onFail: ROLLBACK
+      onInsufficient: HOLD
+    - id: latency-maximum
+      kind: value-threshold
+      description: Rollback on observed p95 latency above the allowed ceiling.
+      metric:
+        provider: test.scalar/v1
+        name: measurement
+      threshold:
+        op: lte
+        param: maxLatencyMs
+      scope:
+        mode: listed
+        slices: [latency-p95-ms]
+      direction: lower-is-stricter
+      onFail: ROLLBACK
+      onInsufficient: HOLD
+  combine:
+    rule: max-severity

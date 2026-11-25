@@ -1,0 +1,35 @@
+apiVersion: ops.aiwg.io/v1
+kind: OpsCapability
+metadata:
+  name: ci-sbom
+  labels:
+    category: ci
+  annotations:
+    blast-radius: "local artifact inspection and SBOM output"
+spec:
+  description: "Generate a machine-readable software bill of materials for an immutable artifact, recording format, dependency identities and artifact digest. Verify the document parses and refers to the exact artifact."
+  version: "1.0.0"
+  inputs:
+    - name: artifact
+      type: path
+      required: true
+    - name: artifact_digest
+      type: string
+      required: true
+    - name: format
+      type: string
+      required: false
+      default: "spdx-json"
+  outputs:
+    - name: sbom_path
+      type: path
+    - name: artifact_digest
+      type: string
+    - name: validated
+      type: boolean
+    - name: evidence_path
+      type: path
+  idempotent: true
+  verification:
+    command: "jq -e '.validated == true and (.artifact_digest | test(\"^sha256:[a-f0-9]{64}$\"))' '{{ evidence_path }}'"
+    expect: "true"

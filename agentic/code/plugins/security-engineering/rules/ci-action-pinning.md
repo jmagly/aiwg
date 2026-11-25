@@ -12,12 +12,23 @@ bound_to:
     - devops-engineer
     - security-auditor
     - secure-bootstrap-reviewer
+    - ci-renderer
+    - ci-release-engineer
+    - supply-chain-guard
   skills:
     - ci-workflow-audit
     - supply-chain-trust
     - supply-chain-hardening-quickstart
     - dev-ci-builder
     - dev-pipeline-audit
+    - ci-assess
+    - ci-pipeline-design
+    - ci-render
+    - ci-drift-check
+    - ci-migrate
+    - ci-pipeline-audit
+    - ci-builder
+    - ci-release-coordinate
 paths: [ .github/workflows/**, .gitea/workflows/**, .gitlab-ci.yml, .gitlab/ci/**, .circleci/**, .buildkite/**, azure-pipelines*.yml, Jenkinsfile, ci/digests.txt ]
 ---
 

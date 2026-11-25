@@ -1,0 +1,34 @@
+apiVersion: ops.aiwg.io/v1
+kind: OpsCapability
+metadata:
+  name: ci-checkout
+  labels:
+    category: ci
+  annotations:
+    blast-radius: "workspace files only; repository access is read-only"
+spec:
+  description: "Obtain the requested repository revision into an isolated workspace; record the resolved immutable revision and refuse a mismatch. Apply ci-action-pinning in provider implementations and dev-ci-self-contained for workspace independence."
+  version: "1.0.0"
+  inputs:
+    - name: repository
+      type: string
+      required: true
+    - name: revision
+      type: string
+      required: true
+    - name: workspace
+      type: path
+      required: true
+  outputs:
+    - name: resolved_revision
+      type: string
+    - name: workspace
+      type: path
+    - name: revision_verified
+      type: boolean
+    - name: evidence_path
+      type: path
+  idempotent: true
+  verification:
+    command: "jq -e '.revision_verified == true and (.resolved_revision | length > 0)' '{{ evidence_path }}'"
+    expect: "true"

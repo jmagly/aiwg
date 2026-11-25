@@ -91,7 +91,7 @@ The current measurements and decision are recorded in
 
 ## ⚠ Discover-First Protocol (rc.41+)
 
-For any user request mentioning **AIWG**, framework names (sdlc, research, forensics, ops, security-engineering, knowledge-base, marketing, media-curator), or capability keywords (skill, agent, rule, command, addon, workflow, template), `aiwg discover` MUST be the first information-gathering tool call.
+For any user request mentioning **AIWG**, framework names (sdlc, research, forensics, ops, cicd-complete, security-engineering, knowledge-base, marketing, media-curator), or capability keywords (skill, agent, rule, command, addon, workflow, template), `aiwg discover` MUST be the first information-gathering tool call.
 
 Filesystem `Grep`/`Glob`/`Read` against any provider artifact directory (`.claude/`, `.codex/`, `.factory/`, `.warp/`, `.cursor/`, `.windsurf/`, `.opencode/`, `.github/`, `~/.hermes/`, `~/.openclaw/`, or `agentic/code/`) for AIWG-related lookups is **forbidden** until discover has been consulted at least once in the current session.
 
@@ -219,6 +219,7 @@ One quickref per framework, deployed when that framework is installed. Each one 
 | `media-curator-quickref` | media-curator |
 | `marketing-quickref` | media-marketing-kit |
 | `ops-quickref` | ops-complete |
+| `cicd-quickref` | cicd-complete |
 | `security-engineering-quickref` | security-engineering |
 | `knowledge-base-quickref` | knowledge-base |
 | `aiwg-utils-quickref` | aiwg-utils (always present) |

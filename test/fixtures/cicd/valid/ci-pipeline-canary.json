@@ -1,0 +1,121 @@
+{
+  "apiVersion": "cicd.aiwg.io/v1",
+  "kind": "CIPipeline",
+  "metadata": {
+    "name": "ci-canary",
+    "labels": {
+      "team": "ci-delivery"
+    }
+  },
+  "spec": {
+    "triggers": [
+      {
+        "type": "push",
+        "branches": [
+          "main"
+        ],
+        "paths": [
+          "src/**"
+        ]
+      },
+      {
+        "type": "pull_request",
+        "branches": [
+          "main"
+        ]
+      },
+      {
+        "type": "schedule",
+        "cron": "0 2 * * *"
+      },
+      {
+        "type": "manual"
+      }
+    ],
+    "environments": [
+      "ci-production"
+    ],
+    "stages": [
+      {
+        "id": "ci-test",
+        "jobs": [
+          {
+            "id": "ci-unit",
+            "capability": "ci-test",
+            "inputs": {
+              "suite": "unit"
+            },
+            "retry": {
+              "max_attempts": 3,
+              "backoff": "exponential"
+            }
+          },
+          {
+            "id": "ci-build",
+            "capability": "docker-build",
+            "depends_on": [
+              "ci-unit"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "ci-release",
+        "depends_on": [
+          "ci-test"
+        ],
+        "jobs": [
+          {
+            "id": "ci-release",
+            "capability": "ci-deploy-handoff"
+          }
+        ],
+        "rollout": {
+          "strategy": "canary",
+          "steps": [
+            {
+              "weight": 10,
+              "pause": "5m",
+              "gate": "aiwg:dev/ci-flake"
+            },
+            {
+              "weight": 100
+            }
+          ],
+          "gates": [
+            {
+              "pack": "aiwg:dev/ci-flake",
+              "after": "ci-test",
+              "parameters": {
+                "requiredRuns": 50
+              }
+            }
+          ],
+          "rollback": {
+            "on": [
+              "gate-failure",
+              "manual"
+            ],
+            "capability": "ci-deploy-handoff"
+          }
+        }
+      }
+    ],
+    "gates": [
+      {
+        "pack": "aiwg:dev/ci-flake",
+        "after": "ci-test",
+        "parameters": {
+          "requiredRuns": 50
+        }
+      }
+    ],
+    "render": {
+      "targets": [
+        "gitea-actions",
+        "github-actions",
+        "gitlab-ci"
+      ]
+    }
+  }
+}

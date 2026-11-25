@@ -1,0 +1,36 @@
+apiVersion: gates.aiwg.io/v1alpha1
+kind: GatePack
+metadata:
+  id: aiwg:cicd-complete/build-time-budget
+  version: 1.0.0
+  description: Build elapsed-time ceiling in seconds, measured from build start through completion. Missing observations HOLD. Use aiwg:dev/ci-flake separately for flake policy.
+spec:
+  parameters:
+    maxBuildSeconds:
+      type: value
+      direction: lower-is-stricter
+      default: 600
+      description: Maximum wall-clock build duration in seconds, including retries.
+  metrics:
+    measurement:
+      provider: test.scalar/v1
+      kind: scalar
+      description: Precomputed numeric observations per named slice; never pool slices with different units.
+  gates:
+    - id: build-duration-maximum
+      kind: value-threshold
+      description: Block promotion when elapsed build time exceeds the budget.
+      metric:
+        provider: test.scalar/v1
+        name: measurement
+      threshold:
+        op: lte
+        param: maxBuildSeconds
+      scope:
+        mode: listed
+        slices: [build-duration-seconds]
+      direction: lower-is-stricter
+      onFail: HOLD
+      onInsufficient: HOLD
+  combine:
+    rule: max-severity

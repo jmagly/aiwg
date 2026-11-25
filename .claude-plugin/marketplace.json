@@ -152,6 +152,18 @@
       "keywords": []
     },
     {
+      "name": "cicd-complete",
+      "source": "./agentic/code/plugins/cicd-complete",
+      "description": "End-user CI/CD framework: design, build, operate and evolve your own CI/CD pipelines with agents, skills, templates and extensible YAML pipelines",
+      "version": "2026.11.9",
+      "author": {
+        "name": "AIWG Contributors"
+      },
+      "license": "MIT",
+      "category": "productivity",
+      "keywords": []
+    },
+    {
       "name": "validation-complete",
       "source": "./agentic/code/plugins/validation-complete",
       "description": "Validation Complete for AIWG",

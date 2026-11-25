@@ -1,0 +1,37 @@
+apiVersion: ops.aiwg.io/v1
+kind: OpsCapability
+metadata:
+  name: ci-cache
+  labels:
+    category: ci
+  annotations:
+    blast-radius: "workspace and cache storage; never deployment state"
+spec:
+  description: "Restore or save bounded dependency/build caches using a key derived from lockfile digest, runtime and platform. Treat caches as untrusted optimization; cache misses must preserve correctness and verification must reject paths outside the workspace."
+  version: "1.0.0"
+  inputs:
+    - name: operation
+      type: string
+      required: true
+    - name: key
+      type: string
+      required: true
+    - name: paths
+      type: list
+      required: true
+    - name: workspace
+      type: path
+      required: true
+  outputs:
+    - name: cache_hit
+      type: boolean
+    - name: key
+      type: string
+    - name: paths_verified
+      type: boolean
+    - name: evidence_path
+      type: path
+  idempotent: true
+  verification:
+    command: "jq -e '.paths_verified == true and (.cache_hit | type == \"boolean\")' '{{ evidence_path }}'"
+    expect: "true"

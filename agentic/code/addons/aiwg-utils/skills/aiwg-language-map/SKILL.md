@@ -8,7 +8,7 @@ description: AIWG addons + extensions language map — categories, curated disco
 
 # AIWG Language Map — Addons + Extensions
 
-This is your always-loaded directory for the AIWG **addon and extension** surface. It's the orientation layer for the ~214 skills that live outside the 8 frameworks. Frameworks have their own per-framework quickrefs (`sdlc-quickref`, `forensics-quickref`, etc.); this map covers everything else: addons (utilities, loops, voice, testing, etc.) and ops extensions (sys/net/sec/dev/it/stream).
+This is your always-loaded directory for the AIWG **addon and extension** surface. It's the orientation layer for the ~214 skills that live outside the frameworks. Frameworks have their own per-framework quickrefs (`sdlc-quickref`, `forensics-quickref`, etc.); this map covers everything else: addons (utilities, loops, voice, testing, etc.) and ops extensions (sys/net/sec/dev/it/stream).
 
 ## How to use this map
 
@@ -417,5 +417,5 @@ If after that the capability genuinely doesn't exist, you can tell the user hone
 ## See also
 
 - `aiwg-utils-quickref` — core meta-utility surface and the canonical discover→show pipeline
-- Per-framework quickrefs: `sdlc-quickref`, `forensics-quickref`, `research-quickref`, `media-curator-quickref`, `marketing-quickref`, `ops-quickref`, `security-engineering-quickref`, `knowledge-base-quickref`
+- Per-framework quickrefs: `sdlc-quickref`, `forensics-quickref`, `research-quickref`, `media-curator-quickref`, `marketing-quickref`, `ops-quickref`, `cicd-quickref`, `security-engineering-quickref`, `knowledge-base-quickref`
 - `skill-discovery` HIGH rule — discovery is mandatory before declining or improvising

@@ -1,0 +1,114 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://aiwg.io/schemas/cicd/v1/ci-environment.schema.json",
+  "title": "CIEnvironment",
+  "description": "CIEnvironment v1. Owner: cicd-complete. Consumers: agents and provider extensions. Additive changes only within v1.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "apiVersion",
+    "kind",
+    "metadata",
+    "spec"
+  ],
+  "properties": {
+    "apiVersion": {
+      "const": "cicd.aiwg.io/v1"
+    },
+    "kind": {
+      "const": "CIEnvironment"
+    },
+    "metadata": {
+      "$ref": "#/definitions/metadata"
+    },
+    "spec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runner"
+      ],
+      "properties": {
+        "runner": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "labels"
+          ],
+          "properties": {
+            "labels": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "minItems": 1,
+              "uniqueItems": true
+            }
+          }
+        },
+        "secrets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "ref"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "ref": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Secret-store reference string, e.g. vault://ci/production#token; never a literal secret."
+              }
+            }
+          }
+        },
+        "protection": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "required_reviewers": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "branch_restrictions": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true
+            }
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "labels": {
+          "type": "object",
+          "description": "User-defined string labels.",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://aiwg.io/schemas/workflow/v1/workflow-extension.schema.json",
   "title": "WorkflowExtension",
-  "description": "Framework-dependent extension manifest (ADDON.yaml) for ops-complete.",
+  "description": "Framework-dependent extension manifest (ADDON.yaml) for ops-complete or cicd-complete.",
   "type": "object",
   "required": ["apiVersion", "kind", "metadata", "spec"],
   "additionalProperties": false,
@@ -27,7 +27,7 @@
         "extends": {
           "type": "string",
           "description": "Parent framework this extension depends on.",
-          "const": "ops-complete"
+          "enum": ["ops-complete", "cicd-complete"]
         },
         "description": {
           "type": "string",

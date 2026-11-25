@@ -1,0 +1,34 @@
+apiVersion: ops.aiwg.io/v1
+kind: OpsCapability
+metadata:
+  name: ci-setup-runtime
+  labels:
+    category: ci
+  annotations:
+    blast-radius: "job runtime and dependency storage"
+spec:
+  description: "Prepare the requested runtime and pinned version, then verify its actual identity. Record the runtime version and dependency lock digest; do not infer tool versions from a runner image."
+  version: "1.0.0"
+  inputs:
+    - name: runtime
+      type: string
+      required: true
+    - name: version
+      type: string
+      required: true
+    - name: lockfile
+      type: path
+      required: true
+  outputs:
+    - name: resolved_version
+      type: string
+    - name: lock_digest
+      type: string
+    - name: version_verified
+      type: boolean
+    - name: evidence_path
+      type: path
+  idempotent: true
+  verification:
+    command: "jq -e '.version_verified == true and (.lock_digest | test(\"^sha256:[a-f0-9]{64}$\"))' '{{ evidence_path }}'"
+    expect: "true"

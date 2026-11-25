@@ -1,0 +1,13 @@
+{
+  "name": "cicd-complete",
+  "version": "2026.11.9",
+  "description": "End-user CI/CD framework: design, build, operate and evolve your own CI/CD pipelines with agents, skills, templates and extensible YAML pipelines",
+  "author": {
+    "name": "AIWG Contributors",
+    "email": "support@aiwg.io"
+  },
+  "homepage": "https://aiwg.io",
+  "repository": "https://github.com/jmagly/aiwg",
+  "license": "MIT",
+  "keywords": []
+}

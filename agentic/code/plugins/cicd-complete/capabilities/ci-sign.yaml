@@ -1,0 +1,34 @@
+apiVersion: ops.aiwg.io/v1
+kind: OpsCapability
+metadata:
+  name: ci-sign
+  labels:
+    category: ci
+  annotations:
+    blast-radius: "authorized signing identity and signature output"
+spec:
+  description: "Ask an authorized signing implementation to sign the immutable artifact digest and associated SBOM; credentials and signing identities are references only. Verify the signature against the expected identity before returning success."
+  version: "1.0.0"
+  inputs:
+    - name: artifact_digest
+      type: string
+      required: true
+    - name: sbom_path
+      type: path
+      required: true
+    - name: signing_identity_ref
+      type: string
+      required: true
+  outputs:
+    - name: signature_path
+      type: path
+    - name: artifact_digest
+      type: string
+    - name: signature_verified
+      type: boolean
+    - name: evidence_path
+      type: path
+  idempotent: true
+  verification:
+    command: "jq -e '.signature_verified == true and (.artifact_digest | test(\"^sha256:[a-f0-9]{64}$\"))' '{{ evidence_path }}'"
+    expect: "true"

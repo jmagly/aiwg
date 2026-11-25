@@ -1,0 +1,56 @@
+apiVersion: ops.aiwg.io/v1
+kind: OpsCapability
+metadata:
+  name: stream-relay
+  labels:
+    category: streaming
+  annotations:
+    blast-radius: >-
+      live audiences — publishes to every configured platform; wrong destinations or reconnect settings can
+      disrupt all subscribers
+spec:
+  description: >-
+    Start the systemd relay unit from source to destinations (a list of endpoint strings). Apply
+    reconnect_on_failure and reconnect_delay_s. Resolve credential references on the target without recording
+    secret values. Require successful encoder validation, test stream, transcode quality verification and
+    cutover gate. Reconcile an already-running matching unit; fail on conflicting active destinations. Verify
+    platform receipt downstream with stream-health-check.
+  version: 1.0.0
+  inputs:
+    - name: source
+      type: string
+      required: true
+    - name: unit
+      type: string
+      required: true
+    - name: destinations
+      type: list
+      required: true
+    - name: reconnect_on_failure
+      type: boolean
+      required: false
+      default: true
+    - name: reconnect_delay_s
+      type: integer
+      required: false
+      default: 5
+  outputs:
+    - name: status
+      type: string
+    - name: unit
+      type: string
+    - name: active
+      type: boolean
+    - name: destinations_started
+      type: list
+  target_requirements:
+    os:
+      - linux
+    capabilities:
+      - systemd
+      - ffmpeg
+  agent: ops-runbook-executor
+  idempotent: true
+  verification:
+    command: systemctl is-active '{{ unit }}'
+    expect: ^active$
