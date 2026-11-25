@@ -8,16 +8,67 @@
     "cicd"
   ],
   "entry": {
+    "agents": "agents",
     "skills": "skills",
-    "schemas": "schemas"
+    "schemas": "schemas",
+    "templates": "templates",
+    "capabilities": "capabilities",
+    "gatePacks": "gate-packs"
   },
-  "agents": [],
+  "agents": [
+    "ci-architect",
+    "ci-renderer",
+    "ci-doctor",
+    "ci-release-engineer",
+    "supply-chain-guard"
+  ],
   "commands": [],
   "skills": [
-    "cicd-quickref"
+    "cicd-quickref",
+    "cicd-intake",
+    "ci-assess",
+    "ci-pipeline-design",
+    "ci-render",
+    "ci-drift-check",
+    "ci-failure-triage",
+    "ci-flake-hunt",
+    "ci-migrate",
+    "ci-pipeline-audit",
+    "ci-builder",
+    "ci-release-coordinate"
   ],
   "rules": [],
-  "templates": [],
+  "templates": [
+    "cicd-intake-template",
+    "ci-assessment-report-template",
+    "ci-pipeline-spec-template",
+    "ci-environment-plan-template",
+    "ci-pipeline-runbook-template",
+    "ci-pipeline-incident-template",
+    "ci-migration-report-template"
+  ],
+  "capabilities": [
+    "ci-checkout",
+    "ci-cache",
+    "ci-setup-runtime",
+    "ci-lint",
+    "ci-test",
+    "ci-coverage",
+    "ci-sbom",
+    "ci-sign",
+    "ci-artifact-upload",
+    "ci-deploy-handoff",
+    "flag-check",
+    "flag-states-test",
+    "progressive-rollout",
+    "flag-coderefs-scan",
+    "flag-cleanup-handoff"
+  ],
+  "gatePacks": [
+    "coverage-floor",
+    "build-time-budget",
+    "progressive-rollout-health"
+  ],
   "phases": [
     "assess",
     "design",

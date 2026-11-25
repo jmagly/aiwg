@@ -1,0 +1,32 @@
+apiVersion: ops.aiwg.io/v1
+kind: OpsCapability
+metadata:
+  name: image-scan
+  labels:
+    category: ci
+  annotations:
+    blast-radius: "read-only image inspection and scanner resource usage"
+spec:
+  description: "Scan the exact container image digest and fail when findings meet or exceed fail_on severity. Record scanner identity, database timestamp and findings; missing or stale scan evidence holds publication."
+  version: "1.0.0"
+  inputs:
+    - name: image
+      type: string
+      required: true
+    - name: fail_on
+      type: string
+      required: false
+      default: "critical"
+  outputs:
+    - name: passed
+      type: boolean
+    - name: image_digest
+      type: string
+    - name: findings
+      type: list
+    - name: evidence_path
+      type: path
+  idempotent: true
+  verification:
+    command: "jq -e '.passed == true and (.image_digest | test(\"^sha256:[a-f0-9]{64}$\")) and (.findings | type == \"array\")' '{{ evidence_path }}'"
+    expect: "true"

@@ -1,0 +1,29 @@
+apiVersion: ops.aiwg.io/v1
+kind: OpsCapability
+metadata:
+  name: ci-coverage
+  labels:
+    category: ci
+  annotations:
+    blast-radius: "read-only test reports and local coverage output"
+spec:
+  description: "Collect coverage from a completed test report for the same revision. Emit percentage points (0 through 100) for the coverage slice consumed by aiwg:cicd-complete/coverage-floor; missing coverage holds the gate."
+  version: "1.0.0"
+  inputs:
+    - name: test_report
+      type: path
+      required: true
+    - name: revision
+      type: string
+      required: true
+  outputs:
+    - name: coverage_percent
+      type: number
+    - name: report_path
+      type: path
+    - name: evidence_path
+      type: path
+  idempotent: true
+  verification:
+    command: "jq -e '.coverage_percent >= 0 and .coverage_percent <= 100' '{{ evidence_path }}'"
+    expect: "true"

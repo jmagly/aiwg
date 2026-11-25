@@ -1,0 +1,60 @@
+apiVersion: ops.aiwg.io/v1
+kind: OpsCapability
+metadata:
+  name: host-standup
+  labels:
+    category: provisioning
+  annotations:
+    blast-radius: >-
+      single-host — changes packages, host identity and administrative SSH access; incorrect configuration can
+      lock out operators
+spec:
+  description: >-
+    Configure the named host with its role, administrative account, authorized SSH public key resolved from
+    ssh_key_ref, and requested packages. Resolve only the public key; never persist private key material.
+    Preserve existing access until the new account is verified. Emit a governed, redacted JSON
+    verification_report containing the named observed results; verification reads that output path. Fail if
+    any requested check is missing or fails.
+  version: 1.0.0
+  inputs:
+    - name: hostname
+      type: string
+      required: true
+    - name: role
+      type: string
+      required: true
+    - name: admin_user
+      type: string
+      required: true
+    - name: ssh_key_ref
+      type: string
+      required: true
+    - name: packages
+      type: list
+      required: true
+  outputs:
+    - name: status
+      type: string
+    - name: hostname
+      type: string
+    - name: admin_user
+      type: string
+    - name: packages_installed
+      type: list
+    - name: ssh_reachable
+      type: boolean
+    - name: verification_report
+      type: path
+  target_requirements:
+    os:
+      - linux
+    capabilities:
+      - ssh
+      - jq
+  agent: ops-runbook-executor
+  idempotent: true
+  verification:
+    command: >-
+      jq -e '.hostname_configured == true and .admin_access_verified == true and .packages_installed == true'
+      '{{ verification_report }}'
+    expect: "true"

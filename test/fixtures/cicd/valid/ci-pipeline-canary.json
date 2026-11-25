@@ -52,7 +52,7 @@
           },
           {
             "id": "ci-build",
-            "capability": "ci-build",
+            "capability": "docker-build",
             "depends_on": [
               "ci-unit"
             ]
@@ -67,7 +67,7 @@
         "jobs": [
           {
             "id": "ci-release",
-            "capability": "ci-release"
+            "capability": "ci-deploy-handoff"
           }
         ],
         "rollout": {
@@ -96,7 +96,7 @@
               "gate-failure",
               "manual"
             ],
-            "capability": "ci-rollback"
+            "capability": "ci-deploy-handoff"
           }
         }
       }

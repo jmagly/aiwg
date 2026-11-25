@@ -6,6 +6,7 @@ import yaml from 'js-yaml';
 import {
   buildOpsSchemaRegistry,
   discoverOpsTemplates,
+  discoverOpsLintFiles,
   validateAllOpsTemplates,
   validateOpsArtifact,
 } from '../../../tools/validation/ops-template-conformance.mjs';
@@ -28,7 +29,7 @@ describe('ops extension template conformance', () => {
 
     expect(files).toHaveLength(15);
     expect(report.registry.registrationErrors).toEqual([]);
-    expect(report.results.map(result => result.filePath)).toEqual(files);
+    expect(report.results.map(result => result.filePath)).toEqual(discoverOpsLintFiles(root));
     expect(report.results.filter(result => !result.valid)).toEqual([]);
     expect(report.valid).toBe(true);
   });

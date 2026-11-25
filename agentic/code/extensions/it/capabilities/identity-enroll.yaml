@@ -1,0 +1,54 @@
+apiVersion: ops.aiwg.io/v1
+kind: OpsCapability
+metadata:
+  name: identity-enroll
+  labels:
+    category: provisioning
+  annotations:
+    blast-radius: >-
+      single-host and identity record — changes realm enrollment and group-based access; may change who can
+      authenticate
+spec:
+  description: >-
+    Enroll the named host into realm, apply the role and requested identity groups, and verify realm
+    membership and group resolution. Reconcile existing membership without duplicating it. Emit a governed,
+    redacted JSON verification_report containing the named observed results; verification reads that output
+    path. Fail if any requested check is missing or fails.
+  version: 1.0.0
+  inputs:
+    - name: hostname
+      type: string
+      required: true
+    - name: realm
+      type: string
+      required: true
+    - name: role
+      type: string
+      required: true
+    - name: groups
+      type: list
+      required: true
+  outputs:
+    - name: status
+      type: string
+    - name: enrolled
+      type: boolean
+    - name: realm
+      type: string
+    - name: groups
+      type: list
+    - name: verification_report
+      type: path
+  target_requirements:
+    os:
+      - linux
+    capabilities:
+      - ssh
+      - jq
+  agent: ops-runbook-executor
+  idempotent: true
+  verification:
+    command: >-
+      jq -e '.realm_joined == true and .groups_resolved == true and .role_applied == true' '{{
+      verification_report }}'
+    expect: "true"

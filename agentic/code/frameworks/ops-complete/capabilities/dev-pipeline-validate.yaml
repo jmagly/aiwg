@@ -1,0 +1,29 @@
+apiVersion: ops.aiwg.io/v1
+kind: OpsCapability
+metadata:
+  name: dev-pipeline-validate
+  labels:
+    category: ci
+  annotations:
+    blast-radius: "read-only workspace inspection; no build or publication"
+spec:
+  description: "Validate a build definition before execution: check secret leaks, pinned base images and resource limits under dev-pipeline-safety, dev-secret-hygiene, dev-idempotent-builds and dev-ci-self-contained. Fail closed on missing check evidence."
+  version: "1.0.0"
+  inputs:
+    - name: path
+      type: path
+      required: true
+    - name: checks
+      type: list
+      required: true
+  outputs:
+    - name: passed
+      type: boolean
+    - name: findings
+      type: list
+    - name: evidence_path
+      type: path
+  idempotent: true
+  verification:
+    command: "jq -e '.passed == true and (.findings | type == \"array\")' '{{ evidence_path }}'"
+    expect: "true"

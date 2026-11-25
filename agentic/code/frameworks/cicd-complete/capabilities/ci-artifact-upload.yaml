@@ -1,0 +1,33 @@
+apiVersion: ops.aiwg.io/v1
+kind: OpsCapability
+metadata:
+  name: ci-artifact-upload
+  labels:
+    category: ci
+  annotations:
+    blast-radius: "authorized artifact storage and retention"
+spec:
+  description: "Upload immutable build artifacts and their digest manifest to the authorized artifact store with retention controls. Verify downloaded metadata matches the local digests before exposing artifact references."
+  version: "1.0.0"
+  inputs:
+    - name: artifacts
+      type: list
+      required: true
+    - name: destination_ref
+      type: string
+      required: true
+    - name: retention_days
+      type: integer
+      required: false
+      default: 30
+  outputs:
+    - name: artifact_refs
+      type: list
+    - name: digests_verified
+      type: boolean
+    - name: evidence_path
+      type: path
+  idempotent: true
+  verification:
+    command: "jq -e '.digests_verified == true and (.artifact_refs | length > 0)' '{{ evidence_path }}'"
+    expect: "true"

@@ -121,9 +121,25 @@ describe('CI/CD package registration and projections', () => {
     expect(frameworkRegistryId('cicd-complete')).toBe('cicd-complete');
     const manifest = load(`${FRAMEWORK}/manifest.json`);
     expect(manifest.phases).toEqual(['assess', 'design', 'implement', 'operate']);
-    expect(manifest.skills).toEqual(['cicd-quickref']);
-    expect(manifest.agents).toEqual([]);
-    expect(manifest.templates).toEqual([]);
+    expect(manifest.skills).toContain('cicd-quickref');
+    // Every component the manifest registers must exist on disk.
+    const fw = path.join(ROOT, FRAMEWORK);
+    for (const name of manifest.skills) {
+      expect(fs.existsSync(path.join(fw, 'skills', name, 'SKILL.md')), `skill ${name}`).toBe(true);
+    }
+    for (const name of manifest.agents) {
+      expect(fs.existsSync(path.join(fw, 'agents', `${name}.md`)), `agent ${name}`).toBe(true);
+    }
+    for (const name of manifest.templates) {
+      const hits = fs.readdirSync(path.join(fw, 'templates')).filter((f) => f.startsWith(`${name}.`));
+      expect(hits.length, `template ${name}`).toBe(1);
+    }
+    for (const name of manifest.capabilities ?? []) {
+      expect(fs.existsSync(path.join(fw, 'capabilities', `${name}.yaml`)), `capability ${name}`).toBe(true);
+    }
+    for (const name of manifest.gatePacks ?? []) {
+      expect(fs.existsSync(path.join(fw, 'gate-packs', `${name}.gatepack.yaml`)), `gate pack ${name}`).toBe(true);
+    }
     const skill = fs.readFileSync(path.join(ROOT, FRAMEWORK, 'skills/cicd-quickref/SKILL.md'), 'utf8');
     expect(skill).toMatch(/^kernel: true$/m);
   });

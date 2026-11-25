@@ -1,0 +1,39 @@
+apiVersion: ops.aiwg.io/v1
+kind: OpsCapability
+metadata:
+  name: stream-stop
+  labels:
+    category: streaming
+  annotations:
+    blast-radius: single-stream unit — intentionally ends output and disconnects downstream viewers when stopping a relay
+spec:
+  description: >-
+    Gracefully drain the named streaming unit for drain_s seconds, then stop it and confirm it is inactive.
+    Stop relay before transcoder as ordered by the pipeline. An already inactive unit succeeds; missing or
+    failed units require explicit diagnosis. Never stop unrelated units.
+  version: 1.0.0
+  inputs:
+    - name: unit
+      type: string
+      required: true
+    - name: drain_s
+      type: integer
+      required: false
+      default: 5
+  outputs:
+    - name: status
+      type: string
+    - name: unit
+      type: string
+    - name: stopped
+      type: boolean
+  target_requirements:
+    os:
+      - linux
+    capabilities:
+      - systemd
+  agent: ops-runbook-executor
+  idempotent: true
+  verification:
+    command: systemctl show '{{ unit }}' --property=ActiveState --value
+    expect: ^inactive$

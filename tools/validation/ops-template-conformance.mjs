@@ -8,7 +8,6 @@ import addFormats from 'ajv-formats';
 import yaml from 'js-yaml';
 
 const DEFAULT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const OPS_API_VERSION = 'ops.aiwg.io/v1';
 
 function collectFiles(directory, predicate) {
   if (!existsSync(directory)) return [];
@@ -72,7 +71,7 @@ function walkStrings(value, visitor, pointer = '') {
 
 function referenceDiagnostics(document) {
   const diagnostics = [];
-  if (document.kind !== 'OpsPlaybook') return diagnostics;
+  if (!['OpsPlaybook', 'DevBuildPlaybook'].includes(document.kind)) return diagnostics;
   walkStrings(document, (value, path) => {
     if (value.includes('{{') || value.includes('}}')) {
       diagnostics.push({
@@ -115,6 +114,31 @@ function referenceDiagnostics(document) {
       });
     });
   });
+  return diagnostics;
+}
+
+export function capabilityReferenceDiagnostics(document, registry) {
+  const diagnostics = [];
+  const visit = (value, pointer = '') => {
+    if (!value || typeof value !== 'object') return;
+    for (const [key, child] of Object.entries(value)) {
+      const path = `${pointer}/${key.replaceAll('~', '~0').replaceAll('/', '~1')}`;
+      if (key === 'capability' && typeof child === 'string' && !registry.capabilities.has(child)) {
+        diagnostics.push({ path, keyword: 'capability-resolution', message: `undefined OpsCapability '${child}'` });
+      }
+      visit(child, path);
+    }
+    // CIPipeline flag steps have a consumer default, not a populated schema default.
+    if (value.strategy === 'flag' && Array.isArray(value.steps)) {
+      value.steps.forEach((step, index) => {
+        if (step && step.capability === undefined && !registry.capabilities.has('progressive-rollout')) {
+          diagnostics.push({ path: `${pointer}/steps/${index}/capability`, keyword: 'capability-resolution',
+            message: "undefined default OpsCapability 'progressive-rollout'" });
+        }
+      });
+    }
+  };
+  visit(document);
   return diagnostics;
 }
 
@@ -188,7 +212,31 @@ export function buildOpsSchemaRegistry(projectRoot = DEFAULT_ROOT) {
       register(declaration.name, schemaPath, entry.name);
     }
   }
-  return { root, kinds, registrationErrors };
+  const capabilities = new Map();
+  // Framework capability libraries plus extension capability dirs (extensions declare `capabilities: auto-discover`).
+  const capabilityDirs = [
+    ...['ops-complete', 'cicd-complete'].map(framework => join(root, 'agentic/code/frameworks', framework, 'capabilities')),
+    ...(existsSync(extensionsDir) ? readdirSync(extensionsDir, { withFileTypes: true }) : [])
+      .filter(entry => entry.isDirectory())
+      .map(entry => join(extensionsDir, entry.name, 'capabilities')),
+  ];
+  for (const directory of capabilityDirs) {
+    for (const file of collectFiles(directory, path => /\.(ya?ml|json)$/i.test(path))) {
+      try {
+        const document = file.endsWith('.json') ? loadJson(file) : loadYaml(file);
+        const record = kinds.get('OpsCapability');
+        if (!record || !record.validate(document)) {
+          throw new Error(`invalid OpsCapability: ${JSON.stringify(record?.validate.errors ?? [])}`);
+        }
+        const name = document.metadata.name;
+        if (capabilities.has(name)) throw new Error(`duplicate OpsCapability '${name}'`);
+        capabilities.set(name, file);
+      } catch (error) {
+        registrationErrors.push(`${relative(root, file)}: ${error.message}`);
+      }
+    }
+  }
+  return { root, kinds, capabilities, registrationErrors };
 }
 
 export function validateOpsArtifact(document, { filePath = '<memory>', registry } = {}) {
@@ -204,12 +252,18 @@ export function validateOpsArtifact(document, { filePath = '<memory>', registry 
     if (!record.validate(document)) diagnostics.push(...schemaDiagnostics(record.validate.errors));
   }
   diagnostics.push(...referenceDiagnostics(document));
+  diagnostics.push(...capabilityReferenceDiagnostics(document, activeRegistry));
   return { valid: diagnostics.length === 0, filePath, schemaPath: record?.schemaPath ?? null, diagnostics };
 }
 
 export function validateOpsTemplateFile(filePath, registry = buildOpsSchemaRegistry()) {
   try {
-    return validateOpsArtifact(loadYaml(filePath), { filePath, registry });
+    const document = filePath.endsWith('.json') ? loadJson(filePath) : loadYaml(filePath);
+    if (document.apiVersion === 'cicd.aiwg.io/v1') {
+      const diagnostics = capabilityReferenceDiagnostics(document, registry);
+      return { valid: diagnostics.length === 0, filePath, schemaPath: null, diagnostics };
+    }
+    return validateOpsArtifact(document, { filePath, registry });
   } catch (error) {
     return { valid: false, filePath, schemaPath: null, diagnostics: [{ path: '/', keyword: 'yaml-parse', message: error.message }] };
   }
@@ -226,14 +280,22 @@ export function discoverOpsTemplates(projectRoot = DEFAULT_ROOT) {
 
 export function validateAllOpsTemplates(projectRoot = DEFAULT_ROOT) {
   const registry = buildOpsSchemaRegistry(projectRoot);
-  const results = discoverOpsTemplates(projectRoot).map(file => validateOpsTemplateFile(file, registry));
+  const results = discoverOpsLintFiles(projectRoot).map(file => validateOpsTemplateFile(file, registry));
   return { registry, results, valid: registry.registrationErrors.length === 0 && results.every(result => result.valid) };
+}
+
+export function discoverOpsLintFiles(projectRoot = DEFAULT_ROOT) {
+  return [
+    ...discoverOpsTemplates(projectRoot),
+    ...collectFiles(join(resolve(projectRoot), 'test/fixtures/ops/valid'), file => /\.(json|ya?ml)$/i.test(file)),
+    ...collectFiles(join(resolve(projectRoot), 'test/fixtures/cicd/valid'), file => file.endsWith('.json')),
+  ].sort();
 }
 
 function runCli(argv = process.argv.slice(2)) {
   const registry = buildOpsSchemaRegistry(DEFAULT_ROOT);
   const requested = argv.filter(arg => !arg.startsWith('-')).map(file => isAbsolute(file) ? file : resolve(process.cwd(), file));
-  const files = requested.length ? requested : discoverOpsTemplates(DEFAULT_ROOT);
+  const files = requested.length ? requested : discoverOpsLintFiles(DEFAULT_ROOT);
   const results = files.map(file => validateOpsTemplateFile(file, registry));
   for (const error of registry.registrationErrors) console.error(`[ops-schema] ${error}`);
   for (const result of results) {
@@ -242,7 +304,7 @@ function runCli(argv = process.argv.slice(2)) {
     else for (const diagnostic of result.diagnostics) console.error(`FAIL ${label}${diagnostic.path}: ${diagnostic.message} (${diagnostic.keyword})`);
   }
   const failed = results.filter(result => !result.valid).length;
-  console.log(`Validated ${results.length} ops extension YAML template(s): ${results.length - failed} passed, ${failed} failed.`);
+  console.log(`Validated ${results.length} ops templates and fixtures: ${results.length - failed} passed, ${failed} failed.`);
   if (registry.registrationErrors.length || failed) process.exitCode = 1;
 }
 

@@ -1,0 +1,36 @@
+apiVersion: ops.aiwg.io/v1
+kind: OpsCapability
+metadata:
+  name: ci-deploy-handoff
+  labels:
+    category: ci
+  annotations:
+    blast-radius: "deployment handoff to the named environment; receiver owns runtime changes"
+spec:
+  description: "Pass immutable artifact references, gate evidence and a target environment to the deployment owner. operation is deploy or rollback; rollback requires the previous known-good references. Require the receiver acknowledgement and preserve an auditable handoff; this definition does not execute a deployment."
+  version: "1.0.0"
+  inputs:
+    - name: artifact_refs
+      type: list
+      required: true
+    - name: environment
+      type: string
+      required: true
+    - name: gate_evidence
+      type: list
+      required: true
+    - name: operation
+      type: string
+      required: false
+      default: "deploy"
+  outputs:
+    - name: handoff_ref
+      type: string
+    - name: acknowledged
+      type: boolean
+    - name: evidence_path
+      type: path
+  idempotent: true
+  verification:
+    command: "jq -e '.acknowledged == true and (.handoff_ref | length > 0)' '{{ evidence_path }}'"
+    expect: "true"

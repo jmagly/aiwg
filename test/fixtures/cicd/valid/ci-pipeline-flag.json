@@ -19,7 +19,7 @@
         "jobs": [
           {
             "id": "ci-publish",
-            "capability": "ci-publish",
+            "capability": "docker-push",
             "inputs": {}
           }
         ],
@@ -38,7 +38,7 @@
             "on": [
               "gate-failure"
             ],
-            "capability": "ci-rollback"
+            "capability": "ci-deploy-handoff"
           }
         }
       }

@@ -1,0 +1,40 @@
+{
+  "apiVersion": "dev.ops.aiwg.io/v1",
+  "kind": "DevBuildPlaybook",
+  "metadata": {
+    "name": "ci-build"
+  },
+  "spec": {
+    "targets": {
+      "groups": [
+        "builders"
+      ]
+    },
+    "vars": {
+      "registry": "registry.example"
+    },
+    "steps": [
+      {
+        "id": "validate",
+        "capability": "dev-pipeline-validate",
+        "inputs": [
+          {
+            "name": "path",
+            "value": "Dockerfile"
+          }
+        ]
+      },
+      {
+        "id": "build",
+        "capability": "docker-build",
+        "depends_on": [
+          "validate"
+        ],
+        "retry": {
+          "limit": -1,
+          "backoff": "30s"
+        }
+      }
+    ]
+  }
+}

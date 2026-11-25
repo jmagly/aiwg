@@ -1,0 +1,55 @@
+apiVersion: ops.aiwg.io/v1
+kind: OpsCapability
+metadata:
+  name: stream-transcode
+  labels:
+    category: streaming
+  annotations:
+    blast-radius: >-
+      single-pipeline — starts encoding and publishes to the internal relay; configuration changes can
+      interrupt media for downstream viewers
+spec:
+  description: >-
+    Start the systemd transcoder unit with input, selected profile and output endpoint. Require encoder
+    validation and a successful synthetic test stream before production changes. Reconcile an already-running
+    matching unit without restarting it; fail on conflicting active configuration rather than hot-swapping
+    codecs. Report success only after media appears at output; downstream stream-health-check measures
+    quality. Keep endpoint credentials out of evidence.
+  version: 1.0.0
+  inputs:
+    - name: input
+      type: string
+      required: true
+    - name: profile
+      type: string
+      required: true
+    - name: output
+      type: string
+      required: true
+    - name: unit
+      type: string
+      required: true
+  outputs:
+    - name: status
+      type: string
+    - name: unit
+      type: string
+    - name: active
+      type: boolean
+    - name: output_ready
+      type: boolean
+  target_requirements:
+    os:
+      - linux
+    capabilities:
+      - systemd
+      - ffmpeg
+      - ffprobe
+      - jq
+  agent: ops-runbook-executor
+  idempotent: true
+  verification:
+    command: >-
+      systemctl is-active --quiet '{{ unit }}' && ffprobe -v error -show_streams -of json '{{ output }}' | jq
+      -e '.streams | length > 0'
+    expect: "true"

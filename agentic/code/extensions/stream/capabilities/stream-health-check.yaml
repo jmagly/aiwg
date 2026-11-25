@@ -1,0 +1,87 @@
+apiVersion: ops.aiwg.io/v1
+kind: OpsCapability
+metadata:
+  name: stream-health-check
+  labels:
+    category: streaming
+  annotations:
+    blast-radius: >-
+      read-only — probes ingest, relay or destination status; generates bounded media/API traffic without
+      stopping a live stream
+spec:
+  description: >-
+    Probe source media, or when check_destinations is true probe every destinations entry {name, check_url}
+    via the platform status API/dashboard. Require source in source mode and a nonempty destinations list in
+    destination mode. Enforce requested video, audio and framerate checks; compare measured kbps to
+    expected_bitrate within tolerance_pct during probe_duration_s. Resolve the expected framerate from the
+    active encoder profile; fail when unavailable. timeout is a duration string such as 5s. Numeric template
+    expressions must resolve before execution. Never log credential-bearing URLs. Emit checks {name, passed}
+    and all_requested_checks_run in verification_report. Emit a governed, redacted JSON verification_report
+    containing the named observed results; verification reads that output path. Fail if any requested check is
+    missing or fails.
+  version: 1.0.0
+  inputs:
+    - name: source
+      type: string
+      required: false
+    - name: timeout
+      type: string
+      required: false
+      default: 5s
+    - name: check_video
+      type: boolean
+      required: false
+      default: false
+    - name: check_audio
+      type: boolean
+      required: false
+      default: false
+    - name: check_framerate
+      type: boolean
+      required: false
+      default: false
+    - name: expected_bitrate
+      type: number
+      required: false
+    - name: tolerance_pct
+      type: number
+      required: false
+      default: 15
+    - name: probe_duration_s
+      type: integer
+      required: false
+      default: 10
+    - name: check_destinations
+      type: boolean
+      required: false
+      default: false
+    - name: destinations
+      type: list
+      required: false
+  outputs:
+    - name: status
+      type: string
+    - name: healthy
+      type: boolean
+    - name: measured_bitrate_kbps
+      type: number
+    - name: framerate
+      type: string
+    - name: destination_results
+      type: list
+    - name: verification_report
+      type: path
+  target_requirements:
+    os:
+      - linux
+    capabilities:
+      - ffprobe
+      - curl
+      - jq
+  agent: ops-runbook-executor
+  idempotent: true
+  verification:
+    command: >-
+      jq -e '.all_requested_checks_run == true and (.checks | type == "array" and length > 0 and all(.[];
+      .passed == true))' '{{ verification_report }}'
+    expect: "true"

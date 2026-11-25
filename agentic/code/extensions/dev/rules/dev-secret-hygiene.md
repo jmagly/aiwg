@@ -2,6 +2,25 @@
 activation: summary
 summary: Protect CI secrets from untrusted code, forked pull requests, logs, and build artifacts.
 enforcement: high
+bound_to:
+  agents:
+    - ci-architect
+    - ci-renderer
+    - ci-doctor
+    - ci-release-engineer
+    - supply-chain-guard
+  skills:
+    - cicd-intake
+    - ci-assess
+    - ci-pipeline-design
+    - ci-render
+    - ci-drift-check
+    - ci-failure-triage
+    - ci-flake-hunt
+    - ci-migrate
+    - ci-pipeline-audit
+    - ci-builder
+    - ci-release-coordinate
 ---
 
 # Secret Hygiene in CI/CD Pipelines

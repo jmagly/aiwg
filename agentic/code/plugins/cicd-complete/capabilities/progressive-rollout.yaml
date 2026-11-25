@@ -1,0 +1,83 @@
+apiVersion: ops.aiwg.io/v1
+kind: OpsCapability
+metadata:
+  name: progressive-rollout
+  labels:
+    category: progressive-delivery
+  annotations:
+    blast-radius: "target environment flag exposure; failure restores the last known-good state"
+spec:
+  description: "Delegate the percentage ramp or guarded rollout to the selected provider implementation. Refuse experiment-linked flags unless that implementation explicitly declares experiment-linked rollout safe; caller assertions do not establish safety. Poll gate evidence with bounded backoff after the propagation allowance (default 120 seconds); HOLD pauses promotion, a gate failure signal triggers rollback to the last known-good state and rollback verification. Timeout or absent evidence holds for review, except when the provider runs a long-lived native guarded rollout: then the step may end with status handed-off and a rollout_ref that later steps check, leaving monitoring to the provider. Optional project and provider_options are passed through opaquely to the provider implementation, which validates them; stage_durations_seconds (parallel to percentages), metrics (provider-native metric keys with per-metric rollback, distinct from health_gate) and randomization_unit (provider default when unset) apply to provider-native guarded rollouts. Resolve the implementation from project feature_flags.provider through its provider addon; provider none requires a manual approval gate with recorded evidence. This resource is a provider-neutral definition only."
+  version: "1.0.0"
+  inputs:
+    - name: flags
+      type: list
+      required: true
+    - name: environment
+      type: string
+      required: true
+    - name: percentages
+      type: list
+      required: true
+    - name: health_gate
+      type: string
+      required: false
+      default: "aiwg:cicd-complete/progressive-rollout-health"
+    - name: poll_interval_seconds
+      type: integer
+      required: false
+      default: 10
+    - name: backoff_multiplier
+      type: number
+      required: false
+      default: 2
+    - name: max_poll_interval_seconds
+      type: integer
+      required: false
+      default: 60
+    - name: propagation_allowance_seconds
+      type: integer
+      required: false
+      default: 120
+    - name: timeout_seconds
+      type: integer
+      required: false
+      default: 600
+    - name: gate_failure_signal
+      type: string
+      required: false
+      default: "ROLLBACK"
+    - name: project
+      type: string
+      required: false
+    - name: provider_options
+      type: object
+      required: false
+    - name: stage_durations_seconds
+      type: list
+      required: false
+    - name: metrics
+      type: list
+      required: false
+    - name: randomization_unit
+      type: string
+      required: false
+  outputs:
+    - name: status
+      type: string
+    - name: final_percentage
+      type: number
+    - name: rollback_verified
+      type: boolean
+    - name: gate_evidence
+      type: list
+    - name: approval_ref
+      type: string
+    - name: evidence_path
+      type: path
+    - name: rollout_ref
+      type: string
+  idempotent: true
+  verification:
+    command: "jq -e '((.status == \"completed\" or (.status == \"rolled-back\" and .rollback_verified == true)) and (.gate_evidence | length > 0)) or (.status == \"handed-off\" and (.rollout_ref | type == \"string\" and length > 0))' '{{ evidence_path }}'"
+    expect: "true"

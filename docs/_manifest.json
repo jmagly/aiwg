@@ -609,7 +609,12 @@
     "addons/voice-framework/writing-workflows",
     "blog/2026-10-aiwg-october-2026-report",
     "frameworks/cicd-complete",
-    "frameworks/cicd-complete/ci-schema-contracts"
+    "frameworks/cicd-complete/ci-schema-contracts",
+    "frameworks/cicd-complete/phases",
+    "frameworks/cicd-complete/phases/assess",
+    "frameworks/cicd-complete/phases/design",
+    "frameworks/cicd-complete/phases/implement",
+    "frameworks/cicd-complete/phases/operate"
   ],
   "sections": [
     {
@@ -4661,6 +4666,41 @@
       "summary": "CI/CD Complete models end-user delivery pipelines independently of a forge.",
       "file": "frameworks/cicd-complete/ci-schema-contracts.md",
       "parent": "frameworks/cicd-complete"
+    },
+    {
+      "id": "frameworks/cicd-complete/phases",
+      "title": "Phases",
+      "summary": "",
+      "collapsed": true,
+      "parent": "frameworks/cicd-complete"
+    },
+    {
+      "id": "frameworks/cicd-complete/phases/assess",
+      "title": "Assess",
+      "summary": "Agree the scope and reliability baseline for the user's delivery system before",
+      "file": "frameworks/cicd-complete/phases/assess.md",
+      "parent": "frameworks/cicd-complete/phases"
+    },
+    {
+      "id": "frameworks/cicd-complete/phases/design",
+      "title": "Design",
+      "summary": "Turn the assessed delivery requirements into a provider-neutral CIPipeline and",
+      "file": "frameworks/cicd-complete/phases/design.md",
+      "parent": "frameworks/cicd-complete/phases"
+    },
+    {
+      "id": "frameworks/cicd-complete/phases/implement",
+      "title": "Implement",
+      "summary": "Integrate the reviewed spec with the user's provider and prove its behavior in a",
+      "file": "frameworks/cicd-complete/phases/implement.md",
+      "parent": "frameworks/cicd-complete/phases"
+    },
+    {
+      "id": "frameworks/cicd-complete/phases/operate",
+      "title": "Operate",
+      "summary": "Keep delivery reliable, explain failures and coordinate releases while keeping",
+      "file": "frameworks/cicd-complete/phases/operate.md",
+      "parent": "frameworks/cicd-complete/phases"
     }
   ],
   "pages": [
