@@ -6,6 +6,7 @@ import { criterionMetrics, clusteredInterval, scoreCriteria } from './calibratio
 import type { CalibrationStudy, FixedOutput, Vote } from './calibration-types.js';
 export { makeBundles, blindedPacket } from './calibration-validate.js';
 export { criterionMetrics, clusteredInterval, scoreCriteria, ensembleLabel } from './calibration-metrics.js';
+export const sumAccounting = (values: (number | 'unknown')[]): number | 'unknown' => values.includes('unknown') ? 'unknown' : (values as number[]).reduce((a, b) => a + b, 0);
 const divide = (a: number, b: number): number | null => b ? a / b : null;
 
 export function calibrate(study: CalibrationStudy, records: FixedOutput[]) {
@@ -27,7 +28,7 @@ export function calibrate(study: CalibrationStudy, records: FixedOutput[]) {
         counts.provider_errors += attempts.filter(v => v.status === 'provider-error').length;
         counts.partials += attempts.filter(v => v.status === 'partial').length;
         const target = targets.get(`${b.id}:${c.id}`);
-        const predicted = !vote ? 'MISSING' : vote.status === 'completed' ? vote.label! : vote.status === 'provider-error' ? 'PROVIDER_ERROR' : 'PARTIAL';
+        const predicted = !vote || vote.status === 'missing' ? 'MISSING' : vote.status === 'completed' ? vote.label! : vote.status === 'provider-error' ? 'PROVIDER_ERROR' : 'PARTIAL';
         if (predicted === 'MISSING') counts.missing++;
         if (predicted === 'NOT_APPLICABLE') counts.NOT_APPLICABLE++;
         if (predicted === 'CANNOT_ASSESS') counts.CANNOT_ASSESS++;
@@ -52,11 +53,11 @@ export function calibrate(study: CalibrationStudy, records: FixedOutput[]) {
     }));
     const scores = held.map(b => ({ episode_id: b.id, ...scoreCriteria(study.criteria, Object.fromEntries(study.criteria.map(c => {
       const vote = selected.get(`${evaluator.id}:${b.id}:${c.id}`);
-      return [c.id, vote?.status === 'completed' ? vote.label! : vote?.status === 'partial' ? 'PARTIAL' : vote ? 'PROVIDER_ERROR' : 'MISSING'];
+      return [c.id, vote?.status === 'completed' ? vote.label! : vote?.status === 'partial' ? 'PARTIAL' : vote && vote.status !== 'missing' ? 'PROVIDER_ERROR' : 'MISSING'];
     }))) }));
     const attempts = study.votes.filter(v => v.evaluator_id === evaluator.id);
-    return { evaluator, criteria, scores, cost_usd: attempts.reduce((n, v) => n + v.cost_usd, 0),
-      total_tokens: attempts.reduce((n, v) => n + v.tokens, 0), latency_ms: attempts.reduce((n, v) => n + v.latency_ms, 0) };
+    return { evaluator, criteria, scores, cost_usd: sumAccounting(attempts.map(v => v.cost_usd)),
+      total_tokens: sumAccounting(attempts.map(v => v.tokens)), latency_ms: sumAccounting(attempts.map(v => v.latency_ms)) };
   });
   const human_agreement = Object.fromEntries(study.criteria.map(c => {
     const pairs: [string, string][] = [];
@@ -89,7 +90,7 @@ export function calibrate(study: CalibrationStudy, records: FixedOutput[]) {
     raw_votes: study.votes, raw_humans: study.humans, adjudications: study.adjudications,
     human_disagreements: new Set(study.humans.filter(h => new Set(humanPair(study.humans, h).map(x => x.label)).size > 1).map(h => `${h.episode_id}:${h.criterion_id}`)).size,
     human_agreement, candidates, comparisons,
-    total_cost_usd: study.votes.reduce((n, v) => n + v.cost_usd, 0),
+    total_cost_usd: sumAccounting(study.votes.map(v => v.cost_usd)),
     thresholds: study.thresholds,
     recommendation: 'Retain executable checks and human assessment. No evaluator is recommended without two blinded human labels, adjudication, real judged runs and predeclared bounds.',
     limitations: ['Offline fixtures are not empirical reliability evidence.', 'Only two held-out scenario families; clustered intervals are descriptive.',

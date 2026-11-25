@@ -1,0 +1,5 @@
+[
+  { "id": "codex-workers", "transport": "cli", "group": "workers", "role": "efficiency" },
+  { "id": "cursor", "transport": "cli", "group": "cursor", "role": "efficiency" },
+  { "id": "muse", "transport": "cli", "group": "muse-external", "role": "efficiency" }
+]
