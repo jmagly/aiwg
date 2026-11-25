@@ -12,6 +12,7 @@
     "domains/control-plane.json",
     "domains/dataset.json",
     "domains/decision.json",
+    "domains/eval.json",
     "domains/storage.json",
     "domains/repository-json-schemas.json",
     "domains/network-analysis.json",

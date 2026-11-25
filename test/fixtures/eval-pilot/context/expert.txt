@@ -1,0 +1,1 @@
+Frozen expert selection: check source alignment, function edge cases, permissions and retry safety.

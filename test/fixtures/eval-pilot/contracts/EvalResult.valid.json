@@ -1,0 +1,9 @@
+{
+  "testCaseId": "legacy",
+  "dimension": "coding",
+  "score": 1,
+  "maxScore": 1,
+  "details": {},
+  "latencyMs": 0,
+  "modelResponse": "ok"
+}

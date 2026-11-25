@@ -1,0 +1,7 @@
+{
+  "T-OG-10": {
+    "testFiles": [
+      "test/unit/tools/eval-pilot.test.ts"
+    ]
+  }
+}

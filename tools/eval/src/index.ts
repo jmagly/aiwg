@@ -27,7 +27,7 @@ const program = new Command();
 
 program
   .name('aiwg-eval')
-  .description('AIWG model evaluation suite')
+  .description('AIWG model evaluation suite (use model-id offline-fixture for the frozen offline H1/H2 pilot)')
   .version('0.1.0')
   .argument('<model-id>', 'Model identifier (e.g., hermes3:latest)')
   .option('--backend <type>', 'Backend: ollama or api', 'ollama')
@@ -51,14 +51,12 @@ program
     if (baselineScore !== undefined && (!Number.isFinite(baselineScore) || baselineScore < 0 || baselineScore > 100)) {
       throw new Error('--baseline-score must be a number from 0 to 100');
     }
+    const offline = modelId === 'offline-fixture';
     console.log(`\nAIWG Model Evaluation Suite`);
     console.log(`Model: ${modelId}`);
-    console.log(`Backend: ${options.backend}`);
-    console.log(`Ollama URL: ${options['ollama-url'] || 'http://localhost:11434'}`);
+    console.log(`Backend: ${offline ? 'fixture' : options.backend}`);
+    if (!offline) console.log(`Ollama URL: ${options['ollama-url'] || 'http://localhost:11434'}`);
     console.log('');
-
-    // Create model client
-    const model = new OllamaModel(modelId, options['ollama-url'] as string);
 
     // Parse dimensions
     const dimensions = options.dimensions
@@ -66,8 +64,9 @@ program
       : undefined;
 
     // Run evaluation
-    const runner = new EvalRunner(model, DATASETS_DIR);
-    const report = await runner.run({
+    const report = offline
+      ? await EvalRunner.runOfflinePilot(path.join(DATASETS_DIR, 'composition-pilot.json'), path.resolve(__dirname, '../../../test/fixtures/eval-pilot'))
+      : await new EvalRunner(new OllamaModel(modelId, options['ollama-url'] as string), DATASETS_DIR).run({
       dimensions,
       verbose: options.verbose as boolean,
       integrityMode,

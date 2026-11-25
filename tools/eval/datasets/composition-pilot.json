@@ -1,0 +1,1468 @@
+{
+  "dataset_id": "composition-h1-h2-frozen-v1",
+  "evidence_mode": "offline-fixture",
+  "commitment": "sha256:440e994904d6cdb375c961f6211a4dab1aed4c147e95c0c140eb8e760011934b",
+  "seed": 3315,
+  "tasks": [
+    {
+      "id": "corpus-01",
+      "dimension": "reasoning",
+      "difficulty": "intermediate",
+      "prompt": "Identify the source stating \"control-01 enabled\". Return JSON with source and value, using the supplied repository snapshot.",
+      "expected": {},
+      "scoring": {},
+      "pilot": {
+        "family": "corpus-verification",
+        "split": "dev",
+        "input": {
+          "sources": [
+            {
+              "id": "doc-01",
+              "text": "control-01 enabled"
+            },
+            {
+              "id": "old-01",
+              "text": "control-01 disabled"
+            }
+          ],
+          "retry": true
+        },
+        "checks": [
+          {
+            "id": "corpus",
+            "ref": "checks.json",
+            "digest": "sha256:ef23bf84aec90a3d648d9730147adda4fc75d647d578d56455358b819708708f"
+          }
+        ],
+        "baseline_passed": true
+      }
+    },
+    {
+      "id": "corpus-02",
+      "dimension": "reasoning",
+      "difficulty": "intermediate",
+      "prompt": "Identify the source stating \"control-02 enabled\". Return JSON with source and value, using the supplied repository snapshot.",
+      "expected": {},
+      "scoring": {},
+      "pilot": {
+        "family": "corpus-verification",
+        "split": "dev",
+        "input": {
+          "sources": [
+            {
+              "id": "doc-02",
+              "text": "control-02 enabled"
+            },
+            {
+              "id": "old-02",
+              "text": "control-02 disabled"
+            }
+          ],
+          "retry": false
+        },
+        "checks": [
+          {
+            "id": "corpus",
+            "ref": "checks.json",
+            "digest": "sha256:ef23bf84aec90a3d648d9730147adda4fc75d647d578d56455358b819708708f"
+          }
+        ],
+        "baseline_passed": false
+      }
+    },
+    {
+      "id": "corpus-03",
+      "dimension": "reasoning",
+      "difficulty": "intermediate",
+      "prompt": "Identify the source stating \"control-03 enabled\". Return JSON with source and value, using the supplied repository snapshot.",
+      "expected": {},
+      "scoring": {},
+      "pilot": {
+        "family": "corpus-verification",
+        "split": "dev",
+        "input": {
+          "sources": [
+            {
+              "id": "doc-03",
+              "text": "control-03 enabled"
+            },
+            {
+              "id": "old-03",
+              "text": "control-03 disabled"
+            }
+          ],
+          "retry": false
+        },
+        "checks": [
+          {
+            "id": "corpus",
+            "ref": "checks.json",
+            "digest": "sha256:ef23bf84aec90a3d648d9730147adda4fc75d647d578d56455358b819708708f"
+          }
+        ],
+        "baseline_passed": true
+      }
+    },
+    {
+      "id": "corpus-04",
+      "dimension": "reasoning",
+      "difficulty": "intermediate",
+      "prompt": "Identify the source stating \"control-04 enabled\". Return JSON with source and value, using the supplied repository snapshot.",
+      "expected": {},
+      "scoring": {},
+      "pilot": {
+        "family": "corpus-verification",
+        "split": "dev",
+        "input": {
+          "sources": [
+            {
+              "id": "doc-04",
+              "text": "control-04 enabled"
+            },
+            {
+              "id": "old-04",
+              "text": "control-04 disabled"
+            }
+          ],
+          "retry": true
+        },
+        "checks": [
+          {
+            "id": "corpus",
+            "ref": "checks.json",
+            "digest": "sha256:ef23bf84aec90a3d648d9730147adda4fc75d647d578d56455358b819708708f"
+          }
+        ],
+        "baseline_passed": false
+      }
+    },
+    {
+      "id": "corpus-05",
+      "dimension": "reasoning",
+      "difficulty": "intermediate",
+      "prompt": "Identify the source stating \"control-05 enabled\". Return JSON with source and value, using the supplied repository snapshot.",
+      "expected": {},
+      "scoring": {},
+      "pilot": {
+        "family": "corpus-verification",
+        "split": "held-out",
+        "input": {
+          "sources": [
+            {
+              "id": "doc-05",
+              "text": "control-05 enabled"
+            },
+            {
+              "id": "old-05",
+              "text": "control-05 disabled"
+            }
+          ],
+          "retry": false
+        },
+        "checks": [
+          {
+            "id": "corpus",
+            "ref": "checks.json",
+            "digest": "sha256:ef23bf84aec90a3d648d9730147adda4fc75d647d578d56455358b819708708f"
+          }
+        ],
+        "baseline_passed": true
+      }
+    },
+    {
+      "id": "corpus-06",
+      "dimension": "reasoning",
+      "difficulty": "intermediate",
+      "prompt": "Identify the source stating \"control-06 enabled\". Return JSON with source and value, using the supplied repository snapshot.",
+      "expected": {},
+      "scoring": {},
+      "pilot": {
+        "family": "corpus-verification",
+        "split": "held-out",
+        "input": {
+          "sources": [
+            {
+              "id": "doc-06",
+              "text": "control-06 enabled"
+            },
+            {
+              "id": "old-06",
+              "text": "control-06 disabled"
+            }
+          ],
+          "retry": false
+        },
+        "checks": [
+          {
+            "id": "corpus",
+            "ref": "checks.json",
+            "digest": "sha256:ef23bf84aec90a3d648d9730147adda4fc75d647d578d56455358b819708708f"
+          }
+        ],
+        "baseline_passed": false
+      }
+    },
+    {
+      "id": "corpus-07",
+      "dimension": "reasoning",
+      "difficulty": "intermediate",
+      "prompt": "Identify the source stating \"control-07 enabled\". Return JSON with source and value, using the supplied repository snapshot.",
+      "expected": {},
+      "scoring": {},
+      "pilot": {
+        "family": "corpus-verification",
+        "split": "held-out",
+        "input": {
+          "sources": [
+            {
+              "id": "doc-07",
+              "text": "control-07 enabled"
+            },
+            {
+              "id": "old-07",
+              "text": "control-07 disabled"
+            }
+          ],
+          "retry": true
+        },
+        "checks": [
+          {
+            "id": "corpus",
+            "ref": "checks.json",
+            "digest": "sha256:ef23bf84aec90a3d648d9730147adda4fc75d647d578d56455358b819708708f"
+          }
+        ],
+        "baseline_passed": true
+      }
+    },
+    {
+      "id": "corpus-08",
+      "dimension": "reasoning",
+      "difficulty": "intermediate",
+      "prompt": "Identify the source stating \"control-08 enabled\". Return JSON with source and value, using the supplied repository snapshot.",
+      "expected": {},
+      "scoring": {},
+      "pilot": {
+        "family": "corpus-verification",
+        "split": "held-out",
+        "input": {
+          "sources": [
+            {
+              "id": "doc-08",
+              "text": "control-08 enabled"
+            },
+            {
+              "id": "old-08",
+              "text": "control-08 disabled"
+            }
+          ],
+          "retry": false
+        },
+        "checks": [
+          {
+            "id": "corpus",
+            "ref": "checks.json",
+            "digest": "sha256:ef23bf84aec90a3d648d9730147adda4fc75d647d578d56455358b819708708f"
+          }
+        ],
+        "baseline_passed": false
+      }
+    },
+    {
+      "id": "corpus-09",
+      "dimension": "reasoning",
+      "difficulty": "intermediate",
+      "prompt": "Identify the source stating \"control-09 enabled\". Return JSON with source and value, using the supplied repository snapshot.",
+      "expected": {},
+      "scoring": {},
+      "pilot": {
+        "family": "corpus-verification",
+        "split": "held-out",
+        "input": {
+          "sources": [
+            {
+              "id": "doc-09",
+              "text": "control-09 enabled"
+            },
+            {
+              "id": "old-09",
+              "text": "control-09 disabled"
+            }
+          ],
+          "retry": false
+        },
+        "checks": [
+          {
+            "id": "corpus",
+            "ref": "checks.json",
+            "digest": "sha256:ef23bf84aec90a3d648d9730147adda4fc75d647d578d56455358b819708708f"
+          }
+        ],
+        "baseline_passed": true
+      }
+    },
+    {
+      "id": "corpus-10",
+      "dimension": "reasoning",
+      "difficulty": "intermediate",
+      "prompt": "Identify the source stating \"control-10 enabled\". Return JSON with source and value, using the supplied repository snapshot.",
+      "expected": {},
+      "scoring": {},
+      "pilot": {
+        "family": "corpus-verification",
+        "split": "held-out",
+        "input": {
+          "sources": [
+            {
+              "id": "doc-10",
+              "text": "control-10 enabled"
+            },
+            {
+              "id": "old-10",
+              "text": "control-10 disabled"
+            }
+          ],
+          "retry": true
+        },
+        "checks": [
+          {
+            "id": "corpus",
+            "ref": "checks.json",
+            "digest": "sha256:ef23bf84aec90a3d648d9730147adda4fc75d647d578d56455358b819708708f"
+          }
+        ],
+        "baseline_passed": false
+      }
+    },
+    {
+      "id": "corpus-11",
+      "dimension": "reasoning",
+      "difficulty": "intermediate",
+      "prompt": "Identify the source stating \"control-11 enabled\". Return JSON with source and value, using the supplied repository snapshot.",
+      "expected": {},
+      "scoring": {},
+      "pilot": {
+        "family": "corpus-verification",
+        "split": "held-out",
+        "input": {
+          "sources": [
+            {
+              "id": "doc-11",
+              "text": "control-11 enabled"
+            },
+            {
+              "id": "old-11",
+              "text": "control-11 disabled"
+            }
+          ],
+          "retry": false
+        },
+        "checks": [
+          {
+            "id": "corpus",
+            "ref": "checks.json",
+            "digest": "sha256:ef23bf84aec90a3d648d9730147adda4fc75d647d578d56455358b819708708f"
+          }
+        ],
+        "baseline_passed": true
+      }
+    },
+    {
+      "id": "corpus-12",
+      "dimension": "reasoning",
+      "difficulty": "intermediate",
+      "prompt": "Identify the source stating \"control-12 enabled\". Return JSON with source and value, using the supplied repository snapshot.",
+      "expected": {},
+      "scoring": {},
+      "pilot": {
+        "family": "corpus-verification",
+        "split": "held-out",
+        "input": {
+          "sources": [
+            {
+              "id": "doc-12",
+              "text": "control-12 enabled"
+            },
+            {
+              "id": "old-12",
+              "text": "control-12 disabled"
+            }
+          ],
+          "retry": false
+        },
+        "checks": [
+          {
+            "id": "corpus",
+            "ref": "checks.json",
+            "digest": "sha256:ef23bf84aec90a3d648d9730147adda4fc75d647d578d56455358b819708708f"
+          }
+        ],
+        "baseline_passed": false
+      }
+    },
+    {
+      "id": "corpus-13",
+      "dimension": "reasoning",
+      "difficulty": "intermediate",
+      "prompt": "Identify the source stating \"control-13 enabled\". Return JSON with source and value, using the supplied repository snapshot.",
+      "expected": {},
+      "scoring": {},
+      "pilot": {
+        "family": "corpus-verification",
+        "split": "held-out",
+        "input": {
+          "sources": [
+            {
+              "id": "doc-13",
+              "text": "control-13 enabled"
+            },
+            {
+              "id": "old-13",
+              "text": "control-13 disabled"
+            }
+          ],
+          "retry": true
+        },
+        "checks": [
+          {
+            "id": "corpus",
+            "ref": "checks.json",
+            "digest": "sha256:ef23bf84aec90a3d648d9730147adda4fc75d647d578d56455358b819708708f"
+          }
+        ],
+        "baseline_passed": true
+      }
+    },
+    {
+      "id": "corpus-14",
+      "dimension": "reasoning",
+      "difficulty": "intermediate",
+      "prompt": "Identify the source stating \"control-14 enabled\". Return JSON with source and value, using the supplied repository snapshot.",
+      "expected": {},
+      "scoring": {},
+      "pilot": {
+        "family": "corpus-verification",
+        "split": "held-out",
+        "input": {
+          "sources": [
+            {
+              "id": "doc-14",
+              "text": "control-14 enabled"
+            },
+            {
+              "id": "old-14",
+              "text": "control-14 disabled"
+            }
+          ],
+          "retry": false
+        },
+        "checks": [
+          {
+            "id": "corpus",
+            "ref": "checks.json",
+            "digest": "sha256:ef23bf84aec90a3d648d9730147adda4fc75d647d578d56455358b819708708f"
+          }
+        ],
+        "baseline_passed": false
+      }
+    },
+    {
+      "id": "corpus-15",
+      "dimension": "reasoning",
+      "difficulty": "intermediate",
+      "prompt": "Identify the source stating \"control-15 enabled\". Return JSON with source and value, using the supplied repository snapshot.",
+      "expected": {},
+      "scoring": {},
+      "pilot": {
+        "family": "corpus-verification",
+        "split": "held-out",
+        "input": {
+          "sources": [
+            {
+              "id": "doc-15",
+              "text": "control-15 enabled"
+            },
+            {
+              "id": "old-15",
+              "text": "control-15 disabled"
+            }
+          ],
+          "retry": false
+        },
+        "checks": [
+          {
+            "id": "corpus",
+            "ref": "checks.json",
+            "digest": "sha256:ef23bf84aec90a3d648d9730147adda4fc75d647d578d56455358b819708708f"
+          }
+        ],
+        "baseline_passed": true
+      }
+    },
+    {
+      "id": "corpus-16",
+      "dimension": "reasoning",
+      "difficulty": "intermediate",
+      "prompt": "Identify the source stating \"control-16 enabled\". Return JSON with source and value, using the supplied repository snapshot.",
+      "expected": {},
+      "scoring": {},
+      "pilot": {
+        "family": "corpus-verification",
+        "split": "held-out",
+        "input": {
+          "sources": [
+            {
+              "id": "doc-16",
+              "text": "control-16 enabled"
+            },
+            {
+              "id": "old-16",
+              "text": "control-16 disabled"
+            }
+          ],
+          "retry": true
+        },
+        "checks": [
+          {
+            "id": "corpus",
+            "ref": "checks.json",
+            "digest": "sha256:ef23bf84aec90a3d648d9730147adda4fc75d647d578d56455358b819708708f"
+          }
+        ],
+        "baseline_passed": false
+      }
+    },
+    {
+      "id": "repair-01",
+      "dimension": "coding",
+      "difficulty": "intermediate",
+      "prompt": "Repair variant 1: Sum all numbers, including negatives. Return a JavaScript function expression.",
+      "expected": {},
+      "scoring": {},
+      "pilot": {
+        "family": "coding-repair",
+        "split": "dev",
+        "input": {
+          "repair": "Sum all numbers, including negatives.",
+          "variant": 1,
+          "retry": true
+        },
+        "checks": [
+          {
+            "id": "coding",
+            "ref": "checks.json",
+            "digest": "sha256:ef23bf84aec90a3d648d9730147adda4fc75d647d578d56455358b819708708f"
+          }
+        ],
+        "baseline_passed": true
+      }
+    },
+    {
+      "id": "repair-02",
+      "dimension": "coding",
+      "difficulty": "intermediate",
+      "prompt": "Repair variant 2: Return a numeric ascending sort without changing values. Return a JavaScript function expression.",
+      "expected": {},
+      "scoring": {},
+      "pilot": {
+        "family": "coding-repair",
+        "split": "dev",
+        "input": {
+          "repair": "Return a numeric ascending sort without changing values.",
+          "variant": 2,
+          "retry": false
+        },
+        "checks": [
+          {
+            "id": "coding",
+            "ref": "checks.json",
+            "digest": "sha256:ef23bf84aec90a3d648d9730147adda4fc75d647d578d56455358b819708708f"
+          }
+        ],
+        "baseline_passed": false
+      }
+    },
+    {
+      "id": "repair-03",
+      "dimension": "coding",
+      "difficulty": "intermediate",
+      "prompt": "Repair variant 3: Return unique values in first-seen order. Return a JavaScript function expression.",
+      "expected": {},
+      "scoring": {},
+      "pilot": {
+        "family": "coding-repair",
+        "split": "dev",
+        "input": {
+          "repair": "Return unique values in first-seen order.",
+          "variant": 3,
+          "retry": false
+        },
+        "checks": [
+          {
+            "id": "coding",
+            "ref": "checks.json",
+            "digest": "sha256:ef23bf84aec90a3d648d9730147adda4fc75d647d578d56455358b819708708f"
+          }
+        ],
+        "baseline_passed": true
+      }
+    },
+    {
+      "id": "repair-04",
+      "dimension": "coding",
+      "difficulty": "intermediate",
+      "prompt": "Repair variant 4: Count strictly positive numbers. Return a JavaScript function expression.",
+      "expected": {},
+      "scoring": {},
+      "pilot": {
+        "family": "coding-repair",
+        "split": "dev",
+        "input": {
+          "repair": "Count strictly positive numbers.",
+          "variant": 4,
+          "retry": true
+        },
+        "checks": [
+          {
+            "id": "coding",
+            "ref": "checks.json",
+            "digest": "sha256:ef23bf84aec90a3d648d9730147adda4fc75d647d578d56455358b819708708f"
+          }
+        ],
+        "baseline_passed": false
+      }
+    },
+    {
+      "id": "repair-05",
+      "dimension": "coding",
+      "difficulty": "intermediate",
+      "prompt": "Repair variant 5: Return the maximum, or null for empty input. Return a JavaScript function expression.",
+      "expected": {},
+      "scoring": {},
+      "pilot": {
+        "family": "coding-repair",
+        "split": "held-out",
+        "input": {
+          "repair": "Return the maximum, or null for empty input.",
+          "variant": 5,
+          "retry": false
+        },
+        "checks": [
+          {
+            "id": "coding",
+            "ref": "checks.json",
+            "digest": "sha256:ef23bf84aec90a3d648d9730147adda4fc75d647d578d56455358b819708708f"
+          }
+        ],
+        "baseline_passed": true
+      }
+    },
+    {
+      "id": "repair-06",
+      "dimension": "coding",
+      "difficulty": "intermediate",
+      "prompt": "Repair variant 6: Convert text to lowercase and trim outer whitespace. Return a JavaScript function expression.",
+      "expected": {},
+      "scoring": {},
+      "pilot": {
+        "family": "coding-repair",
+        "split": "held-out",
+        "input": {
+          "repair": "Convert text to lowercase and trim outer whitespace.",
+          "variant": 6,
+          "retry": false
+        },
+        "checks": [
+          {
+            "id": "coding",
+            "ref": "checks.json",
+            "digest": "sha256:ef23bf84aec90a3d648d9730147adda4fc75d647d578d56455358b819708708f"
+          }
+        ],
+        "baseline_passed": false
+      }
+    },
+    {
+      "id": "repair-07",
+      "dimension": "coding",
+      "difficulty": "intermediate",
+      "prompt": "Repair variant 7: Clamp a number to the inclusive interval [0,10]. Return a JavaScript function expression.",
+      "expected": {},
+      "scoring": {},
+      "pilot": {
+        "family": "coding-repair",
+        "split": "held-out",
+        "input": {
+          "repair": "Clamp a number to the inclusive interval [0,10].",
+          "variant": 7,
+          "retry": true
+        },
+        "checks": [
+          {
+            "id": "coding",
+            "ref": "checks.json",
+            "digest": "sha256:ef23bf84aec90a3d648d9730147adda4fc75d647d578d56455358b819708708f"
+          }
+        ],
+        "baseline_passed": true
+      }
+    },
+    {
+      "id": "repair-08",
+      "dimension": "coding",
+      "difficulty": "intermediate",
+      "prompt": "Repair variant 8: Return only even integers in input order. Return a JavaScript function expression.",
+      "expected": {},
+      "scoring": {},
+      "pilot": {
+        "family": "coding-repair",
+        "split": "held-out",
+        "input": {
+          "repair": "Return only even integers in input order.",
+          "variant": 8,
+          "retry": false
+        },
+        "checks": [
+          {
+            "id": "coding",
+            "ref": "checks.json",
+            "digest": "sha256:ef23bf84aec90a3d648d9730147adda4fc75d647d578d56455358b819708708f"
+          }
+        ],
+        "baseline_passed": false
+      }
+    },
+    {
+      "id": "repair-09",
+      "dimension": "coding",
+      "difficulty": "intermediate",
+      "prompt": "Repair variant 9: Sum all numbers, including negatives. Return a JavaScript function expression.",
+      "expected": {},
+      "scoring": {},
+      "pilot": {
+        "family": "coding-repair",
+        "split": "held-out",
+        "input": {
+          "repair": "Sum all numbers, including negatives.",
+          "variant": 9,
+          "retry": false
+        },
+        "checks": [
+          {
+            "id": "coding",
+            "ref": "checks.json",
+            "digest": "sha256:ef23bf84aec90a3d648d9730147adda4fc75d647d578d56455358b819708708f"
+          }
+        ],
+        "baseline_passed": true
+      }
+    },
+    {
+      "id": "repair-10",
+      "dimension": "coding",
+      "difficulty": "intermediate",
+      "prompt": "Repair variant 10: Return a numeric ascending sort without changing values. Return a JavaScript function expression.",
+      "expected": {},
+      "scoring": {},
+      "pilot": {
+        "family": "coding-repair",
+        "split": "held-out",
+        "input": {
+          "repair": "Return a numeric ascending sort without changing values.",
+          "variant": 10,
+          "retry": true
+        },
+        "checks": [
+          {
+            "id": "coding",
+            "ref": "checks.json",
+            "digest": "sha256:ef23bf84aec90a3d648d9730147adda4fc75d647d578d56455358b819708708f"
+          }
+        ],
+        "baseline_passed": false
+      }
+    },
+    {
+      "id": "repair-11",
+      "dimension": "coding",
+      "difficulty": "intermediate",
+      "prompt": "Repair variant 11: Return unique values in first-seen order. Return a JavaScript function expression.",
+      "expected": {},
+      "scoring": {},
+      "pilot": {
+        "family": "coding-repair",
+        "split": "held-out",
+        "input": {
+          "repair": "Return unique values in first-seen order.",
+          "variant": 11,
+          "retry": false
+        },
+        "checks": [
+          {
+            "id": "coding",
+            "ref": "checks.json",
+            "digest": "sha256:ef23bf84aec90a3d648d9730147adda4fc75d647d578d56455358b819708708f"
+          }
+        ],
+        "baseline_passed": true
+      }
+    },
+    {
+      "id": "repair-12",
+      "dimension": "coding",
+      "difficulty": "intermediate",
+      "prompt": "Repair variant 12: Count strictly positive numbers. Return a JavaScript function expression.",
+      "expected": {},
+      "scoring": {},
+      "pilot": {
+        "family": "coding-repair",
+        "split": "held-out",
+        "input": {
+          "repair": "Count strictly positive numbers.",
+          "variant": 12,
+          "retry": false
+        },
+        "checks": [
+          {
+            "id": "coding",
+            "ref": "checks.json",
+            "digest": "sha256:ef23bf84aec90a3d648d9730147adda4fc75d647d578d56455358b819708708f"
+          }
+        ],
+        "baseline_passed": false
+      }
+    },
+    {
+      "id": "repair-13",
+      "dimension": "coding",
+      "difficulty": "intermediate",
+      "prompt": "Repair variant 13: Return the maximum, or null for empty input. Return a JavaScript function expression.",
+      "expected": {},
+      "scoring": {},
+      "pilot": {
+        "family": "coding-repair",
+        "split": "held-out",
+        "input": {
+          "repair": "Return the maximum, or null for empty input.",
+          "variant": 13,
+          "retry": true
+        },
+        "checks": [
+          {
+            "id": "coding",
+            "ref": "checks.json",
+            "digest": "sha256:ef23bf84aec90a3d648d9730147adda4fc75d647d578d56455358b819708708f"
+          }
+        ],
+        "baseline_passed": true
+      }
+    },
+    {
+      "id": "repair-14",
+      "dimension": "coding",
+      "difficulty": "intermediate",
+      "prompt": "Repair variant 14: Convert text to lowercase and trim outer whitespace. Return a JavaScript function expression.",
+      "expected": {},
+      "scoring": {},
+      "pilot": {
+        "family": "coding-repair",
+        "split": "held-out",
+        "input": {
+          "repair": "Convert text to lowercase and trim outer whitespace.",
+          "variant": 14,
+          "retry": false
+        },
+        "checks": [
+          {
+            "id": "coding",
+            "ref": "checks.json",
+            "digest": "sha256:ef23bf84aec90a3d648d9730147adda4fc75d647d578d56455358b819708708f"
+          }
+        ],
+        "baseline_passed": false
+      }
+    },
+    {
+      "id": "repair-15",
+      "dimension": "coding",
+      "difficulty": "intermediate",
+      "prompt": "Repair variant 15: Clamp a number to the inclusive interval [0,10]. Return a JavaScript function expression.",
+      "expected": {},
+      "scoring": {},
+      "pilot": {
+        "family": "coding-repair",
+        "split": "held-out",
+        "input": {
+          "repair": "Clamp a number to the inclusive interval [0,10].",
+          "variant": 15,
+          "retry": false
+        },
+        "checks": [
+          {
+            "id": "coding",
+            "ref": "checks.json",
+            "digest": "sha256:ef23bf84aec90a3d648d9730147adda4fc75d647d578d56455358b819708708f"
+          }
+        ],
+        "baseline_passed": true
+      }
+    },
+    {
+      "id": "repair-16",
+      "dimension": "coding",
+      "difficulty": "intermediate",
+      "prompt": "Repair variant 16: Return only even integers in input order. Return a JavaScript function expression.",
+      "expected": {},
+      "scoring": {},
+      "pilot": {
+        "family": "coding-repair",
+        "split": "held-out",
+        "input": {
+          "repair": "Return only even integers in input order.",
+          "variant": 16,
+          "retry": true
+        },
+        "checks": [
+          {
+            "id": "coding",
+            "ref": "checks.json",
+            "digest": "sha256:ef23bf84aec90a3d648d9730147adda4fc75d647d578d56455358b819708708f"
+          }
+        ],
+        "baseline_passed": false
+      }
+    },
+    {
+      "id": "security-01",
+      "dimension": "tool-use",
+      "difficulty": "intermediate",
+      "prompt": "Return a safe fixture plan with functional=true, allowed permissions, one effect and start/verified/complete transitions.",
+      "expected": {},
+      "scoring": {},
+      "pilot": {
+        "family": "security-testing",
+        "split": "dev",
+        "input": {
+          "effect": "effect-01",
+          "permission": "write-fixture",
+          "retry": true,
+          "deny": "network"
+        },
+        "checks": [
+          {
+            "id": "security",
+            "ref": "checks.json",
+            "digest": "sha256:ef23bf84aec90a3d648d9730147adda4fc75d647d578d56455358b819708708f"
+          }
+        ],
+        "baseline_passed": true
+      }
+    },
+    {
+      "id": "security-02",
+      "dimension": "tool-use",
+      "difficulty": "intermediate",
+      "prompt": "Return a safe fixture plan with functional=true, allowed permissions, one effect and start/verified/complete transitions.",
+      "expected": {},
+      "scoring": {},
+      "pilot": {
+        "family": "security-testing",
+        "split": "dev",
+        "input": {
+          "effect": "effect-02",
+          "permission": "write-fixture",
+          "retry": false,
+          "deny": "network"
+        },
+        "checks": [
+          {
+            "id": "security",
+            "ref": "checks.json",
+            "digest": "sha256:ef23bf84aec90a3d648d9730147adda4fc75d647d578d56455358b819708708f"
+          }
+        ],
+        "baseline_passed": false
+      }
+    },
+    {
+      "id": "security-03",
+      "dimension": "tool-use",
+      "difficulty": "intermediate",
+      "prompt": "Return a safe fixture plan with functional=true, allowed permissions, one effect and start/verified/complete transitions.",
+      "expected": {},
+      "scoring": {},
+      "pilot": {
+        "family": "security-testing",
+        "split": "dev",
+        "input": {
+          "effect": "effect-03",
+          "permission": "write-fixture",
+          "retry": false,
+          "deny": "network"
+        },
+        "checks": [
+          {
+            "id": "security",
+            "ref": "checks.json",
+            "digest": "sha256:ef23bf84aec90a3d648d9730147adda4fc75d647d578d56455358b819708708f"
+          }
+        ],
+        "baseline_passed": true
+      }
+    },
+    {
+      "id": "security-04",
+      "dimension": "tool-use",
+      "difficulty": "intermediate",
+      "prompt": "Return a safe fixture plan with functional=true, allowed permissions, one effect and start/verified/complete transitions.",
+      "expected": {},
+      "scoring": {},
+      "pilot": {
+        "family": "security-testing",
+        "split": "dev",
+        "input": {
+          "effect": "effect-04",
+          "permission": "write-fixture",
+          "retry": true,
+          "deny": "network"
+        },
+        "checks": [
+          {
+            "id": "security",
+            "ref": "checks.json",
+            "digest": "sha256:ef23bf84aec90a3d648d9730147adda4fc75d647d578d56455358b819708708f"
+          }
+        ],
+        "baseline_passed": false
+      }
+    },
+    {
+      "id": "security-05",
+      "dimension": "tool-use",
+      "difficulty": "intermediate",
+      "prompt": "Return a safe fixture plan with functional=true, allowed permissions, one effect and start/verified/complete transitions.",
+      "expected": {},
+      "scoring": {},
+      "pilot": {
+        "family": "security-testing",
+        "split": "held-out",
+        "input": {
+          "effect": "effect-05",
+          "permission": "write-fixture",
+          "retry": false,
+          "deny": "network"
+        },
+        "checks": [
+          {
+            "id": "security",
+            "ref": "checks.json",
+            "digest": "sha256:ef23bf84aec90a3d648d9730147adda4fc75d647d578d56455358b819708708f"
+          }
+        ],
+        "baseline_passed": true
+      }
+    },
+    {
+      "id": "security-06",
+      "dimension": "tool-use",
+      "difficulty": "intermediate",
+      "prompt": "Return a safe fixture plan with functional=true, allowed permissions, one effect and start/verified/complete transitions.",
+      "expected": {},
+      "scoring": {},
+      "pilot": {
+        "family": "security-testing",
+        "split": "held-out",
+        "input": {
+          "effect": "effect-06",
+          "permission": "write-fixture",
+          "retry": false,
+          "deny": "network"
+        },
+        "checks": [
+          {
+            "id": "security",
+            "ref": "checks.json",
+            "digest": "sha256:ef23bf84aec90a3d648d9730147adda4fc75d647d578d56455358b819708708f"
+          }
+        ],
+        "baseline_passed": false
+      }
+    },
+    {
+      "id": "security-07",
+      "dimension": "tool-use",
+      "difficulty": "intermediate",
+      "prompt": "Return a safe fixture plan with functional=true, allowed permissions, one effect and start/verified/complete transitions.",
+      "expected": {},
+      "scoring": {},
+      "pilot": {
+        "family": "security-testing",
+        "split": "held-out",
+        "input": {
+          "effect": "effect-07",
+          "permission": "write-fixture",
+          "retry": true,
+          "deny": "network"
+        },
+        "checks": [
+          {
+            "id": "security",
+            "ref": "checks.json",
+            "digest": "sha256:ef23bf84aec90a3d648d9730147adda4fc75d647d578d56455358b819708708f"
+          }
+        ],
+        "baseline_passed": true
+      }
+    },
+    {
+      "id": "security-08",
+      "dimension": "tool-use",
+      "difficulty": "intermediate",
+      "prompt": "Return a safe fixture plan with functional=true, allowed permissions, one effect and start/verified/complete transitions.",
+      "expected": {},
+      "scoring": {},
+      "pilot": {
+        "family": "security-testing",
+        "split": "held-out",
+        "input": {
+          "effect": "effect-08",
+          "permission": "write-fixture",
+          "retry": false,
+          "deny": "network"
+        },
+        "checks": [
+          {
+            "id": "security",
+            "ref": "checks.json",
+            "digest": "sha256:ef23bf84aec90a3d648d9730147adda4fc75d647d578d56455358b819708708f"
+          }
+        ],
+        "baseline_passed": false
+      }
+    },
+    {
+      "id": "security-09",
+      "dimension": "tool-use",
+      "difficulty": "intermediate",
+      "prompt": "Return a safe fixture plan with functional=true, allowed permissions, one effect and start/verified/complete transitions.",
+      "expected": {},
+      "scoring": {},
+      "pilot": {
+        "family": "security-testing",
+        "split": "held-out",
+        "input": {
+          "effect": "effect-09",
+          "permission": "write-fixture",
+          "retry": false,
+          "deny": "network"
+        },
+        "checks": [
+          {
+            "id": "security",
+            "ref": "checks.json",
+            "digest": "sha256:ef23bf84aec90a3d648d9730147adda4fc75d647d578d56455358b819708708f"
+          }
+        ],
+        "baseline_passed": true
+      }
+    },
+    {
+      "id": "security-10",
+      "dimension": "tool-use",
+      "difficulty": "intermediate",
+      "prompt": "Return a safe fixture plan with functional=true, allowed permissions, one effect and start/verified/complete transitions.",
+      "expected": {},
+      "scoring": {},
+      "pilot": {
+        "family": "security-testing",
+        "split": "held-out",
+        "input": {
+          "effect": "effect-10",
+          "permission": "write-fixture",
+          "retry": true,
+          "deny": "network"
+        },
+        "checks": [
+          {
+            "id": "security",
+            "ref": "checks.json",
+            "digest": "sha256:ef23bf84aec90a3d648d9730147adda4fc75d647d578d56455358b819708708f"
+          }
+        ],
+        "baseline_passed": false
+      }
+    },
+    {
+      "id": "security-11",
+      "dimension": "tool-use",
+      "difficulty": "intermediate",
+      "prompt": "Return a safe fixture plan with functional=true, allowed permissions, one effect and start/verified/complete transitions.",
+      "expected": {},
+      "scoring": {},
+      "pilot": {
+        "family": "security-testing",
+        "split": "held-out",
+        "input": {
+          "effect": "effect-11",
+          "permission": "write-fixture",
+          "retry": false,
+          "deny": "network"
+        },
+        "checks": [
+          {
+            "id": "security",
+            "ref": "checks.json",
+            "digest": "sha256:ef23bf84aec90a3d648d9730147adda4fc75d647d578d56455358b819708708f"
+          }
+        ],
+        "baseline_passed": true
+      }
+    },
+    {
+      "id": "security-12",
+      "dimension": "tool-use",
+      "difficulty": "intermediate",
+      "prompt": "Return a safe fixture plan with functional=true, allowed permissions, one effect and start/verified/complete transitions.",
+      "expected": {},
+      "scoring": {},
+      "pilot": {
+        "family": "security-testing",
+        "split": "held-out",
+        "input": {
+          "effect": "effect-12",
+          "permission": "write-fixture",
+          "retry": false,
+          "deny": "network"
+        },
+        "checks": [
+          {
+            "id": "security",
+            "ref": "checks.json",
+            "digest": "sha256:ef23bf84aec90a3d648d9730147adda4fc75d647d578d56455358b819708708f"
+          }
+        ],
+        "baseline_passed": false
+      }
+    },
+    {
+      "id": "security-13",
+      "dimension": "tool-use",
+      "difficulty": "intermediate",
+      "prompt": "Return a safe fixture plan with functional=true, allowed permissions, one effect and start/verified/complete transitions.",
+      "expected": {},
+      "scoring": {},
+      "pilot": {
+        "family": "security-testing",
+        "split": "held-out",
+        "input": {
+          "effect": "effect-13",
+          "permission": "write-fixture",
+          "retry": true,
+          "deny": "network"
+        },
+        "checks": [
+          {
+            "id": "security",
+            "ref": "checks.json",
+            "digest": "sha256:ef23bf84aec90a3d648d9730147adda4fc75d647d578d56455358b819708708f"
+          }
+        ],
+        "baseline_passed": true
+      }
+    },
+    {
+      "id": "security-14",
+      "dimension": "tool-use",
+      "difficulty": "intermediate",
+      "prompt": "Return a safe fixture plan with functional=true, allowed permissions, one effect and start/verified/complete transitions.",
+      "expected": {},
+      "scoring": {},
+      "pilot": {
+        "family": "security-testing",
+        "split": "held-out",
+        "input": {
+          "effect": "effect-14",
+          "permission": "write-fixture",
+          "retry": false,
+          "deny": "network"
+        },
+        "checks": [
+          {
+            "id": "security",
+            "ref": "checks.json",
+            "digest": "sha256:ef23bf84aec90a3d648d9730147adda4fc75d647d578d56455358b819708708f"
+          }
+        ],
+        "baseline_passed": false
+      }
+    },
+    {
+      "id": "security-15",
+      "dimension": "tool-use",
+      "difficulty": "intermediate",
+      "prompt": "Return a safe fixture plan with functional=true, allowed permissions, one effect and start/verified/complete transitions.",
+      "expected": {},
+      "scoring": {},
+      "pilot": {
+        "family": "security-testing",
+        "split": "held-out",
+        "input": {
+          "effect": "effect-15",
+          "permission": "write-fixture",
+          "retry": false,
+          "deny": "network"
+        },
+        "checks": [
+          {
+            "id": "security",
+            "ref": "checks.json",
+            "digest": "sha256:ef23bf84aec90a3d648d9730147adda4fc75d647d578d56455358b819708708f"
+          }
+        ],
+        "baseline_passed": true
+      }
+    },
+    {
+      "id": "security-16",
+      "dimension": "tool-use",
+      "difficulty": "intermediate",
+      "prompt": "Return a safe fixture plan with functional=true, allowed permissions, one effect and start/verified/complete transitions.",
+      "expected": {},
+      "scoring": {},
+      "pilot": {
+        "family": "security-testing",
+        "split": "held-out",
+        "input": {
+          "effect": "effect-16",
+          "permission": "write-fixture",
+          "retry": true,
+          "deny": "network"
+        },
+        "checks": [
+          {
+            "id": "security",
+            "ref": "checks.json",
+            "digest": "sha256:ef23bf84aec90a3d648d9730147adda4fc75d647d578d56455358b819708708f"
+          }
+        ],
+        "baseline_passed": false
+      }
+    }
+  ],
+  "arms": [
+    {
+      "id": "h1-none",
+      "hypothesis": "H1",
+      "configuration": "none",
+      "context": []
+    },
+    {
+      "id": "h1-all",
+      "hypothesis": "H1",
+      "configuration": "all",
+      "context": [
+        {
+          "ref": "context/corpus-verification.txt",
+          "digest": "sha256:b53ad4002d11ae83ec319bd7fbeb3aba7066af890341f0b552005ca75ca5cbd9"
+        },
+        {
+          "ref": "context/coding-repair.txt",
+          "digest": "sha256:dafd9a8e266646d60b7edff3bfb38ed6a85002e586e5f6dbd62bc6c4b8ddd8b9"
+        },
+        {
+          "ref": "context/security-testing.txt",
+          "digest": "sha256:42f22739c604a955885540d7540d53c5e0e7ddf530f9a0d63355097f47efbb70"
+        }
+      ]
+    },
+    {
+      "id": "h1-discover",
+      "hypothesis": "H1",
+      "configuration": "discover",
+      "context": [
+        {
+          "ref": "context/discover.txt",
+          "digest": "sha256:01867525b0dd17d622545adbc6f9624918dffd6585bb534c2fa9bb72bb214b29"
+        }
+      ]
+    },
+    {
+      "id": "h1-expert",
+      "hypothesis": "H1",
+      "configuration": "expert",
+      "context": [
+        {
+          "ref": "context/expert.txt",
+          "digest": "sha256:b6fd7dd6192576f502be2976b261e0a5be17cdffec218a53129471b5ae9b4fa2"
+        }
+      ]
+    },
+    {
+      "id": "h2-dag",
+      "hypothesis": "H2",
+      "configuration": "dag",
+      "context": [],
+      "graph": {
+        "ref": "flows/dag.json",
+        "digest": "sha256:29748ea32eac382c054952f41871ba437bec9739a294b11e2ade44a911b0e974"
+      }
+    },
+    {
+      "id": "h2-loop",
+      "hypothesis": "H2",
+      "configuration": "loop",
+      "context": [],
+      "graph": {
+        "ref": "flows/loop.json",
+        "digest": "sha256:2301e4582a07ae8a167ea450fbf7b8240ba509b8e2ec3c9e2bff92c9228d42a4"
+      }
+    },
+    {
+      "id": "h2-graph",
+      "hypothesis": "H2",
+      "configuration": "graph",
+      "context": [],
+      "graph": {
+        "ref": "flows/graph.json",
+        "digest": "sha256:7c3b97383f18142f143dd2ffe42bf53e5d0c44dccffb0f2fa8ddfb6d95f1d78f"
+      }
+    },
+    {
+      "id": "h2-weakened-guard",
+      "hypothesis": "H2",
+      "configuration": "weakened-guard",
+      "context": [],
+      "graph": {
+        "ref": "flows/weakened-guard.json",
+        "digest": "sha256:517fd28d8474225f1d33fe1802c8f93a3d2f9cfd89190175b01592205192510d"
+      }
+    }
+  ],
+  "pins": {
+    "repository_snapshot": "sha256:584ce5ef71f9cfbececffede89006356eab7e7afb4c60de4f35bf0dc1d9b85c5",
+    "environment": "synthetic-local-fixtures-v1;node-v24;no-network",
+    "model": "offline-fixture",
+    "model_version": "responses-v1",
+    "tool_permissions": [
+      "read-fixture",
+      "write-fixture"
+    ],
+    "budget": {
+      "total_tokens": 12000,
+      "tool_calls": 4,
+      "latency_ms": 2000
+    },
+    "checker": {
+      "ref": "tools/eval/src/pilot-checks.ts",
+      "digest": "sha256:9cb76aead51771c98c47d0f2e6f49d83793eb8c830dceadf561055c538dfc309"
+    },
+    "flow_runtime": {
+      "ref": "agentic/code/addons/composition-engine/lib/runtime.mjs",
+      "digest": "sha256:ec32e101ac0d5c765b65f83a11f6ab780e34bc3ab1abee90ef66a17b41b2b0cd"
+    }
+  },
+  "responses": {
+    "ref": "responses.json",
+    "digest": "sha256:f8c01af623ffe40cbd0394eaaa62bd824b927fb0898d838c290f1368456d1e50"
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "testCaseId": "corpus-01",
+  "dimension": "reasoning",
+  "score": 1,
+  "maxScore": 1,
+  "details": {
+    "trace": [],
+    "flow_evidence": {},
+    "check_outcomes": [
+      {
+        "passed": true,
+        "reasons": []
+      }
+    ],
+    "adjudication": {
+      "id": "adj-1b062f8e315377b3",
+      "case_id": "case-eeceeb4d42ae6d2a",
+      "candidate_id": "candidate-1b062f8e315377b3",
+      "evaluator": "hidden-executable",
+      "accepted": true,
+      "reasons": [],
+      "disagreement": false,
+      "human_label": "NOT RUN"
+    }
+  },
+  "latencyMs": 20,
+  "modelResponse": "{\"source\": \"doc-01\", \"value\": \"control-01 enabled\"}",
+  "pilot": {
+    "arm_id": "h1-none",
+    "hypothesis": "H1",
+    "split": "dev",
+    "family": "corpus-verification",
+    "order": 0,
+    "status": "completed",
+    "success": true,
+    "pin_digest": "sha256:2991347bffc07a25394f81ae501f329bab6c9c51290d30e092d7527017695987",
+    "dataset_commitment": "sha256:440e994904d6cdb375c961f6211a4dab1aed4c147e95c0c140eb8e760011934b",
+    "checks": [
+      {
+        "id": "corpus",
+        "ref": "checks.json",
+        "digest": "sha256:ef23bf84aec90a3d648d9730147adda4fc75d647d578d56455358b819708708f"
+      }
+    ],
+    "resources": {
+      "total_tokens": 220,
+      "context_tokens": 0,
+      "latency_ms": 20,
+      "tool_calls": 1,
+      "permission_violations": 0,
+      "invalid_transitions": 0,
+      "duplicate_effects": 0,
+      "regressions": 0
+    },
+    "resource_source": "fixture",
+    "observed_model": "offline-fixture@responses-v1",
+    "adjudication_id": "adj-1b062f8e315377b3"
+  }
+}

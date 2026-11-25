@@ -1,0 +1,33 @@
+{
+  "id": "corpus-01",
+  "dimension": "reasoning",
+  "difficulty": "intermediate",
+  "prompt": "Identify the source stating \"control-01 enabled\". Return JSON with source and value, using the supplied repository snapshot.",
+  "expected": {},
+  "scoring": {},
+  "pilot": {
+    "family": "corpus-verification",
+    "split": "dev",
+    "input": {
+      "sources": [
+        {
+          "id": "doc-01",
+          "text": "control-01 enabled"
+        },
+        {
+          "id": "old-01",
+          "text": "control-01 disabled"
+        }
+      ],
+      "retry": true
+    },
+    "checks": [
+      {
+        "id": "corpus",
+        "ref": "checks.json",
+        "digest": "unfrozen"
+      }
+    ],
+    "baseline_passed": true
+  }
+}

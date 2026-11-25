@@ -2,6 +2,7 @@
  * Markdown report generator for eval results
  */
 
+import { pilotMarkdown } from '../pilot-report.js';
 import type { EvalReport } from '../models/types.js';
 import { legacyIntegrityMetadata } from '../integrity.js';
 
@@ -73,5 +74,6 @@ export function generateMarkdownReport(report: EvalReport): string {
 
   lines.push('', `Total evaluation time: ${(report.totalLatencyMs / 1000).toFixed(1)}s`);
 
+  if (report.pilot) lines.push('', pilotMarkdown(report.pilot));
   return lines.join('\n');
 }

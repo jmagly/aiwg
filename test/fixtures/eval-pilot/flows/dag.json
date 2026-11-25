@@ -1,0 +1,144 @@
+{
+  "apiVersion": "flow.aiwg.io/v1alpha1",
+  "kind": "FlowGraph",
+  "metadata": {
+    "name": "pilot-dag"
+  },
+  "spec": {
+    "entry": [
+      "draft"
+    ],
+    "candidates": [
+      {
+        "id": "aiwg:function:3315000000000001",
+        "kind": "function"
+      }
+    ],
+    "state": {
+      "fields": [
+        {
+          "name": "needs",
+          "schema": {
+            "type": "boolean"
+          },
+          "reducer": "replace",
+          "initial": false
+        }
+      ]
+    },
+    "permissions": [],
+    "capabilities": [],
+    "ceilings": {
+      "activations": 12,
+      "tokens": 12000,
+      "costUsd": 1,
+      "timeMs": 2000,
+      "concurrency": 1
+    },
+    "nodes": [
+      {
+        "id": "draft",
+        "kind": "function",
+        "ref": "aiwg:function:3315000000000001",
+        "deterministic": true,
+        "inputs": [],
+        "outputs": [
+          {
+            "name": "artifact",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "needs",
+            "schema": {
+              "type": "boolean"
+            },
+            "state": "needs"
+          }
+        ],
+        "capabilities": [],
+        "permissions": [],
+        "sideEffectMode": "none"
+      },
+      {
+        "id": "verify",
+        "kind": "function",
+        "ref": "aiwg:function:3315000000000001",
+        "deterministic": true,
+        "inputs": [],
+        "outputs": [
+          {
+            "name": "artifact",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "needs",
+            "schema": {
+              "type": "boolean"
+            },
+            "state": "needs"
+          }
+        ],
+        "capabilities": [],
+        "permissions": [],
+        "sideEffectMode": "none"
+      },
+      {
+        "id": "publish",
+        "kind": "function",
+        "ref": "aiwg:function:3315000000000001",
+        "deterministic": true,
+        "inputs": [],
+        "outputs": [
+          {
+            "name": "artifact",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "needs",
+            "schema": {
+              "type": "boolean"
+            },
+            "state": "needs"
+          }
+        ],
+        "capabilities": [],
+        "permissions": [],
+        "sideEffectMode": "none"
+      }
+    ],
+    "routes": [
+      {
+        "id": "draft-to-verify",
+        "from": "draft",
+        "to": "verify"
+      },
+      {
+        "id": "verify-to-publish",
+        "from": "verify",
+        "to": "publish"
+      }
+    ],
+    "joins": [],
+    "failure": {
+      "onNodeFailure": "fail",
+      "maxFailures": 0
+    },
+    "output": {
+      "mode": "final-only",
+      "from": "publish.artifact",
+      "schema": {
+        "type": "string"
+      }
+    },
+    "trace": {
+      "level": "metadata",
+      "redact": []
+    }
+  }
+}

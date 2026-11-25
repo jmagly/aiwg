@@ -19,6 +19,7 @@
   "license": "MIT",
   "dependencies": {
     "@matric/eval-client": "^0.1.0",
+    "ajv": "^8.20.0",
     "commander": "^12.1.0",
     "js-yaml": "^4.3.2"
   },

@@ -1,0 +1,78 @@
+{
+  "$schema": "../domain-manifest.v1.schema.json",
+  "schemaVersion": "1",
+  "domain": "eval",
+  "owner": {
+    "id": "eval-maintainers"
+  },
+  "policy": {
+    "strict": true,
+    "compatibility": "backward",
+    "requireFixtures": true
+  },
+  "artifacts": [
+    {
+      "logicalName": "eval.contracts",
+      "id": "https://aiwg.io/schemas/eval/contracts.v1.schema.json",
+      "version": "1.0.0",
+      "format": "json-schema",
+      "dialect": "https://json-schema.org/draft/2020-12/schema",
+      "lifecycle": "active",
+      "stability": "preview",
+      "owner": {
+        "id": "eval-maintainers"
+      },
+      "authority": {
+        "kind": "canonical",
+        "path": "tools/eval/datasets/contracts.v1.schema.json"
+      },
+      "compatibility": {
+        "mode": "backward"
+      },
+      "consumers": [
+        {
+          "id": "eval-runner",
+          "boundary": "YAML dataset loading and optional offline pilot result/report evidence",
+          "path": "tools/eval/src/runner.ts"
+        },
+        {
+          "id": "eval-contract-validator",
+          "path": "tools/eval/src/contracts.ts"
+        }
+      ],
+      "fixtures": {
+        "valid": [
+          "test/fixtures/eval-pilot/contracts/TestCase.valid.json",
+          "test/fixtures/eval-pilot/contracts/EvalResult.valid.json",
+          "test/fixtures/eval-pilot/contracts/EvalResult.pilot.valid.json",
+          "test/fixtures/eval-pilot/contracts/Adjudication.valid.json"
+        ],
+        "invalid": [
+          "test/fixtures/eval-pilot/contracts/TestCase.split.invalid.json",
+          "test/fixtures/eval-pilot/contracts/TestCase.digest.invalid.json",
+          "test/fixtures/eval-pilot/contracts/EvalResult.latency.invalid.json",
+          "test/fixtures/eval-pilot/contracts/EvalResult.status.invalid.json",
+          "test/fixtures/eval-pilot/contracts/EvalResult.resources.invalid.json",
+          "test/fixtures/eval-pilot/contracts/Adjudication.label.invalid.json"
+        ]
+      },
+      "projections": [
+        {
+          "kind": "types",
+          "path": "tools/eval/src/models/types.ts",
+          "generated": false
+        },
+        {
+          "kind": "types",
+          "path": "tools/eval/src/pilot-types.ts",
+          "generated": false
+        },
+        {
+          "kind": "validator",
+          "path": "test/unit/tools/eval-pilot.test.ts",
+          "generated": false
+        }
+      ]
+    }
+  ]
+}

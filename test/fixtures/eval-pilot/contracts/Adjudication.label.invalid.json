@@ -1,0 +1,12 @@
+{
+  "id": "adj-aaaaaaaaaaaaaaaa",
+  "case_id": "case-bbbbbbbbbbbbbbbb",
+  "candidate_id": "candidate-cccccccccccccccc",
+  "evaluator": "hidden-executable",
+  "accepted": false,
+  "reasons": [
+    "functional check failed"
+  ],
+  "disagreement": true,
+  "human_label": "ACCEPTED"
+}

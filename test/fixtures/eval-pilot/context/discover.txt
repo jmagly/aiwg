@@ -1,0 +1,1 @@
+Frozen discover selection: use the matching task-family checklist; validate the final artifact.

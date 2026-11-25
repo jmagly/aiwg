@@ -1,0 +1,217 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aiwg.io/schemas/eval/contracts.v1.schema.json",
+  "title": "Existing AIWG eval dataset and result contracts v1",
+  "oneOf": [{"$ref": "#/$defs/TestCase"}, {"$ref": "#/$defs/EvalResult"}, {"$ref": "#/$defs/PilotDataset"}, {"$ref": "#/$defs/PilotSummary"}, {"$ref": "#/$defs/Adjudication"}],
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "FileRef": {
+      "type": "object", "additionalProperties": false,
+      "required": ["ref", "digest"],
+      "properties": {
+        "ref": {"type": "string", "minLength": 1},
+        "digest": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "CheckRef": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "ref", "digest"],
+      "properties": {
+        "id": {"enum": ["corpus", "coding", "security"]},
+        "ref": {"type": "string", "minLength": 1},
+        "digest": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "Budget": {
+      "type": "object", "additionalProperties": false,
+      "required": ["total_tokens", "tool_calls", "latency_ms"],
+      "properties": {
+        "total_tokens": {"type": "integer", "minimum": 0},
+        "tool_calls": {"type": "integer", "minimum": 0},
+        "latency_ms": {"type": "integer", "minimum": 0}
+      }
+    },
+    "PilotTask": {
+      "type": "object", "additionalProperties": false,
+      "required": ["family", "split", "input", "checks", "baseline_passed"],
+      "properties": {
+        "family": {"enum": ["corpus-verification", "coding-repair", "security-testing"]},
+        "split": {"enum": ["dev", "held-out"]},
+        "input": {"type": "object"},
+        "checks": {"type": "array", "items": {"$ref": "#/$defs/CheckRef"}, "minItems": 1},
+        "baseline_passed": {"type": "boolean"}
+      }
+    },
+    "TestCase": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "dimension", "difficulty", "prompt", "expected", "scoring"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "dimension": {"type": "string", "minLength": 1},
+        "difficulty": {"enum": ["basic", "intermediate", "advanced"]},
+        "prompt": {"type": "string"},
+        "expected": {"type": "object"},
+        "scoring": {"type": "object", "additionalProperties": {"type": "number"}},
+        "pilot": {"$ref": "#/$defs/PilotTask"}
+      }
+    },
+    "PilotPins": {
+      "type": "object", "additionalProperties": false,
+      "required": ["repository_snapshot", "environment", "model", "model_version", "tool_permissions", "budget", "checker", "flow_runtime"],
+      "properties": {
+        "repository_snapshot": {"$ref": "#/$defs/digest"},
+        "environment": {"type": "string", "minLength": 1},
+        "model": {"type": "string", "minLength": 1},
+        "model_version": {"type": "string", "minLength": 1},
+        "tool_permissions": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "budget": {"$ref": "#/$defs/Budget"},
+        "checker": {"$ref": "#/$defs/FileRef"},
+        "flow_runtime": {"$ref": "#/$defs/FileRef"}
+      }
+    },
+    "PilotArm": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "hypothesis", "configuration", "context"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "hypothesis": {"enum": ["H1", "H2"]},
+        "configuration": {"enum": ["none", "all", "discover", "expert", "dag", "loop", "graph", "weakened-guard"]},
+        "context": {"type": "array", "items": {"$ref": "#/$defs/FileRef"}},
+        "graph": {"$ref": "#/$defs/FileRef"}
+      }
+    },
+    "PilotDataset": {
+      "type": "object", "additionalProperties": false,
+      "required": ["dataset_id", "evidence_mode", "commitment", "seed", "tasks", "arms", "pins", "responses"],
+      "properties": {
+        "dataset_id": {"type": "string", "minLength": 1},
+        "evidence_mode": {"const": "offline-fixture"},
+        "commitment": {"$ref": "#/$defs/digest"},
+        "seed": {"type": "integer", "minimum": 0},
+        "tasks": {"type": "array", "items": {"$ref": "#/$defs/TestCase"}, "minItems": 48, "maxItems": 48},
+        "arms": {"type": "array", "items": {"$ref": "#/$defs/PilotArm"}, "minItems": 8, "maxItems": 8},
+        "pins": {"$ref": "#/$defs/PilotPins"},
+        "responses": {"$ref": "#/$defs/FileRef"}
+      }
+    },
+    "Resources": {
+      "type": "object", "additionalProperties": false,
+      "required": ["total_tokens", "context_tokens", "latency_ms", "tool_calls", "permission_violations", "invalid_transitions", "duplicate_effects", "regressions"],
+      "properties": {
+        "total_tokens": {"type": "integer", "minimum": 0},
+        "context_tokens": {"type": "integer", "minimum": 0},
+        "latency_ms": {"type": "integer", "minimum": 0},
+        "tool_calls": {"type": "integer", "minimum": 0},
+        "permission_violations": {"type": "integer", "minimum": 0},
+        "invalid_transitions": {"type": "integer", "minimum": 0},
+        "duplicate_effects": {"type": "integer", "minimum": 0},
+        "regressions": {"type": "integer", "minimum": 0}
+      }
+    },
+    "PilotRun": {
+      "type": "object", "additionalProperties": false,
+      "required": ["arm_id", "hypothesis", "split", "family", "order", "status", "success", "pin_digest", "dataset_commitment", "checks", "resources", "resource_source", "observed_model", "adjudication_id"],
+      "properties": {
+        "arm_id": {"type": "string", "minLength": 1},
+        "hypothesis": {"enum": ["H1", "H2"]},
+        "split": {"enum": ["dev", "held-out"]},
+        "family": {"enum": ["corpus-verification", "coding-repair", "security-testing"]},
+        "order": {"type": "integer", "minimum": 0},
+        "status": {"enum": ["completed", "failed", "partial"]},
+        "success": {"type": "boolean"},
+        "pin_digest": {"$ref": "#/$defs/digest"},
+        "dataset_commitment": {"$ref": "#/$defs/digest"},
+        "checks": {"type": "array", "items": {"$ref": "#/$defs/CheckRef"}, "minItems": 1},
+        "resources": {"$ref": "#/$defs/Resources"},
+        "resource_source": {"const": "fixture"},
+        "observed_model": {"type": "string", "minLength": 1},
+        "adjudication_id": {"type": "string", "minLength": 1}
+      },
+      "allOf": [{"if": {"properties": {"success": {"const": true}}, "required": ["success"]}, "then": {"properties": {"status": {"const": "completed"}}}}]
+    },
+    "EvalResult": {
+      "type": "object", "additionalProperties": false,
+      "required": ["testCaseId", "dimension", "score", "maxScore", "details", "latencyMs", "modelResponse"],
+      "properties": {
+        "testCaseId": {"type": "string", "minLength": 1},
+        "dimension": {"type": "string", "minLength": 1},
+        "score": {"type": "number", "minimum": 0},
+        "maxScore": {"type": "number", "minimum": 0},
+        "details": {"type": "object"},
+        "latencyMs": {"type": "number", "minimum": 0},
+        "modelResponse": {"type": "string"},
+        "pilot": {"$ref": "#/$defs/PilotRun"}
+      }
+    },
+    "Adjudication": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "case_id", "candidate_id", "evaluator", "accepted", "reasons", "disagreement", "human_label"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^adj-[a-f0-9]{16}$"},
+        "case_id": {"type": "string", "pattern": "^case-[a-f0-9]{16}$"},
+        "candidate_id": {"type": "string", "pattern": "^candidate-[a-f0-9]{16}$"},
+        "evaluator": {"const": "hidden-executable"},
+        "accepted": {"type": "boolean"},
+        "reasons": {"type": "array", "items": {"type": "string"}},
+        "disagreement": {"type": "boolean"},
+        "human_label": {"const": "NOT RUN"}
+      }
+    },
+    "ArmSummary": {
+      "type": "object", "additionalProperties": false,
+      "required": ["arm_id", "split", "sample_n", "successes", "failures", "partials", "success_rate", "total_tokens", "success_per_total_tokens", "mean_latency_ms"],
+      "properties": {
+        "arm_id": {"type": "string"},
+        "split": {"enum": ["dev", "held-out"]},
+        "sample_n": {"type": "integer", "minimum": 0},
+        "successes": {"type": "integer", "minimum": 0},
+        "failures": {"type": "integer", "minimum": 0},
+        "partials": {"type": "integer", "minimum": 0},
+        "success_rate": {"type": "number", "minimum": 0, "maximum": 1},
+        "total_tokens": {"type": "integer", "minimum": 0},
+        "success_per_total_tokens": {"type": ["number", "null"], "minimum": 0},
+        "mean_latency_ms": {"type": "number", "minimum": 0}
+      }
+    },
+    "Interval": {
+      "type": "object", "additionalProperties": false,
+      "required": ["estimate", "lower", "upper"],
+      "properties": {
+        "estimate": {"type": "number"},
+        "lower": {"type": "number"},
+        "upper": {"type": "number"}
+      }
+    },
+    "Comparison": {
+      "type": "object", "additionalProperties": false,
+      "required": ["hypothesis", "baseline", "candidate", "sample_n", "bootstrap", "metrics"],
+      "properties": {
+        "hypothesis": {"enum": ["H1", "H2"]},
+        "baseline": {"type": "string"},
+        "candidate": {"type": "string"},
+        "sample_n": {"type": "integer", "minimum": 0},
+        "bootstrap": {"type": "object", "additionalProperties": false, "required": ["method", "confidence", "resamples", "seed"], "properties": {"method": {"const": "paired-percentile"}, "confidence": {"const": 0.95}, "resamples": {"type": "integer", "minimum": 1}, "seed": {"type": "integer", "minimum": 0}}},
+        "metrics": {"type": "object", "additionalProperties": false, "required": ["success", "total_tokens", "context_tokens", "latency_ms", "permission_violations", "invalid_transitions", "duplicate_effects", "regressions"], "properties": {"success": {"$ref": "#/$defs/Interval"}, "total_tokens": {"$ref": "#/$defs/Interval"}, "context_tokens": {"$ref": "#/$defs/Interval"}, "latency_ms": {"$ref": "#/$defs/Interval"}, "permission_violations": {"$ref": "#/$defs/Interval"}, "invalid_transitions": {"$ref": "#/$defs/Interval"}, "duplicate_effects": {"$ref": "#/$defs/Interval"}, "regressions": {"$ref": "#/$defs/Interval"}}}
+      }
+    },
+    "PilotSummary": {
+      "type": "object", "additionalProperties": false,
+      "required": ["dataset_id", "dataset_commitment", "evidence_mode", "splits", "families", "records", "adjudication", "arms", "comparisons", "negative_control_valid", "human_evaluation", "claim_gate"],
+      "properties": {
+        "dataset_id": {"type": "string"},
+        "dataset_commitment": {"$ref": "#/$defs/digest"},
+        "evidence_mode": {"const": "offline-fixture"},
+        "splits": {"type": "object", "additionalProperties": false, "required": ["dev", "held-out"], "properties": {"dev": {"type": "integer", "minimum": 0}, "held-out": {"type": "integer", "minimum": 0}}},
+        "families": {"type": "object", "additionalProperties": false, "required": ["corpus-verification", "coding-repair", "security-testing"], "properties": {"corpus-verification": {"type": "integer", "minimum": 0}, "coding-repair": {"type": "integer", "minimum": 0}, "security-testing": {"type": "integer", "minimum": 0}}},
+        "records": {"type": "array", "items": {"$ref": "#/$defs/EvalResult"}},
+        "adjudication": {"type": "array", "items": {"$ref": "#/$defs/Adjudication"}},
+        "arms": {"type": "array", "items": {"$ref": "#/$defs/ArmSummary"}},
+        "comparisons": {"type": "array", "items": {"$ref": "#/$defs/Comparison"}},
+        "negative_control_valid": {"type": "boolean"},
+        "human_evaluation": {"const": "NOT RUN"},
+        "claim_gate": {"type": "object", "additionalProperties": false, "required": ["state", "reasons"], "properties": {"state": {"const": "BLOCKED"}, "reasons": {"type": "array", "items": {"type": "string"}, "minItems": 1}}}
+      }
+    },
+    "ResponseTapes": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["task_id", "arm_id", "text", "self_pass", "status", "total_tokens", "latency_ms", "tool_calls"], "properties": {"task_id": {"type": "string", "minLength": 1}, "arm_id": {"type": "string", "minLength": 1}, "text": {"type": "string"}, "refined": {"type": "string"}, "self_pass": {"type": "boolean"}, "status": {"enum": ["completed", "failed", "partial"]}, "total_tokens": {"type": "integer", "minimum": 0}, "latency_ms": {"type": "integer", "minimum": 0}, "tool_calls": {"type": "integer", "minimum": 0}}}}
+  }
+}
