@@ -1,0 +1,15 @@
+{
+  "defaults": {
+    "workerSelection": {
+      "taskClasses": { "assessment": "efficiency" },
+      "roleGuidance": {
+        "efficiency": {
+          "groups": ["workers", "cursor", "muse-external"],
+          "tier": "economy",
+          "initialEffort": "medium",
+          "effortLadder": ["medium"]
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "version": "1",
+  "providers": ["codex", "cursor", "muse"],
+  "parallelism": {
+    "worker_dispatch": true,
+    "clis": {
+      "codex": { "adapter": "providers:codex", "accountScope": "synthetic-account", "quotaScope": "synthetic-quota" },
+      "cursor": { "adapter": "providers:cursor", "accountScope": "synthetic-account", "quotaScope": "synthetic-quota" },
+      "muse": { "adapter": "providers:muse", "accountScope": "synthetic-account", "quotaScope": "synthetic-quota" }
+    },
+    "groups": {
+      "workers": {
+        "maxParallel": 1,
+        "execution": { "sandbox": "workspace-write", "approval": "never", "transport": "shell" },
+        "members": [{ "id": "judge", "cli": "codex", "model": "synthetic-model", "roles": ["efficiency"] }]
+      },
+      "cursor": {
+        "maxParallel": 1,
+        "execution": { "sandbox": "workspace-write", "approval": "never", "transport": "shell" },
+        "members": [{ "id": "judge", "cli": "cursor", "model": "synthetic-model", "roles": ["efficiency"] }]
+      },
+      "muse-external": {
+        "maxParallel": 1,
+        "execution": { "sandbox": "external", "approval": "never", "transport": "shell" },
+        "members": [{ "id": "judge", "cli": "muse", "model": "synthetic-model", "roles": ["efficiency"] }]
+      }
+    }
+  }
+}

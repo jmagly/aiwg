@@ -7,6 +7,7 @@ import { validateStudy, blindedPacket } from './calibration-validate.js';
 import { validateEvalContract } from './contracts.js';
 import { digest, shuffle, random, opaque, loadPilot } from './pilot-files.js';
 import { invokeJudge, httpPayload } from './judge-transport.js';
+import { prepareJudgeProject, lockJudgeProject, JudgeProjectIsolationError } from './judge-project.js';
 import type { Bundle, CalibrationStudy, Criterion, Vote, Evaluator } from './calibration-types.js';
 import type { CollectOptions, JudgeConfiguration, Observation, ExecutableReference } from './judge-types.js';
 
@@ -19,15 +20,16 @@ function validateOptions(options: CollectOptions) {
   if (new Set(options.evaluators.map(e => e.id)).size !== options.evaluators.length) throw new Error('Duplicate evaluator');
   for (const config of options.evaluators) {
     validateEvalContract('JudgeConfiguration', config);
-    if (config.transport === 'cli' && (!config.role || !config.group || config.model || config.max_tokens || config.max_call_usd)) throw new Error('CLI judges require only group and role');
-    if (config.transport === 'openrouter' && (!config.model || !config.max_call_usd || !config.max_tokens || config.group || config.role)) throw new Error('HTTP judges require model, max_tokens and max_call_usd');
+    if (config.transport === 'cli' && (!config.role || !config.group || config.model || config.max_tokens || config.max_call_usd)) throw new Error('CLI judges require group and role, with optional task');
+    if (config.transport === 'openrouter' && (!config.model || !config.max_call_usd || !config.max_tokens || config.group || config.role || config.task)) throw new Error('HTTP judges require model, max_tokens and max_call_usd');
   }
   if (options.evaluators.some(e => e.transport === 'openrouter') && (options.maxUsd === undefined || !Number.isFinite(options.maxUsd) || options.maxUsd < 0)) throw new Error('--max-usd requires a nonnegative HTTP budget');
 }
 export function renderJudgePrompt(study: CalibrationStudy, bundle: Bundle, criterion: Criterion, order: string[]) {
   // No task, evaluator, arm, family, resource, provenance or decoding metadata enters this object.
   const { anchors, values: _values, ...definition } = criterion;
-  return `${study.prompt}\nReturn one JSON object: {"label":"...","evidence":[],"rationale":"...","critical_flags":[],"secondary_flags":[],"confidence":null}.\n${JSON.stringify({
+  const citable = Object.keys(bundle.evidence).filter(id => bundle.evidence[id] !== null).sort();
+  return `${study.prompt}\nCitable evidence span IDs (only non-null top-level packet.evidence keys, sorted): ${JSON.stringify(citable)}\nCite only IDs from this list. Express missing evidence with label CANNOT_ASSESS and explain what is missing in the rationale; never cite an absent or null span ID. The evidence citation list may be empty only for CANNOT_ASSESS or, when permitted, NOT_APPLICABLE. Every assessed label requires at least one listed span ID.\nReturn one JSON object: {"label":"...","evidence":[],"rationale":"...","critical_flags":[],"secondary_flags":[],"confidence":null}.\nFor a CLI worker final envelope, write this judgment to answer.json beside the requested final-output file. Declare exactly one artifact in the envelope: {"path":"answer.json","digest":"sha256:<SHA-256 of the exact file bytes>"}; use a prose summary. The JSON artifact must remain inside this attempt directory. Bare judgment JSON or JSON embedded in the envelope summary with no artifacts is also accepted.\n${JSON.stringify({
     packet: blindedPacket(bundle), criterion: { ...definition, anchors: order.map(label => ({ label, description: anchors[label] })) },
     abstentions: criterion.allows_na ? ['CANNOT_ASSESS', 'NOT_APPLICABLE'] : ['CANNOT_ASSESS'],
   })}`;
@@ -54,31 +56,39 @@ async function checkpoint(runDir: string, study: CalibrationStudy) {
   await writeFile(path.join(runDir, 'study.json.tmp'), JSON.stringify(study, null, 2) + '\n');
   await rename(path.join(runDir, 'study.json.tmp'), path.join(runDir, 'study.json'));
 }
-function parseJudgment(observation: Observation, vote: Vote, study: CalibrationStudy, records: CollectOptions['records']) {
+async function parseJudgment(observation: Observation, vote: Vote, study: CalibrationStudy, records: CollectOptions['records'], attemptDir: string) {
+  if (observation.judgmentArtifact) await writeFile(path.join(attemptDir, 'judgment-artifact.json'), observation.judgmentArtifact);
   vote.raw_response = observation.raw; vote.raw_digest = digest(observation.raw);
   vote.cost_usd = observation.cost; vote.tokens = observation.tokens;
   vote.settings = observation.settings; vote.settings_digest = digest(observation.settings);
   for (const key of ['observed_model', 'observed_vendor', 'observed_family', 'revision'] as const) vote[key] = observation[key];
   vote.critical_flags = observation.flags;
   vote.status = observation.status ?? 'partial';
-  vote.rationale = observation.status ? `Transport outcome: ${observation.status}` : 'Invalid or incomplete judgment';
+  vote.rationale = observation.settings.diagnostic ? `Resolver blocked: ${JSON.stringify(observation.settings.diagnostic)}`
+    : observation.status ? `Transport outcome: ${observation.status}` : 'Invalid or incomplete judgment';
   if (observation.status) return;
   try {
-    let parsed = JSON.parse(observation.content);
+    if (observation.judgmentError) throw new Error(observation.judgmentError);
+    let parsed = JSON.parse(observation.judgmentArtifact?.toString('utf8') ?? observation.content);
     // CLI final-output contracts may wrap the answer JSON in their summary.
-    if (parsed.version === 1 && parsed.status && typeof parsed.summary === 'string') parsed = JSON.parse(parsed.summary);
+    if (!observation.judgmentArtifact && parsed.version === 1 && parsed.status && typeof parsed.summary === 'string') parsed = JSON.parse(parsed.summary);
     const candidate = { ...vote, status: 'completed' as const, label: parsed.label, evidence: parsed.evidence,
       rationale: parsed.rationale, critical_flags: parsed.critical_flags, secondary_flags: parsed.secondary_flags ?? [], confidence: parsed.confidence ?? null };
     validateStudy({ ...study, votes: [...study.votes.slice(0, -1), candidate] }, records);
     Object.assign(vote, candidate);
-  } catch { vote.critical_flags.push('invalid-judgment'); }
+  } catch (error) {
+    vote.critical_flags.push('invalid-judgment');
+    vote.rationale = `Invalid judgment: ${error instanceof Error ? error.message : String(error)}`;
+  }
 }
 export async function collectJudges(options: CollectOptions) {
   validateOptions(options);
+  options = await prepareJudgeProject(options);
   const maxAttempts = options.maxAttempts ?? 2;
   const bundles = validateStudy(options.study, options.records).filter(b => b.split === (options.tranche === 'heldout' ? 'held-out' : 'dev'));
   const configDigest = digest({ commitment: options.study.commitment, seed: options.seed, tranche: options.tranche,
-    evaluators: options.evaluators, maxAttempts, resolver: options.resolver ?? null, httpEndpoint: options.httpEndpoint ?? null });
+    evaluators: options.evaluators, maxAttempts, judgeProject: options.judgeProject ?? null,
+    resolver: options.resolver ?? null, httpEndpoint: options.httpEndpoint ?? null });
   const plan = { tranche: options.tranche, packets: bundles.length, criteria: options.study.criteria.length,
     configurations: options.evaluators, estimated_calls: bundles.length * options.study.criteria.length * options.evaluators.length,
     maximum_attempt_calls: bundles.length * options.study.criteria.length * options.evaluators.length * maxAttempts,
@@ -91,7 +101,9 @@ export async function collectJudges(options: CollectOptions) {
   await mkdir(runDir, { recursive: true });
   const lockPath = path.join(runDir, 'collector.lock');
   const lock = await open(lockPath, 'wx');
+  let releaseProject = async () => {};
   try {
+    releaseProject = await lockJudgeProject(options.judgeProject);
     let study: CalibrationStudy;
     try { study = JSON.parse(await readFile(path.join(runDir, 'study.json'), 'utf8')); }
     catch (error: any) {
@@ -110,6 +122,15 @@ export async function collectJudges(options: CollectOptions) {
       catch (error: any) { if (error.code !== 'ENOENT') throw error; }
     }
     validateStudy(study, options.records);
+    for (const vote of study.votes) {
+      const bundle = bundles.find(b => b.id === vote.episode_id)!;
+      const criterion = study.criteria.find(c => c.id === vote.criterion_id)!;
+      if (digest(renderJudgePrompt(study, bundle, criterion, vote.option_order)) !== vote.prompt_digest) throw new Error('Resume prompt drift; use a fresh run directory');
+    }
+    if (!options.retryBlocked && options.evaluators.some(config => study.votes
+      .filter(v => v.evaluator_id === config.id).at(-1)?.critical_flags.includes('resolver-blocked'))) {
+      study.collection.stop_reason = 'resolver-blocked'; await checkpoint(runDir, study); return { plan, study };
+    }
     if (study.votes.some(v => v.critical_flags.includes('in-flight'))) {
       study.collection.stop_reason = 'in-flight'; await checkpoint(runDir, study); return { plan, study };
     }
@@ -147,15 +168,21 @@ export async function collectJudges(options: CollectOptions) {
         const started = performance.now();
         let observation: Observation;
         try { observation = await invokeJudge(config, prompt, attemptDir, options); }
-        catch { observation = { raw: '', content: '', status: 'provider-error', flags: ['launch-error'], cost: 'unknown', tokens: 'unknown',
-          settings: vote.settings!, observed_model: 'unknown', observed_vendor: 'unknown', observed_family: 'unknown', revision: 'unknown' }; }
+        catch (error) {
+          if (error instanceof JudgeProjectIsolationError) throw error;
+          observation = { raw: '', content: '', status: 'provider-error', flags: ['launch-error'], cost: 'unknown', tokens: 'unknown',
+            settings: vote.settings!, observed_model: 'unknown', observed_vendor: 'unknown', observed_family: 'unknown', revision: 'unknown' };
+        }
         vote.latency_ms = performance.now() - started;
-        parseJudgment(observation, vote, study, options.records);
+        await parseJudgment(observation, vote, study, options.records, attemptDir);
         await writeFile(path.join(attemptDir, 'vote.json'), JSON.stringify(vote, null, 2) + '\n');
         await checkpoint(runDir, study); attempts.push(vote);
+        if (vote.critical_flags.includes('resolver-blocked')) {
+          study.collection.stop_reason = 'resolver-blocked'; await checkpoint(runDir, study); return { plan, study };
+        }
         if (vote.status === 'completed') break;
       }
     }
     await checkpoint(runDir, study); return { plan, study };
-  } finally { await lock.close(); await unlink(lockPath); }
+  } finally { await releaseProject(); await lock.close(); await unlink(lockPath); }
 }
