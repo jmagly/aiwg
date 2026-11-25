@@ -1,0 +1,26 @@
+{
+  "id": "0017",
+  "count": 3,
+  "amount": 100,
+  "relative": 100,
+  "zero": 0,
+  "name": "Acme Corporation",
+  "url": "https://example.test/receipt/0017",
+  "explicitNull": null,
+  "unknown": null,
+  "empty": [],
+  "records": [
+    {
+      "id": "A",
+      "amount": 10
+    },
+    {
+      "id": "B",
+      "amount": 20
+    }
+  ],
+  "task": {
+    "conclusion": "accepted"
+  },
+  "quote": "Receipt confirmed."
+}
