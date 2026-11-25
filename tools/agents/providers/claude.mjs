@@ -1,5 +1,5 @@
 import { removeSkillCopy } from './skill-copy-prune.mjs';
-import { CLAUDE_BUILTINS, validateClaudeCommands, prepareClaudeSkills, claudeKernelNames, migrateClaudeReservedSkills } from './claude-skill-names.mjs';
+import { CLAUDE_UNSHADOWABLE_COMMANDS, validateClaudeCommands, prepareClaudeSkills, claudeKernelNames, migrateClaudeReservedSkills } from './claude-skill-names.mjs';
 import { withModelWrapper } from './model-wrapper.mjs';
 import { postDeploy } from './claude-post-deploy.mjs';
 export { postDeploy };
@@ -235,7 +235,7 @@ export function transformCommand(srcPath, content, opts) {
  * After deploying skills, remove stale bare-named skills that collide with
  * Claude built-ins, provided all three conditions hold:
  *   1. The skill directory is owned by the aiwg namespace (namespace: aiwg in SKILL.md)
- *   2. The skill name is in the CLAUDE_BUILTINS set
+ *   2. The skill name is in the original CLAUDE_UNSHADOWABLE_COMMANDS set
  *   3. A namespaced replacement (aiwg-{name}) already exists in the same directory
  *
  * This implements the "+1 release" auto-cleanup milestone from the skill namespace
@@ -250,7 +250,7 @@ function cleanupLegacyBuiltinCollisions(destDir, opts) {
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
     const name = entry.name;
-    if (!CLAUDE_BUILTINS.has(name)) continue;
+    if (!CLAUDE_UNSHADOWABLE_COMMANDS.has(name)) continue;
 
     const skillPath = path.join(destDir, name);
     const namespacedPath = path.join(destDir, `aiwg-${name}`);

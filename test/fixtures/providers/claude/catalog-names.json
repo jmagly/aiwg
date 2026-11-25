@@ -1,0 +1,11 @@
+[
+  { "kind": "skill", "name": "schedule" },
+  { "kind": "skill", "name": "run" },
+  { "kind": "skill", "name": "steward", "aliases": ["aiwg-steward-routing"] },
+  { "kind": "skill", "name": "babysit" },
+  { "kind": "skill", "name": "help" },
+  { "kind": "skill", "name": "config" },
+  { "kind": "skill", "name": "safe" },
+  { "kind": "command", "name": "run" },
+  { "kind": "command", "name": "skills" }
+]

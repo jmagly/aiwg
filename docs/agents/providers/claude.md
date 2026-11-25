@@ -196,6 +196,49 @@ This input file is unrelated to AIWG's `aiwg-steward-routing` skill, which route
 AIWG capabilities. Other skills and commands still cannot use Claude's reserved
 `steward` or `babysit` names.
 
+## Check catalog names after Claude Code upgrades
+
+Run the offline catalog check from the repository root:
+
+```bash
+node tools/check-claude-catalog-names.mjs
+```
+
+It compares deployable skill folders and command filenames (including native
+frontmatter names) against `test/fixtures/providers/claude/builtin-names.json`.
+The report separates bundled skills, unshadowable built-in commands, reserved
+folders, and local commands with unverified blocking behaviour. It exits nonzero
+when a blocking collision is neither renamed nor rejected by the deployment guard.
+`--root <catalog-root>` and `--fixture <name-list.json>` select alternate inputs.
+
+Claude Code 2.1.331 rejects the bundled skill names `schedule` and `run`.
+AIWG deploys them as `aiwg-schedule` and `aiwg-run` on Claude; other providers
+keep their source names. Neither skill is in either command mirror policy.
+`steward` retains its `aiwg-steward-routing` alias, and `steward`/`babysit`
+remain reserved folders. The local-command names `config`, `skills`, `install`,
+`update`, `export`, `checkpoint`, `session`, and `feedback` are reported without
+renaming until live verification establishes whether they block custom names.
+
+After upgrading an installed Claude Code binary, explicitly refresh the fixture:
+
+```bash
+node tools/check-claude-catalog-names.mjs --refresh-from-claude
+# Optional: select the installed binary rather than finding claude on PATH.
+node tools/check-claude-catalog-names.mjs --refresh-from-claude --claude-binary /path/to/claude
+```
+
+Refresh reads the installed bundle offline without executing Claude or making a
+model call. It recognizes Claude 2.1.x literal local-command headers and bundled
+skill registrations; an unsupported format fails before writing. It retains
+reviewed categories, adds observed bundled skills, and records newly observed
+local commands as unverified. It preserves old names conservatively and records
+the bundle digest. Review the fixture diff and verify conditional availability,
+unshadowable flags, reserved folders, and local-command blocking behaviour
+manually before updating `tools/agents/providers/claude-builtins.json`. A static
+scan cannot establish those runtime behaviours. Rerun the offline check after
+updating the guard. Tests and CI use the checked-in fixture and never pass the
+refresh flag.
+
 ## Context Window Defaults
 
 AIWG-launched Claude sessions default `CLAUDE_CODE_DISABLE_1M_CONTEXT=1` when the variable is unset. This removes Claude Code's 1M-context model variants from `/model` for AIWG-launched sessions.

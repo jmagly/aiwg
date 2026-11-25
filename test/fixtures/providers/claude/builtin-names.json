@@ -1,0 +1,14 @@
+{
+  "version": "2.1.331",
+  "sources": [
+    "Issues #4380 and #4381: Claude Code 2.1.331 binary inventory and confirmed bundled-skill Not loaded rejection",
+    "tools/agents/providers/claude-builtins.json: inherited command inventory; local-command behaviour remains unverified"
+  ],
+  "bundledSkills": ["schedule", "run"],
+  "unshadowableCommands": [
+    "help", "clear", "compact", "review", "init", "doctor",
+    "memory", "settings", "logout", "login", "mcp", "migrate"
+  ],
+  "reservedFolders": ["steward", "babysit"],
+  "unverifiedLocalCommands": ["config", "skills", "install", "update", "export", "checkpoint", "session", "feedback"]
+}

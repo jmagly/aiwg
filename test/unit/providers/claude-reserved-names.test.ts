@@ -10,7 +10,7 @@ import { deploySkillDir } from '../../../tools/agents/providers/base-skill-copy.
 import { extractTriggers } from '../../../src/artifacts/index-builder.js';
 import { findShowMatches } from '../../../src/artifacts/query-engine-matching.js';
 import { recordManagedCopy } from '../../helpers/managed-copy-fixture.js';
-import { CLAUDE_BUILTINS, CLAUDE_RESERVED_FOLDERS, migrateClaudeReservedSkills, migrateClaudeSteward } from '../../../tools/agents/providers/claude-skill-names.mjs';
+import { CLAUDE_BUILTINS, CLAUDE_RESERVED_FOLDERS, CLAUDE_UNVERIFIED_LOCAL_COMMANDS, migrateClaudeReservedSkills, migrateClaudeSteward } from '../../../tools/agents/providers/claude-skill-names.mjs';
 import { captureDeploymentOutputs, recordDeploymentOutputs } from '../../../src/providers/deployment-ownership.mjs';
 
 const source = path.resolve('agentic/code/addons/aiwg-utils/skills/steward');
@@ -36,10 +36,63 @@ beforeEach(() => {
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); fs.rmSync(root, { recursive: true, force: true }); });
 
 describe('Claude reserved skill names (#4380)', () => {
-  it('reserves both PR instruction folders without adding unverified names', () => {
+  it('blocks bundled skills and reserves PR folders while leaving local commands unverified', () => {
     expect([...CLAUDE_RESERVED_FOLDERS]).toEqual(['steward', 'babysit']);
-    expect(CLAUDE_BUILTINS.has('schedule')).toBe(false);
-    expect(CLAUDE_BUILTINS.has('run')).toBe(false);
+    expect(CLAUDE_BUILTINS.has('schedule')).toBe(true);
+    expect(CLAUDE_BUILTINS.has('run')).toBe(true);
+    for (const name of CLAUDE_UNVERIFIED_LOCAL_COMMANDS) expect(CLAUDE_BUILTINS.has(name)).toBe(false);
+  });
+
+  it.each(['schedule', 'run'])('deploys %s under its Claude name, including refresh cleanup', async name => {
+    const addon = path.join(root, 'agentic/code/addons/fixture');
+    const dir = path.join(addon, 'skills', name);
+    write(path.join(dir, 'SKILL.md'), `---\nnamespace: aiwg\nname: ${name}\nkernel: true\n---\nFixture\n`);
+    fs.mkdirSync(path.join(root, 'agentic/code/frameworks'), { recursive: true });
+    vi.stubEnv('AIWG_ROOT', root);
+    const { deploy } = await import('../../../tools/agents/providers/claude.mjs');
+    for (let refresh = 0; refresh < 2; refresh++) {
+      await deploy({ ...opts(), target, mode: 'all', skillsOnly: true, deploySkills: true,
+        contextFiles: false, attribution: false, hooks: false, quiet: true });
+      expect(fs.existsSync(path.join(target, '.claude/skills', name))).toBe(false);
+      expect(fs.readFileSync(path.join(target, '.claude/skills', `aiwg-${name}`, 'SKILL.md'), 'utf8'))
+        .toMatch(new RegExp(`^name: aiwg-${name}$`, 'm'));
+    }
+    deploySkillDir(dir, path.join(target, 'codex-skills'), { ...opts(), provider: 'codex' });
+    expect(fs.readFileSync(path.join(target, 'codex-skills', name, 'SKILL.md'), 'utf8'))
+      .toMatch(new RegExp(`^name: ${name}$`, 'm'));
+  });
+
+  it.each(['schedule', 'run'])('renames the real standard %s skill with copy-all enabled', name => {
+    const dir = path.resolve('agentic/code/addons/aiwg-utils/skills', name);
+    deploySkills([dir], target, { ...opts(), copyStandardSkills: true });
+    const standard = path.join(target, '.claude/.aiwg/skills');
+    expect(fs.existsSync(path.join(standard, name))).toBe(false);
+    expect(fs.readFileSync(path.join(standard, `aiwg-${name}`, 'SKILL.md'), 'utf8'))
+      .toMatch(new RegExp(`^name: aiwg-${name}$`, 'm'));
+  });
+
+  it.each(['schedule', 'run'])('preserves an unmanaged legacy standard %s folder and its resources', name => {
+    const standard = path.join(target, '.claude/.aiwg/skills');
+    const previous = `---\nnamespace: aiwg\nname: ${name}\n---\nOperator edits\n`;
+    write(path.join(standard, name, 'SKILL.md'), previous);
+    write(path.join(standard, name, 'local.txt'), 'Operator resource\n');
+    const dir = path.resolve('agentic/code/addons/aiwg-utils/skills', name);
+    deploySkills([dir], target, { ...opts(), copyStandardSkills: true });
+    expect(fs.readFileSync(path.join(standard, name, 'SKILL.md'), 'utf8')).toBe(previous);
+    expect(fs.readFileSync(path.join(standard, name, 'local.txt'), 'utf8')).toBe('Operator resource\n');
+    expect(fs.existsSync(path.join(standard, `aiwg-${name}`, 'SKILL.md'))).toBe(true);
+  });
+
+  it.each([...CLAUDE_UNVERIFIED_LOCAL_COMMANDS])('leaves unverified local command %s unchanged', name => {
+    const dir = path.join(root, 'skills', name);
+    write(path.join(dir, 'SKILL.md'), `---\nname: ${name}\nkernel: true\n---\nFixture\n`);
+    deploySkills([dir], target, opts());
+    expect(fs.readFileSync(path.join(target, '.claude/skills', name, 'SKILL.md'), 'utf8'))
+      .toMatch(new RegExp(`^name: ${name}$`, 'm'));
+    const file = path.join(root, 'commands', `${name}.md`);
+    write(file, `---\nname: ${name}\n---\nCommand\n`);
+    deployCommands([file], target, opts());
+    expect(fs.existsSync(path.join(target, '.claude/commands', `${name}.md`))).toBe(true);
   });
 
   it.each(['project', 'home'])('full deploy and refresh retire both managed %s folders', async scope => {
@@ -89,6 +142,12 @@ describe('Claude reserved skill names (#4380)', () => {
     deploySkills([dir], target, opts());
     for (const name of CLAUDE_RESERVED_FOLDERS) expect(fs.existsSync(path.join(target, '.claude/skills', name))).toBe(false);
     expect(fs.readFileSync(path.join(target, '.claude/skills/aiwg-safe/SKILL.md'), 'utf8')).toMatch(/^name: aiwg-safe$/m);
+  });
+
+  it('does not treat inherited object properties as configured Claude aliases', () => {
+    const dir = path.join(root, 'skills/constructor');
+    write(path.join(dir, 'SKILL.md'), '---\nname: help\n---\nFixture\n');
+    expect(() => deploySkills([dir], target, opts())).toThrow(/Claude Code built-in \/help/);
   });
 
   it('archives repeated babysit copies without overwriting old backups and respects dry-run', () => {
@@ -299,7 +358,7 @@ describe('Claude reserved skill names (#4380)', () => {
     expect(notice).toHaveBeenCalledWith(expect.stringContaining(`PR Steward) reads ${path.join(operator, 'SKILL.md')}`));
   });
 
-  it.each(['steward', 'babysit', 'help', 'doctor'])('rejects a reserved command %s', name => {
+  it.each(['steward', 'babysit', 'help', 'doctor', 'schedule', 'run'])('rejects a reserved command %s', name => {
     const file = path.join(root, 'commands', `${name}.md`);
     write(file, `---\nname: ${name}\n---\nCommand\n`);
     expect(() => deployCommands([file], target, opts())).toThrow(/Claude.*built-in.*rename/i);

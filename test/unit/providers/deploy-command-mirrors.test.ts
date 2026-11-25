@@ -32,6 +32,24 @@ beforeEach(() => {
 afterEach(() => fs.rmSync(scratch, { recursive: true, force: true }));
 
 describe('command mirror split preserves legacy behavior', () => {
+  it('keeps both mirror policies consistent for renamed Claude bundled skills', () => {
+    for (const file of ['src/cli/handlers/use.ts', 'tools/agents/deploy-command-mirrors.mjs']) {
+      const content = fs.readFileSync(path.join(ROOT, file), 'utf8');
+      const policies = content.slice(content.indexOf('const MIRRORED_STANDARD_COMMAND_SKILLS'),
+        content.indexOf('function shouldMirrorStandardCommandSkill'));
+      for (const name of ['run', 'schedule', 'aiwg-run', 'aiwg-schedule']) {
+        expect(policies).not.toContain(`'${name}'`);
+      }
+    }
+    skill('skills', 'run');
+    skill('skills', 'schedule');
+    const target = path.join(scratch, 'target');
+    mirrorSkillsAsCommands({ name: 'claude', paths: { commands: '.claude/commands' } }, target, source,
+      { deployCommands: true, mode: 'all' });
+    expect(commands(path.join(target, '.claude/commands'))).not.toContain('run.md');
+    expect(commands(path.join(target, '.claude/commands'))).not.toContain('schedule.md');
+  });
+
   it.each(['antigravity', 'claude', 'factory', 'codex', 'opencode', 'copilot', 'cursor', 'flue', 'pi', 'omp',
     'deepseek-harness', 'warp', 'devin', 'hermes', 'openclaw', 'openhuman', 'grokbot', 'grok-build', 'muse'])(
     '%s does not inject bindings into edited targets or refresh their receipts', providerName => {
