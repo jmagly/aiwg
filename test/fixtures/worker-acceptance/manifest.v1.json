@@ -1,0 +1,5219 @@
+{
+  "version": 1,
+  "policyVersion": "REF-3174-v1",
+  "goldVersion": "independent-synthetic-v1",
+  "primaryDenominator": "schema_field_positions",
+  "provenance": {
+    "repository": "section9/research-papers",
+    "commit": "7f92a62b99d62d14b9c3a4fe499087d654cf6234",
+    "paths": [
+      "documentation/analysis/projectfit-2026-11-16/REF-3173-missing-evidence-fixture-suite.md",
+      "documentation/analysis/projectfit-2026-11-16/REF-3173-missing-evidence-fixtures.json",
+      "documentation/analysis/projectfit-2026-11-16/REF-3174-field-scoring-contract.md"
+    ]
+  },
+  "suite": {
+    "file": "REF-3173-missing-evidence-fixtures.json",
+    "digest": "sha256:cd318d0db431dbada133ac22a6837421bd05379ce9e6d2cc41252558f5cf0c3e"
+  },
+  "cases": [
+    {
+      "id": "social-absent/required",
+      "domain": "social",
+      "arm": "required",
+      "source": "SOCIAL: post has12400 likes and870 replies; reply text is not supplied.",
+      "sourceDigest": "sha256:42c05c2f5b1ac3405e217b9d00f1a54b29f4e10eeb766a5bb301912b0f712761",
+      "question": "Using only the supplied source, fill classification, the two supporting items, and a verbatim quote. Do not infer missing evidence.",
+      "schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "classification": {
+            "type": "string",
+            "enum": [
+              "negative",
+              "positive",
+              "mixed"
+            ]
+          },
+          "items": {
+            "type": "array",
+            "minItems": 2,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "quote": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "classification",
+          "items",
+          "quote"
+        ],
+        "additionalProperties": false
+      },
+      "schemaDigest": "sha256:ec1e75acccd5df628d8239ed76eb99cdcf580ada941fb67fb866f091550288f7",
+      "fields": [
+        {
+          "path": "/classification",
+          "metric": "exact",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "UNKNOWN",
+            "value": null,
+            "reason": "evidence_absent"
+          },
+          "unknownRepresentations": [],
+          "tagged": false
+        },
+        {
+          "path": "/items",
+          "metric": "array",
+          "severity": "critical",
+          "type": "array",
+          "expected": {
+            "state": "UNKNOWN",
+            "value": null,
+            "reason": "evidence_absent"
+          },
+          "unknownRepresentations": [],
+          "tagged": false,
+          "ordered": false
+        },
+        {
+          "path": "/quote",
+          "metric": "quote",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "UNKNOWN",
+            "value": null,
+            "reason": "evidence_absent"
+          },
+          "unknownRepresentations": [],
+          "tagged": false
+        }
+      ]
+    },
+    {
+      "id": "social-absent/nullable",
+      "domain": "social",
+      "arm": "nullable",
+      "source": "SOCIAL: post has12400 likes and870 replies; reply text is not supplied.",
+      "sourceDigest": "sha256:42c05c2f5b1ac3405e217b9d00f1a54b29f4e10eeb766a5bb301912b0f712761",
+      "question": "Using only the supplied source, fill classification, the two supporting items, and a verbatim quote. Do not infer missing evidence.",
+      "schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "classification": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "negative",
+                  "positive",
+                  "mixed"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "items": {
+            "anyOf": [
+              {
+                "type": "array",
+                "minItems": 2,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "quote": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "classification",
+          "items",
+          "quote"
+        ],
+        "additionalProperties": false
+      },
+      "schemaDigest": "sha256:3a5f520c52551123de220ebea670bd64b481c4b86a02f5ca47f38963d7690be9",
+      "fields": [
+        {
+          "path": "/classification",
+          "metric": "exact",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "UNKNOWN",
+            "value": null,
+            "reason": "evidence_absent"
+          },
+          "unknownRepresentations": [
+            "null"
+          ],
+          "tagged": false
+        },
+        {
+          "path": "/items",
+          "metric": "array",
+          "severity": "critical",
+          "type": "array",
+          "expected": {
+            "state": "UNKNOWN",
+            "value": null,
+            "reason": "evidence_absent"
+          },
+          "unknownRepresentations": [
+            "null"
+          ],
+          "tagged": false,
+          "ordered": false
+        },
+        {
+          "path": "/quote",
+          "metric": "quote",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "UNKNOWN",
+            "value": null,
+            "reason": "evidence_absent"
+          },
+          "unknownRepresentations": [
+            "null"
+          ],
+          "tagged": false
+        }
+      ]
+    },
+    {
+      "id": "social-absent/explicit_unknown",
+      "domain": "social",
+      "arm": "explicit_unknown",
+      "source": "SOCIAL: post has12400 likes and870 replies; reply text is not supplied.",
+      "sourceDigest": "sha256:42c05c2f5b1ac3405e217b9d00f1a54b29f4e10eeb766a5bb301912b0f712761",
+      "question": "Using only the supplied source, fill classification, the two supporting items, and a verbatim quote. Do not infer missing evidence.",
+      "schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "classification": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "known"
+                  },
+                  "value": {
+                    "type": "string",
+                    "enum": [
+                      "negative",
+                      "positive",
+                      "mixed"
+                    ]
+                  }
+                },
+                "required": [
+                  "state",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "unknown"
+                  },
+                  "reason": {
+                    "const": "evidence_absent"
+                  }
+                },
+                "required": [
+                  "state",
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "items": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "known"
+                  },
+                  "value": {
+                    "type": "array",
+                    "minItems": 2,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                },
+                "required": [
+                  "state",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "unknown"
+                  },
+                  "reason": {
+                    "const": "evidence_absent"
+                  }
+                },
+                "required": [
+                  "state",
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "quote": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "known"
+                  },
+                  "value": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "state",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "unknown"
+                  },
+                  "reason": {
+                    "const": "evidence_absent"
+                  }
+                },
+                "required": [
+                  "state",
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        "required": [
+          "classification",
+          "items",
+          "quote"
+        ],
+        "additionalProperties": false
+      },
+      "schemaDigest": "sha256:27479a7bd1b480b94b750f7035728400251babfadc94be6d221dff9b95f6f43f",
+      "fields": [
+        {
+          "path": "/classification",
+          "metric": "exact",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "UNKNOWN",
+            "value": null,
+            "reason": "evidence_absent"
+          },
+          "unknownRepresentations": [
+            "tagged"
+          ],
+          "tagged": true
+        },
+        {
+          "path": "/items",
+          "metric": "array",
+          "severity": "critical",
+          "type": "array",
+          "expected": {
+            "state": "UNKNOWN",
+            "value": null,
+            "reason": "evidence_absent"
+          },
+          "unknownRepresentations": [
+            "tagged"
+          ],
+          "tagged": true,
+          "ordered": false
+        },
+        {
+          "path": "/quote",
+          "metric": "quote",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "UNKNOWN",
+            "value": null,
+            "reason": "evidence_absent"
+          },
+          "unknownRepresentations": [
+            "tagged"
+          ],
+          "tagged": true
+        }
+      ]
+    },
+    {
+      "id": "social-present/required",
+      "domain": "social",
+      "arm": "required",
+      "source": "SOCIAL REPLIES: \"Delivery was late.\" \"Refund requested.\" \"Both delays and refunds worry me.\"",
+      "sourceDigest": "sha256:94c9a323083180f7b5ef9a1951bda3ec19e2912cb82fe17b2b6502242e9eaef9",
+      "question": "Using only the supplied source, fill classification, the two supporting items, and a verbatim quote. Do not infer missing evidence.",
+      "schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "classification": {
+            "type": "string",
+            "enum": [
+              "negative",
+              "positive",
+              "mixed"
+            ]
+          },
+          "items": {
+            "type": "array",
+            "minItems": 2,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "quote": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "classification",
+          "items",
+          "quote"
+        ],
+        "additionalProperties": false
+      },
+      "schemaDigest": "sha256:ec1e75acccd5df628d8239ed76eb99cdcf580ada941fb67fb866f091550288f7",
+      "fields": [
+        {
+          "path": "/classification",
+          "metric": "exact",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "PRESENT",
+            "value": "negative",
+            "evidence": {
+              "start": 0,
+              "end": 92
+            }
+          },
+          "unknownRepresentations": [],
+          "tagged": false
+        },
+        {
+          "path": "/items",
+          "metric": "array",
+          "severity": "critical",
+          "type": "array",
+          "expected": {
+            "state": "PRESENT",
+            "value": [
+              "Delivery was late.",
+              "Refund requested."
+            ],
+            "evidence": {
+              "start": 0,
+              "end": 92
+            }
+          },
+          "unknownRepresentations": [],
+          "tagged": false,
+          "ordered": false
+        },
+        {
+          "path": "/quote",
+          "metric": "quote",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "PRESENT",
+            "value": "Delivery was late.",
+            "evidence": {
+              "start": 17,
+              "end": 35
+            }
+          },
+          "unknownRepresentations": [],
+          "tagged": false,
+          "whitespace": "exact"
+        }
+      ]
+    },
+    {
+      "id": "social-present/nullable",
+      "domain": "social",
+      "arm": "nullable",
+      "source": "SOCIAL REPLIES: \"Delivery was late.\" \"Refund requested.\" \"Both delays and refunds worry me.\"",
+      "sourceDigest": "sha256:94c9a323083180f7b5ef9a1951bda3ec19e2912cb82fe17b2b6502242e9eaef9",
+      "question": "Using only the supplied source, fill classification, the two supporting items, and a verbatim quote. Do not infer missing evidence.",
+      "schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "classification": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "negative",
+                  "positive",
+                  "mixed"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "items": {
+            "anyOf": [
+              {
+                "type": "array",
+                "minItems": 2,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "quote": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "classification",
+          "items",
+          "quote"
+        ],
+        "additionalProperties": false
+      },
+      "schemaDigest": "sha256:3a5f520c52551123de220ebea670bd64b481c4b86a02f5ca47f38963d7690be9",
+      "fields": [
+        {
+          "path": "/classification",
+          "metric": "exact",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "PRESENT",
+            "value": "negative",
+            "evidence": {
+              "start": 0,
+              "end": 92
+            }
+          },
+          "unknownRepresentations": [
+            "null"
+          ],
+          "tagged": false
+        },
+        {
+          "path": "/items",
+          "metric": "array",
+          "severity": "critical",
+          "type": "array",
+          "expected": {
+            "state": "PRESENT",
+            "value": [
+              "Delivery was late.",
+              "Refund requested."
+            ],
+            "evidence": {
+              "start": 0,
+              "end": 92
+            }
+          },
+          "unknownRepresentations": [
+            "null"
+          ],
+          "tagged": false,
+          "ordered": false
+        },
+        {
+          "path": "/quote",
+          "metric": "quote",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "PRESENT",
+            "value": "Delivery was late.",
+            "evidence": {
+              "start": 17,
+              "end": 35
+            }
+          },
+          "unknownRepresentations": [
+            "null"
+          ],
+          "tagged": false,
+          "whitespace": "exact"
+        }
+      ]
+    },
+    {
+      "id": "social-present/explicit_unknown",
+      "domain": "social",
+      "arm": "explicit_unknown",
+      "source": "SOCIAL REPLIES: \"Delivery was late.\" \"Refund requested.\" \"Both delays and refunds worry me.\"",
+      "sourceDigest": "sha256:94c9a323083180f7b5ef9a1951bda3ec19e2912cb82fe17b2b6502242e9eaef9",
+      "question": "Using only the supplied source, fill classification, the two supporting items, and a verbatim quote. Do not infer missing evidence.",
+      "schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "classification": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "known"
+                  },
+                  "value": {
+                    "type": "string",
+                    "enum": [
+                      "negative",
+                      "positive",
+                      "mixed"
+                    ]
+                  }
+                },
+                "required": [
+                  "state",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "unknown"
+                  },
+                  "reason": {
+                    "const": "evidence_absent"
+                  }
+                },
+                "required": [
+                  "state",
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "items": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "known"
+                  },
+                  "value": {
+                    "type": "array",
+                    "minItems": 2,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                },
+                "required": [
+                  "state",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "unknown"
+                  },
+                  "reason": {
+                    "const": "evidence_absent"
+                  }
+                },
+                "required": [
+                  "state",
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "quote": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "known"
+                  },
+                  "value": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "state",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "unknown"
+                  },
+                  "reason": {
+                    "const": "evidence_absent"
+                  }
+                },
+                "required": [
+                  "state",
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        "required": [
+          "classification",
+          "items",
+          "quote"
+        ],
+        "additionalProperties": false
+      },
+      "schemaDigest": "sha256:27479a7bd1b480b94b750f7035728400251babfadc94be6d221dff9b95f6f43f",
+      "fields": [
+        {
+          "path": "/classification",
+          "metric": "exact",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "PRESENT",
+            "value": "negative",
+            "evidence": {
+              "start": 0,
+              "end": 92
+            }
+          },
+          "unknownRepresentations": [
+            "tagged"
+          ],
+          "tagged": true
+        },
+        {
+          "path": "/items",
+          "metric": "array",
+          "severity": "critical",
+          "type": "array",
+          "expected": {
+            "state": "PRESENT",
+            "value": [
+              "Delivery was late.",
+              "Refund requested."
+            ],
+            "evidence": {
+              "start": 0,
+              "end": 92
+            }
+          },
+          "unknownRepresentations": [
+            "tagged"
+          ],
+          "tagged": true,
+          "ordered": false
+        },
+        {
+          "path": "/quote",
+          "metric": "quote",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "PRESENT",
+            "value": "Delivery was late.",
+            "evidence": {
+              "start": 17,
+              "end": 35
+            }
+          },
+          "unknownRepresentations": [
+            "tagged"
+          ],
+          "tagged": true,
+          "whitespace": "exact"
+        }
+      ]
+    },
+    {
+      "id": "ticket-absent/required",
+      "domain": "ticket",
+      "arm": "required",
+      "source": "SUPPORT: priority high;3 prior contacts; call14min; audio not transcribed.",
+      "sourceDigest": "sha256:daa84bbed377db975b0039e9535a406aca4f327ac938391c43cb7596444b6c26",
+      "question": "Using only the supplied source, fill classification, the two supporting items, and a verbatim quote. Do not infer missing evidence.",
+      "schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "classification": {
+            "type": "string",
+            "enum": [
+              "frustrated",
+              "satisfied",
+              "neutral"
+            ]
+          },
+          "items": {
+            "type": "array",
+            "minItems": 2,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "quote": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "classification",
+          "items",
+          "quote"
+        ],
+        "additionalProperties": false
+      },
+      "schemaDigest": "sha256:fa37103d4c6c31c100ec173bd9af0ce97fdee0e8a49bb014be551a96cec2041e",
+      "fields": [
+        {
+          "path": "/classification",
+          "metric": "exact",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "UNKNOWN",
+            "value": null,
+            "reason": "evidence_absent"
+          },
+          "unknownRepresentations": [],
+          "tagged": false
+        },
+        {
+          "path": "/items",
+          "metric": "array",
+          "severity": "critical",
+          "type": "array",
+          "expected": {
+            "state": "UNKNOWN",
+            "value": null,
+            "reason": "evidence_absent"
+          },
+          "unknownRepresentations": [],
+          "tagged": false,
+          "ordered": false
+        },
+        {
+          "path": "/quote",
+          "metric": "quote",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "UNKNOWN",
+            "value": null,
+            "reason": "evidence_absent"
+          },
+          "unknownRepresentations": [],
+          "tagged": false
+        }
+      ]
+    },
+    {
+      "id": "ticket-absent/nullable",
+      "domain": "ticket",
+      "arm": "nullable",
+      "source": "SUPPORT: priority high;3 prior contacts; call14min; audio not transcribed.",
+      "sourceDigest": "sha256:daa84bbed377db975b0039e9535a406aca4f327ac938391c43cb7596444b6c26",
+      "question": "Using only the supplied source, fill classification, the two supporting items, and a verbatim quote. Do not infer missing evidence.",
+      "schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "classification": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "frustrated",
+                  "satisfied",
+                  "neutral"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "items": {
+            "anyOf": [
+              {
+                "type": "array",
+                "minItems": 2,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "quote": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "classification",
+          "items",
+          "quote"
+        ],
+        "additionalProperties": false
+      },
+      "schemaDigest": "sha256:ea7a2ea7391a85e517a154055d8b670fe1dfb4c2e49862ee36ef0e55cf252c78",
+      "fields": [
+        {
+          "path": "/classification",
+          "metric": "exact",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "UNKNOWN",
+            "value": null,
+            "reason": "evidence_absent"
+          },
+          "unknownRepresentations": [
+            "null"
+          ],
+          "tagged": false
+        },
+        {
+          "path": "/items",
+          "metric": "array",
+          "severity": "critical",
+          "type": "array",
+          "expected": {
+            "state": "UNKNOWN",
+            "value": null,
+            "reason": "evidence_absent"
+          },
+          "unknownRepresentations": [
+            "null"
+          ],
+          "tagged": false,
+          "ordered": false
+        },
+        {
+          "path": "/quote",
+          "metric": "quote",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "UNKNOWN",
+            "value": null,
+            "reason": "evidence_absent"
+          },
+          "unknownRepresentations": [
+            "null"
+          ],
+          "tagged": false
+        }
+      ]
+    },
+    {
+      "id": "ticket-absent/explicit_unknown",
+      "domain": "ticket",
+      "arm": "explicit_unknown",
+      "source": "SUPPORT: priority high;3 prior contacts; call14min; audio not transcribed.",
+      "sourceDigest": "sha256:daa84bbed377db975b0039e9535a406aca4f327ac938391c43cb7596444b6c26",
+      "question": "Using only the supplied source, fill classification, the two supporting items, and a verbatim quote. Do not infer missing evidence.",
+      "schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "classification": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "known"
+                  },
+                  "value": {
+                    "type": "string",
+                    "enum": [
+                      "frustrated",
+                      "satisfied",
+                      "neutral"
+                    ]
+                  }
+                },
+                "required": [
+                  "state",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "unknown"
+                  },
+                  "reason": {
+                    "const": "evidence_absent"
+                  }
+                },
+                "required": [
+                  "state",
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "items": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "known"
+                  },
+                  "value": {
+                    "type": "array",
+                    "minItems": 2,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                },
+                "required": [
+                  "state",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "unknown"
+                  },
+                  "reason": {
+                    "const": "evidence_absent"
+                  }
+                },
+                "required": [
+                  "state",
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "quote": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "known"
+                  },
+                  "value": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "state",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "unknown"
+                  },
+                  "reason": {
+                    "const": "evidence_absent"
+                  }
+                },
+                "required": [
+                  "state",
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        "required": [
+          "classification",
+          "items",
+          "quote"
+        ],
+        "additionalProperties": false
+      },
+      "schemaDigest": "sha256:a5e31356a217b7489cc0811651e5f6abcd0819a7ee8eb9315a0a4a3c464ae407",
+      "fields": [
+        {
+          "path": "/classification",
+          "metric": "exact",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "UNKNOWN",
+            "value": null,
+            "reason": "evidence_absent"
+          },
+          "unknownRepresentations": [
+            "tagged"
+          ],
+          "tagged": true
+        },
+        {
+          "path": "/items",
+          "metric": "array",
+          "severity": "critical",
+          "type": "array",
+          "expected": {
+            "state": "UNKNOWN",
+            "value": null,
+            "reason": "evidence_absent"
+          },
+          "unknownRepresentations": [
+            "tagged"
+          ],
+          "tagged": true,
+          "ordered": false
+        },
+        {
+          "path": "/quote",
+          "metric": "quote",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "UNKNOWN",
+            "value": null,
+            "reason": "evidence_absent"
+          },
+          "unknownRepresentations": [
+            "tagged"
+          ],
+          "tagged": true
+        }
+      ]
+    },
+    {
+      "id": "ticket-present/required",
+      "domain": "ticket",
+      "arm": "required",
+      "source": "TRANSCRIPT: \"The router disconnects.\" \"The setup failed.\" \"I am frustrated with the router.\"",
+      "sourceDigest": "sha256:36cda84e84744e51a369093540cf98ef83df1d89199899e9244a390faa8ed578",
+      "question": "Using only the supplied source, fill classification, the two supporting items, and a verbatim quote. Do not infer missing evidence.",
+      "schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "classification": {
+            "type": "string",
+            "enum": [
+              "frustrated",
+              "satisfied",
+              "neutral"
+            ]
+          },
+          "items": {
+            "type": "array",
+            "minItems": 2,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "quote": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "classification",
+          "items",
+          "quote"
+        ],
+        "additionalProperties": false
+      },
+      "schemaDigest": "sha256:fa37103d4c6c31c100ec173bd9af0ce97fdee0e8a49bb014be551a96cec2041e",
+      "fields": [
+        {
+          "path": "/classification",
+          "metric": "exact",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "PRESENT",
+            "value": "frustrated",
+            "evidence": {
+              "start": 0,
+              "end": 92
+            }
+          },
+          "unknownRepresentations": [],
+          "tagged": false
+        },
+        {
+          "path": "/items",
+          "metric": "array",
+          "severity": "critical",
+          "type": "array",
+          "expected": {
+            "state": "PRESENT",
+            "value": [
+              "The router disconnects.",
+              "The setup failed."
+            ],
+            "evidence": {
+              "start": 0,
+              "end": 92
+            }
+          },
+          "unknownRepresentations": [],
+          "tagged": false,
+          "ordered": false
+        },
+        {
+          "path": "/quote",
+          "metric": "quote",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "PRESENT",
+            "value": "I am frustrated with the router.",
+            "evidence": {
+              "start": 59,
+              "end": 91
+            }
+          },
+          "unknownRepresentations": [],
+          "tagged": false,
+          "whitespace": "exact"
+        }
+      ]
+    },
+    {
+      "id": "ticket-present/nullable",
+      "domain": "ticket",
+      "arm": "nullable",
+      "source": "TRANSCRIPT: \"The router disconnects.\" \"The setup failed.\" \"I am frustrated with the router.\"",
+      "sourceDigest": "sha256:36cda84e84744e51a369093540cf98ef83df1d89199899e9244a390faa8ed578",
+      "question": "Using only the supplied source, fill classification, the two supporting items, and a verbatim quote. Do not infer missing evidence.",
+      "schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "classification": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "frustrated",
+                  "satisfied",
+                  "neutral"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "items": {
+            "anyOf": [
+              {
+                "type": "array",
+                "minItems": 2,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "quote": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "classification",
+          "items",
+          "quote"
+        ],
+        "additionalProperties": false
+      },
+      "schemaDigest": "sha256:ea7a2ea7391a85e517a154055d8b670fe1dfb4c2e49862ee36ef0e55cf252c78",
+      "fields": [
+        {
+          "path": "/classification",
+          "metric": "exact",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "PRESENT",
+            "value": "frustrated",
+            "evidence": {
+              "start": 0,
+              "end": 92
+            }
+          },
+          "unknownRepresentations": [
+            "null"
+          ],
+          "tagged": false
+        },
+        {
+          "path": "/items",
+          "metric": "array",
+          "severity": "critical",
+          "type": "array",
+          "expected": {
+            "state": "PRESENT",
+            "value": [
+              "The router disconnects.",
+              "The setup failed."
+            ],
+            "evidence": {
+              "start": 0,
+              "end": 92
+            }
+          },
+          "unknownRepresentations": [
+            "null"
+          ],
+          "tagged": false,
+          "ordered": false
+        },
+        {
+          "path": "/quote",
+          "metric": "quote",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "PRESENT",
+            "value": "I am frustrated with the router.",
+            "evidence": {
+              "start": 59,
+              "end": 91
+            }
+          },
+          "unknownRepresentations": [
+            "null"
+          ],
+          "tagged": false,
+          "whitespace": "exact"
+        }
+      ]
+    },
+    {
+      "id": "ticket-present/explicit_unknown",
+      "domain": "ticket",
+      "arm": "explicit_unknown",
+      "source": "TRANSCRIPT: \"The router disconnects.\" \"The setup failed.\" \"I am frustrated with the router.\"",
+      "sourceDigest": "sha256:36cda84e84744e51a369093540cf98ef83df1d89199899e9244a390faa8ed578",
+      "question": "Using only the supplied source, fill classification, the two supporting items, and a verbatim quote. Do not infer missing evidence.",
+      "schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "classification": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "known"
+                  },
+                  "value": {
+                    "type": "string",
+                    "enum": [
+                      "frustrated",
+                      "satisfied",
+                      "neutral"
+                    ]
+                  }
+                },
+                "required": [
+                  "state",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "unknown"
+                  },
+                  "reason": {
+                    "const": "evidence_absent"
+                  }
+                },
+                "required": [
+                  "state",
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "items": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "known"
+                  },
+                  "value": {
+                    "type": "array",
+                    "minItems": 2,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                },
+                "required": [
+                  "state",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "unknown"
+                  },
+                  "reason": {
+                    "const": "evidence_absent"
+                  }
+                },
+                "required": [
+                  "state",
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "quote": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "known"
+                  },
+                  "value": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "state",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "unknown"
+                  },
+                  "reason": {
+                    "const": "evidence_absent"
+                  }
+                },
+                "required": [
+                  "state",
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        "required": [
+          "classification",
+          "items",
+          "quote"
+        ],
+        "additionalProperties": false
+      },
+      "schemaDigest": "sha256:a5e31356a217b7489cc0811651e5f6abcd0819a7ee8eb9315a0a4a3c464ae407",
+      "fields": [
+        {
+          "path": "/classification",
+          "metric": "exact",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "PRESENT",
+            "value": "frustrated",
+            "evidence": {
+              "start": 0,
+              "end": 92
+            }
+          },
+          "unknownRepresentations": [
+            "tagged"
+          ],
+          "tagged": true
+        },
+        {
+          "path": "/items",
+          "metric": "array",
+          "severity": "critical",
+          "type": "array",
+          "expected": {
+            "state": "PRESENT",
+            "value": [
+              "The router disconnects.",
+              "The setup failed."
+            ],
+            "evidence": {
+              "start": 0,
+              "end": 92
+            }
+          },
+          "unknownRepresentations": [
+            "tagged"
+          ],
+          "tagged": true,
+          "ordered": false
+        },
+        {
+          "path": "/quote",
+          "metric": "quote",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "PRESENT",
+            "value": "I am frustrated with the router.",
+            "evidence": {
+              "start": 59,
+              "end": 91
+            }
+          },
+          "unknownRepresentations": [
+            "tagged"
+          ],
+          "tagged": true,
+          "whitespace": "exact"
+        }
+      ]
+    },
+    {
+      "id": "execution-absent/required",
+      "domain": "execution",
+      "arm": "required",
+      "source": "WORKER: says tests passed; execution receipt is absent; no stdout or exit status available.",
+      "sourceDigest": "sha256:3d87dfdecb260e80633c6cf640beb1dad3dc9befa9a067eba7a199a035e3700f",
+      "question": "Using only the supplied source, fill classification, the two supporting items, and a verbatim quote. Do not infer missing evidence.",
+      "schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "classification": {
+            "type": "string",
+            "enum": [
+              "passed",
+              "failed",
+              "partial"
+            ]
+          },
+          "items": {
+            "type": "array",
+            "minItems": 2,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "quote": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "classification",
+          "items",
+          "quote"
+        ],
+        "additionalProperties": false
+      },
+      "schemaDigest": "sha256:041d38edd0be82ba091fc713d08c97d3fc766ae08c44be2e08c32749065b0876",
+      "fields": [
+        {
+          "path": "/classification",
+          "metric": "exact",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "UNKNOWN",
+            "value": null,
+            "reason": "evidence_absent"
+          },
+          "unknownRepresentations": [],
+          "tagged": false
+        },
+        {
+          "path": "/items",
+          "metric": "array",
+          "severity": "critical",
+          "type": "array",
+          "expected": {
+            "state": "UNKNOWN",
+            "value": null,
+            "reason": "evidence_absent"
+          },
+          "unknownRepresentations": [],
+          "tagged": false,
+          "ordered": false
+        },
+        {
+          "path": "/quote",
+          "metric": "quote",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "UNKNOWN",
+            "value": null,
+            "reason": "evidence_absent"
+          },
+          "unknownRepresentations": [],
+          "tagged": false
+        }
+      ]
+    },
+    {
+      "id": "execution-absent/nullable",
+      "domain": "execution",
+      "arm": "nullable",
+      "source": "WORKER: says tests passed; execution receipt is absent; no stdout or exit status available.",
+      "sourceDigest": "sha256:3d87dfdecb260e80633c6cf640beb1dad3dc9befa9a067eba7a199a035e3700f",
+      "question": "Using only the supplied source, fill classification, the two supporting items, and a verbatim quote. Do not infer missing evidence.",
+      "schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "classification": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "passed",
+                  "failed",
+                  "partial"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "items": {
+            "anyOf": [
+              {
+                "type": "array",
+                "minItems": 2,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "quote": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "classification",
+          "items",
+          "quote"
+        ],
+        "additionalProperties": false
+      },
+      "schemaDigest": "sha256:415214bdbd592c66afd9d7d8c6c65cca1c69e65020e374836b06e6681b82b799",
+      "fields": [
+        {
+          "path": "/classification",
+          "metric": "exact",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "UNKNOWN",
+            "value": null,
+            "reason": "evidence_absent"
+          },
+          "unknownRepresentations": [
+            "null"
+          ],
+          "tagged": false
+        },
+        {
+          "path": "/items",
+          "metric": "array",
+          "severity": "critical",
+          "type": "array",
+          "expected": {
+            "state": "UNKNOWN",
+            "value": null,
+            "reason": "evidence_absent"
+          },
+          "unknownRepresentations": [
+            "null"
+          ],
+          "tagged": false,
+          "ordered": false
+        },
+        {
+          "path": "/quote",
+          "metric": "quote",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "UNKNOWN",
+            "value": null,
+            "reason": "evidence_absent"
+          },
+          "unknownRepresentations": [
+            "null"
+          ],
+          "tagged": false
+        }
+      ]
+    },
+    {
+      "id": "execution-absent/explicit_unknown",
+      "domain": "execution",
+      "arm": "explicit_unknown",
+      "source": "WORKER: says tests passed; execution receipt is absent; no stdout or exit status available.",
+      "sourceDigest": "sha256:3d87dfdecb260e80633c6cf640beb1dad3dc9befa9a067eba7a199a035e3700f",
+      "question": "Using only the supplied source, fill classification, the two supporting items, and a verbatim quote. Do not infer missing evidence.",
+      "schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "classification": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "known"
+                  },
+                  "value": {
+                    "type": "string",
+                    "enum": [
+                      "passed",
+                      "failed",
+                      "partial"
+                    ]
+                  }
+                },
+                "required": [
+                  "state",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "unknown"
+                  },
+                  "reason": {
+                    "const": "evidence_absent"
+                  }
+                },
+                "required": [
+                  "state",
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "items": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "known"
+                  },
+                  "value": {
+                    "type": "array",
+                    "minItems": 2,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                },
+                "required": [
+                  "state",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "unknown"
+                  },
+                  "reason": {
+                    "const": "evidence_absent"
+                  }
+                },
+                "required": [
+                  "state",
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "quote": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "known"
+                  },
+                  "value": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "state",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "unknown"
+                  },
+                  "reason": {
+                    "const": "evidence_absent"
+                  }
+                },
+                "required": [
+                  "state",
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        "required": [
+          "classification",
+          "items",
+          "quote"
+        ],
+        "additionalProperties": false
+      },
+      "schemaDigest": "sha256:3e5ef014050d0efbc60ebf5dbefb82a4b8dfcf252757d07a71bce7e1bb22537b",
+      "fields": [
+        {
+          "path": "/classification",
+          "metric": "exact",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "UNKNOWN",
+            "value": null,
+            "reason": "evidence_absent"
+          },
+          "unknownRepresentations": [
+            "tagged"
+          ],
+          "tagged": true
+        },
+        {
+          "path": "/items",
+          "metric": "array",
+          "severity": "critical",
+          "type": "array",
+          "expected": {
+            "state": "UNKNOWN",
+            "value": null,
+            "reason": "evidence_absent"
+          },
+          "unknownRepresentations": [
+            "tagged"
+          ],
+          "tagged": true,
+          "ordered": false
+        },
+        {
+          "path": "/quote",
+          "metric": "quote",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "UNKNOWN",
+            "value": null,
+            "reason": "evidence_absent"
+          },
+          "unknownRepresentations": [
+            "tagged"
+          ],
+          "tagged": true
+        }
+      ]
+    },
+    {
+      "id": "execution-present/required",
+      "domain": "execution",
+      "arm": "required",
+      "source": "INDEPENDENT RECEIPT fixture-run-001: exit0; test_alpha PASS; test_beta PASS; stdout \"2 tests passed\".",
+      "sourceDigest": "sha256:a877f14aa88e8fb8292babebf8f465288e413f608a69b7df3be209b22d0e0420",
+      "question": "Using only the supplied source, fill classification, the two supporting items, and a verbatim quote. Do not infer missing evidence.",
+      "schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "classification": {
+            "type": "string",
+            "enum": [
+              "passed",
+              "failed",
+              "partial"
+            ]
+          },
+          "items": {
+            "type": "array",
+            "minItems": 2,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "quote": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "classification",
+          "items",
+          "quote"
+        ],
+        "additionalProperties": false
+      },
+      "schemaDigest": "sha256:041d38edd0be82ba091fc713d08c97d3fc766ae08c44be2e08c32749065b0876",
+      "fields": [
+        {
+          "path": "/classification",
+          "metric": "exact",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "PRESENT",
+            "value": "passed",
+            "evidence": {
+              "start": 0,
+              "end": 101
+            }
+          },
+          "unknownRepresentations": [],
+          "tagged": false
+        },
+        {
+          "path": "/items",
+          "metric": "array",
+          "severity": "critical",
+          "type": "array",
+          "expected": {
+            "state": "PRESENT",
+            "value": [
+              "test_alpha PASS",
+              "test_beta PASS"
+            ],
+            "evidence": {
+              "start": 0,
+              "end": 101
+            }
+          },
+          "unknownRepresentations": [],
+          "tagged": false,
+          "ordered": false
+        },
+        {
+          "path": "/quote",
+          "metric": "quote",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "PRESENT",
+            "value": "2 tests passed",
+            "evidence": {
+              "start": 85,
+              "end": 99
+            }
+          },
+          "unknownRepresentations": [],
+          "tagged": false,
+          "whitespace": "exact"
+        }
+      ]
+    },
+    {
+      "id": "execution-present/nullable",
+      "domain": "execution",
+      "arm": "nullable",
+      "source": "INDEPENDENT RECEIPT fixture-run-001: exit0; test_alpha PASS; test_beta PASS; stdout \"2 tests passed\".",
+      "sourceDigest": "sha256:a877f14aa88e8fb8292babebf8f465288e413f608a69b7df3be209b22d0e0420",
+      "question": "Using only the supplied source, fill classification, the two supporting items, and a verbatim quote. Do not infer missing evidence.",
+      "schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "classification": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "passed",
+                  "failed",
+                  "partial"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "items": {
+            "anyOf": [
+              {
+                "type": "array",
+                "minItems": 2,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "quote": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "classification",
+          "items",
+          "quote"
+        ],
+        "additionalProperties": false
+      },
+      "schemaDigest": "sha256:415214bdbd592c66afd9d7d8c6c65cca1c69e65020e374836b06e6681b82b799",
+      "fields": [
+        {
+          "path": "/classification",
+          "metric": "exact",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "PRESENT",
+            "value": "passed",
+            "evidence": {
+              "start": 0,
+              "end": 101
+            }
+          },
+          "unknownRepresentations": [
+            "null"
+          ],
+          "tagged": false
+        },
+        {
+          "path": "/items",
+          "metric": "array",
+          "severity": "critical",
+          "type": "array",
+          "expected": {
+            "state": "PRESENT",
+            "value": [
+              "test_alpha PASS",
+              "test_beta PASS"
+            ],
+            "evidence": {
+              "start": 0,
+              "end": 101
+            }
+          },
+          "unknownRepresentations": [
+            "null"
+          ],
+          "tagged": false,
+          "ordered": false
+        },
+        {
+          "path": "/quote",
+          "metric": "quote",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "PRESENT",
+            "value": "2 tests passed",
+            "evidence": {
+              "start": 85,
+              "end": 99
+            }
+          },
+          "unknownRepresentations": [
+            "null"
+          ],
+          "tagged": false,
+          "whitespace": "exact"
+        }
+      ]
+    },
+    {
+      "id": "execution-present/explicit_unknown",
+      "domain": "execution",
+      "arm": "explicit_unknown",
+      "source": "INDEPENDENT RECEIPT fixture-run-001: exit0; test_alpha PASS; test_beta PASS; stdout \"2 tests passed\".",
+      "sourceDigest": "sha256:a877f14aa88e8fb8292babebf8f465288e413f608a69b7df3be209b22d0e0420",
+      "question": "Using only the supplied source, fill classification, the two supporting items, and a verbatim quote. Do not infer missing evidence.",
+      "schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "classification": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "known"
+                  },
+                  "value": {
+                    "type": "string",
+                    "enum": [
+                      "passed",
+                      "failed",
+                      "partial"
+                    ]
+                  }
+                },
+                "required": [
+                  "state",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "unknown"
+                  },
+                  "reason": {
+                    "const": "evidence_absent"
+                  }
+                },
+                "required": [
+                  "state",
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "items": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "known"
+                  },
+                  "value": {
+                    "type": "array",
+                    "minItems": 2,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                },
+                "required": [
+                  "state",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "unknown"
+                  },
+                  "reason": {
+                    "const": "evidence_absent"
+                  }
+                },
+                "required": [
+                  "state",
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "quote": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "known"
+                  },
+                  "value": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "state",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "unknown"
+                  },
+                  "reason": {
+                    "const": "evidence_absent"
+                  }
+                },
+                "required": [
+                  "state",
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        "required": [
+          "classification",
+          "items",
+          "quote"
+        ],
+        "additionalProperties": false
+      },
+      "schemaDigest": "sha256:3e5ef014050d0efbc60ebf5dbefb82a4b8dfcf252757d07a71bce7e1bb22537b",
+      "fields": [
+        {
+          "path": "/classification",
+          "metric": "exact",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "PRESENT",
+            "value": "passed",
+            "evidence": {
+              "start": 0,
+              "end": 101
+            }
+          },
+          "unknownRepresentations": [
+            "tagged"
+          ],
+          "tagged": true
+        },
+        {
+          "path": "/items",
+          "metric": "array",
+          "severity": "critical",
+          "type": "array",
+          "expected": {
+            "state": "PRESENT",
+            "value": [
+              "test_alpha PASS",
+              "test_beta PASS"
+            ],
+            "evidence": {
+              "start": 0,
+              "end": 101
+            }
+          },
+          "unknownRepresentations": [
+            "tagged"
+          ],
+          "tagged": true,
+          "ordered": false
+        },
+        {
+          "path": "/quote",
+          "metric": "quote",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "PRESENT",
+            "value": "2 tests passed",
+            "evidence": {
+              "start": 85,
+              "end": 99
+            }
+          },
+          "unknownRepresentations": [
+            "tagged"
+          ],
+          "tagged": true,
+          "whitespace": "exact"
+        }
+      ]
+    },
+    {
+      "id": "citation-absent/required",
+      "domain": "citation",
+      "arm": "required",
+      "source": "RESEARCH: title and author supplied; methods/results pages withheld; no quoted result available.",
+      "sourceDigest": "sha256:9488d178e820319685e1da0f1ae29eadcffc78fc4eb95e3ba987c5af6bb9eddc",
+      "question": "Using only the supplied source, fill classification, the two supporting items, and a verbatim quote. Do not infer missing evidence.",
+      "schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "classification": {
+            "type": "string",
+            "enum": [
+              "improved",
+              "degraded",
+              "equal"
+            ]
+          },
+          "items": {
+            "type": "array",
+            "minItems": 2,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "quote": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "classification",
+          "items",
+          "quote"
+        ],
+        "additionalProperties": false
+      },
+      "schemaDigest": "sha256:a2d83f2dbfd2db3e22cc7cb457707bb4fc98bf5885692ca885e0bd40e803cabb",
+      "fields": [
+        {
+          "path": "/classification",
+          "metric": "exact",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "UNKNOWN",
+            "value": null,
+            "reason": "evidence_absent"
+          },
+          "unknownRepresentations": [],
+          "tagged": false
+        },
+        {
+          "path": "/items",
+          "metric": "array",
+          "severity": "critical",
+          "type": "array",
+          "expected": {
+            "state": "UNKNOWN",
+            "value": null,
+            "reason": "evidence_absent"
+          },
+          "unknownRepresentations": [],
+          "tagged": false,
+          "ordered": false
+        },
+        {
+          "path": "/quote",
+          "metric": "quote",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "UNKNOWN",
+            "value": null,
+            "reason": "evidence_absent"
+          },
+          "unknownRepresentations": [],
+          "tagged": false
+        }
+      ]
+    },
+    {
+      "id": "citation-absent/nullable",
+      "domain": "citation",
+      "arm": "nullable",
+      "source": "RESEARCH: title and author supplied; methods/results pages withheld; no quoted result available.",
+      "sourceDigest": "sha256:9488d178e820319685e1da0f1ae29eadcffc78fc4eb95e3ba987c5af6bb9eddc",
+      "question": "Using only the supplied source, fill classification, the two supporting items, and a verbatim quote. Do not infer missing evidence.",
+      "schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "classification": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "improved",
+                  "degraded",
+                  "equal"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "items": {
+            "anyOf": [
+              {
+                "type": "array",
+                "minItems": 2,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "quote": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "classification",
+          "items",
+          "quote"
+        ],
+        "additionalProperties": false
+      },
+      "schemaDigest": "sha256:f80817493670bc797783164e1989054c6614b8f721fec8bf9d61cb62aeb00a1a",
+      "fields": [
+        {
+          "path": "/classification",
+          "metric": "exact",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "UNKNOWN",
+            "value": null,
+            "reason": "evidence_absent"
+          },
+          "unknownRepresentations": [
+            "null"
+          ],
+          "tagged": false
+        },
+        {
+          "path": "/items",
+          "metric": "array",
+          "severity": "critical",
+          "type": "array",
+          "expected": {
+            "state": "UNKNOWN",
+            "value": null,
+            "reason": "evidence_absent"
+          },
+          "unknownRepresentations": [
+            "null"
+          ],
+          "tagged": false,
+          "ordered": false
+        },
+        {
+          "path": "/quote",
+          "metric": "quote",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "UNKNOWN",
+            "value": null,
+            "reason": "evidence_absent"
+          },
+          "unknownRepresentations": [
+            "null"
+          ],
+          "tagged": false
+        }
+      ]
+    },
+    {
+      "id": "citation-absent/explicit_unknown",
+      "domain": "citation",
+      "arm": "explicit_unknown",
+      "source": "RESEARCH: title and author supplied; methods/results pages withheld; no quoted result available.",
+      "sourceDigest": "sha256:9488d178e820319685e1da0f1ae29eadcffc78fc4eb95e3ba987c5af6bb9eddc",
+      "question": "Using only the supplied source, fill classification, the two supporting items, and a verbatim quote. Do not infer missing evidence.",
+      "schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "classification": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "known"
+                  },
+                  "value": {
+                    "type": "string",
+                    "enum": [
+                      "improved",
+                      "degraded",
+                      "equal"
+                    ]
+                  }
+                },
+                "required": [
+                  "state",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "unknown"
+                  },
+                  "reason": {
+                    "const": "evidence_absent"
+                  }
+                },
+                "required": [
+                  "state",
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "items": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "known"
+                  },
+                  "value": {
+                    "type": "array",
+                    "minItems": 2,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                },
+                "required": [
+                  "state",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "unknown"
+                  },
+                  "reason": {
+                    "const": "evidence_absent"
+                  }
+                },
+                "required": [
+                  "state",
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "quote": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "known"
+                  },
+                  "value": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "state",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "unknown"
+                  },
+                  "reason": {
+                    "const": "evidence_absent"
+                  }
+                },
+                "required": [
+                  "state",
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        "required": [
+          "classification",
+          "items",
+          "quote"
+        ],
+        "additionalProperties": false
+      },
+      "schemaDigest": "sha256:8b4197d50c505bca514a87834db0d431ccc22c2faff8a0958872b0026af1b22e",
+      "fields": [
+        {
+          "path": "/classification",
+          "metric": "exact",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "UNKNOWN",
+            "value": null,
+            "reason": "evidence_absent"
+          },
+          "unknownRepresentations": [
+            "tagged"
+          ],
+          "tagged": true
+        },
+        {
+          "path": "/items",
+          "metric": "array",
+          "severity": "critical",
+          "type": "array",
+          "expected": {
+            "state": "UNKNOWN",
+            "value": null,
+            "reason": "evidence_absent"
+          },
+          "unknownRepresentations": [
+            "tagged"
+          ],
+          "tagged": true,
+          "ordered": false
+        },
+        {
+          "path": "/quote",
+          "metric": "quote",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "UNKNOWN",
+            "value": null,
+            "reason": "evidence_absent"
+          },
+          "unknownRepresentations": [
+            "tagged"
+          ],
+          "tagged": true
+        }
+      ]
+    },
+    {
+      "id": "citation-present/required",
+      "domain": "citation",
+      "arm": "required",
+      "source": "RESULT EXCERPT: \"ConditionA scored4/10.\" \"ConditionB scored7/10.\" \"ConditionB exceeded ConditionA on this set.\"",
+      "sourceDigest": "sha256:b05faced587cc2ecd252e732ea6ab946b8ac1e7e0caf049f279da747ac6056dd",
+      "question": "Using only the supplied source, fill classification, the two supporting items, and a verbatim quote. Do not infer missing evidence.",
+      "schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "classification": {
+            "type": "string",
+            "enum": [
+              "improved",
+              "degraded",
+              "equal"
+            ]
+          },
+          "items": {
+            "type": "array",
+            "minItems": 2,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "quote": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "classification",
+          "items",
+          "quote"
+        ],
+        "additionalProperties": false
+      },
+      "schemaDigest": "sha256:a2d83f2dbfd2db3e22cc7cb457707bb4fc98bf5885692ca885e0bd40e803cabb",
+      "fields": [
+        {
+          "path": "/classification",
+          "metric": "exact",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "PRESENT",
+            "value": "improved",
+            "evidence": {
+              "start": 0,
+              "end": 111
+            }
+          },
+          "unknownRepresentations": [],
+          "tagged": false
+        },
+        {
+          "path": "/items",
+          "metric": "array",
+          "severity": "critical",
+          "type": "array",
+          "expected": {
+            "state": "PRESENT",
+            "value": [
+              "ConditionA scored4/10.",
+              "ConditionB scored7/10."
+            ],
+            "evidence": {
+              "start": 0,
+              "end": 111
+            }
+          },
+          "unknownRepresentations": [],
+          "tagged": false,
+          "ordered": false
+        },
+        {
+          "path": "/quote",
+          "metric": "quote",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "PRESENT",
+            "value": "ConditionB exceeded ConditionA on this set.",
+            "evidence": {
+              "start": 67,
+              "end": 110
+            }
+          },
+          "unknownRepresentations": [],
+          "tagged": false,
+          "whitespace": "exact"
+        }
+      ]
+    },
+    {
+      "id": "citation-present/nullable",
+      "domain": "citation",
+      "arm": "nullable",
+      "source": "RESULT EXCERPT: \"ConditionA scored4/10.\" \"ConditionB scored7/10.\" \"ConditionB exceeded ConditionA on this set.\"",
+      "sourceDigest": "sha256:b05faced587cc2ecd252e732ea6ab946b8ac1e7e0caf049f279da747ac6056dd",
+      "question": "Using only the supplied source, fill classification, the two supporting items, and a verbatim quote. Do not infer missing evidence.",
+      "schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "classification": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "improved",
+                  "degraded",
+                  "equal"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "items": {
+            "anyOf": [
+              {
+                "type": "array",
+                "minItems": 2,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "quote": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "classification",
+          "items",
+          "quote"
+        ],
+        "additionalProperties": false
+      },
+      "schemaDigest": "sha256:f80817493670bc797783164e1989054c6614b8f721fec8bf9d61cb62aeb00a1a",
+      "fields": [
+        {
+          "path": "/classification",
+          "metric": "exact",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "PRESENT",
+            "value": "improved",
+            "evidence": {
+              "start": 0,
+              "end": 111
+            }
+          },
+          "unknownRepresentations": [
+            "null"
+          ],
+          "tagged": false
+        },
+        {
+          "path": "/items",
+          "metric": "array",
+          "severity": "critical",
+          "type": "array",
+          "expected": {
+            "state": "PRESENT",
+            "value": [
+              "ConditionA scored4/10.",
+              "ConditionB scored7/10."
+            ],
+            "evidence": {
+              "start": 0,
+              "end": 111
+            }
+          },
+          "unknownRepresentations": [
+            "null"
+          ],
+          "tagged": false,
+          "ordered": false
+        },
+        {
+          "path": "/quote",
+          "metric": "quote",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "PRESENT",
+            "value": "ConditionB exceeded ConditionA on this set.",
+            "evidence": {
+              "start": 67,
+              "end": 110
+            }
+          },
+          "unknownRepresentations": [
+            "null"
+          ],
+          "tagged": false,
+          "whitespace": "exact"
+        }
+      ]
+    },
+    {
+      "id": "citation-present/explicit_unknown",
+      "domain": "citation",
+      "arm": "explicit_unknown",
+      "source": "RESULT EXCERPT: \"ConditionA scored4/10.\" \"ConditionB scored7/10.\" \"ConditionB exceeded ConditionA on this set.\"",
+      "sourceDigest": "sha256:b05faced587cc2ecd252e732ea6ab946b8ac1e7e0caf049f279da747ac6056dd",
+      "question": "Using only the supplied source, fill classification, the two supporting items, and a verbatim quote. Do not infer missing evidence.",
+      "schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "classification": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "known"
+                  },
+                  "value": {
+                    "type": "string",
+                    "enum": [
+                      "improved",
+                      "degraded",
+                      "equal"
+                    ]
+                  }
+                },
+                "required": [
+                  "state",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "unknown"
+                  },
+                  "reason": {
+                    "const": "evidence_absent"
+                  }
+                },
+                "required": [
+                  "state",
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "items": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "known"
+                  },
+                  "value": {
+                    "type": "array",
+                    "minItems": 2,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                },
+                "required": [
+                  "state",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "unknown"
+                  },
+                  "reason": {
+                    "const": "evidence_absent"
+                  }
+                },
+                "required": [
+                  "state",
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "quote": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "known"
+                  },
+                  "value": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "state",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "unknown"
+                  },
+                  "reason": {
+                    "const": "evidence_absent"
+                  }
+                },
+                "required": [
+                  "state",
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        "required": [
+          "classification",
+          "items",
+          "quote"
+        ],
+        "additionalProperties": false
+      },
+      "schemaDigest": "sha256:8b4197d50c505bca514a87834db0d431ccc22c2faff8a0958872b0026af1b22e",
+      "fields": [
+        {
+          "path": "/classification",
+          "metric": "exact",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "PRESENT",
+            "value": "improved",
+            "evidence": {
+              "start": 0,
+              "end": 111
+            }
+          },
+          "unknownRepresentations": [
+            "tagged"
+          ],
+          "tagged": true
+        },
+        {
+          "path": "/items",
+          "metric": "array",
+          "severity": "critical",
+          "type": "array",
+          "expected": {
+            "state": "PRESENT",
+            "value": [
+              "ConditionA scored4/10.",
+              "ConditionB scored7/10."
+            ],
+            "evidence": {
+              "start": 0,
+              "end": 111
+            }
+          },
+          "unknownRepresentations": [
+            "tagged"
+          ],
+          "tagged": true,
+          "ordered": false
+        },
+        {
+          "path": "/quote",
+          "metric": "quote",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "PRESENT",
+            "value": "ConditionB exceeded ConditionA on this set.",
+            "evidence": {
+              "start": 67,
+              "end": 110
+            }
+          },
+          "unknownRepresentations": [
+            "tagged"
+          ],
+          "tagged": true,
+          "whitespace": "exact"
+        }
+      ]
+    },
+    {
+      "id": "incident-absent/required",
+      "domain": "incident",
+      "arm": "required",
+      "source": "INCIDENT: severity high; alert count17; timeline and diagnostic logs unavailable.",
+      "sourceDigest": "sha256:e148d660a60847a45b6c4033ce3c94ffa81e4d3ff8a7694f821f56b4e7784eaf",
+      "question": "Using only the supplied source, fill classification, the two supporting items, and a verbatim quote. Do not infer missing evidence.",
+      "schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "classification": {
+            "type": "string",
+            "enum": [
+              "storage",
+              "network",
+              "credentials"
+            ]
+          },
+          "items": {
+            "type": "array",
+            "minItems": 2,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "quote": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "classification",
+          "items",
+          "quote"
+        ],
+        "additionalProperties": false
+      },
+      "schemaDigest": "sha256:d916ed439a7e4a576c6f10bd4657887c2f8f2e21e8d390847e8a25cfda68ad38",
+      "fields": [
+        {
+          "path": "/classification",
+          "metric": "exact",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "UNKNOWN",
+            "value": null,
+            "reason": "evidence_absent"
+          },
+          "unknownRepresentations": [],
+          "tagged": false
+        },
+        {
+          "path": "/items",
+          "metric": "array",
+          "severity": "critical",
+          "type": "array",
+          "expected": {
+            "state": "UNKNOWN",
+            "value": null,
+            "reason": "evidence_absent"
+          },
+          "unknownRepresentations": [],
+          "tagged": false,
+          "ordered": false
+        },
+        {
+          "path": "/quote",
+          "metric": "quote",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "UNKNOWN",
+            "value": null,
+            "reason": "evidence_absent"
+          },
+          "unknownRepresentations": [],
+          "tagged": false
+        }
+      ]
+    },
+    {
+      "id": "incident-absent/nullable",
+      "domain": "incident",
+      "arm": "nullable",
+      "source": "INCIDENT: severity high; alert count17; timeline and diagnostic logs unavailable.",
+      "sourceDigest": "sha256:e148d660a60847a45b6c4033ce3c94ffa81e4d3ff8a7694f821f56b4e7784eaf",
+      "question": "Using only the supplied source, fill classification, the two supporting items, and a verbatim quote. Do not infer missing evidence.",
+      "schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "classification": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "storage",
+                  "network",
+                  "credentials"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "items": {
+            "anyOf": [
+              {
+                "type": "array",
+                "minItems": 2,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "quote": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "classification",
+          "items",
+          "quote"
+        ],
+        "additionalProperties": false
+      },
+      "schemaDigest": "sha256:30c5ae9bf6c3deed72a60e0e67f31ab9a99f6f2b16aea4ba0234d86e2d4f752b",
+      "fields": [
+        {
+          "path": "/classification",
+          "metric": "exact",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "UNKNOWN",
+            "value": null,
+            "reason": "evidence_absent"
+          },
+          "unknownRepresentations": [
+            "null"
+          ],
+          "tagged": false
+        },
+        {
+          "path": "/items",
+          "metric": "array",
+          "severity": "critical",
+          "type": "array",
+          "expected": {
+            "state": "UNKNOWN",
+            "value": null,
+            "reason": "evidence_absent"
+          },
+          "unknownRepresentations": [
+            "null"
+          ],
+          "tagged": false,
+          "ordered": false
+        },
+        {
+          "path": "/quote",
+          "metric": "quote",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "UNKNOWN",
+            "value": null,
+            "reason": "evidence_absent"
+          },
+          "unknownRepresentations": [
+            "null"
+          ],
+          "tagged": false
+        }
+      ]
+    },
+    {
+      "id": "incident-absent/explicit_unknown",
+      "domain": "incident",
+      "arm": "explicit_unknown",
+      "source": "INCIDENT: severity high; alert count17; timeline and diagnostic logs unavailable.",
+      "sourceDigest": "sha256:e148d660a60847a45b6c4033ce3c94ffa81e4d3ff8a7694f821f56b4e7784eaf",
+      "question": "Using only the supplied source, fill classification, the two supporting items, and a verbatim quote. Do not infer missing evidence.",
+      "schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "classification": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "known"
+                  },
+                  "value": {
+                    "type": "string",
+                    "enum": [
+                      "storage",
+                      "network",
+                      "credentials"
+                    ]
+                  }
+                },
+                "required": [
+                  "state",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "unknown"
+                  },
+                  "reason": {
+                    "const": "evidence_absent"
+                  }
+                },
+                "required": [
+                  "state",
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "items": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "known"
+                  },
+                  "value": {
+                    "type": "array",
+                    "minItems": 2,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                },
+                "required": [
+                  "state",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "unknown"
+                  },
+                  "reason": {
+                    "const": "evidence_absent"
+                  }
+                },
+                "required": [
+                  "state",
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "quote": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "known"
+                  },
+                  "value": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "state",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "unknown"
+                  },
+                  "reason": {
+                    "const": "evidence_absent"
+                  }
+                },
+                "required": [
+                  "state",
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        "required": [
+          "classification",
+          "items",
+          "quote"
+        ],
+        "additionalProperties": false
+      },
+      "schemaDigest": "sha256:e5837d2bde46fecd6ba0d5d257c5de6e4e692907ff07360cf8d9bca81abeda14",
+      "fields": [
+        {
+          "path": "/classification",
+          "metric": "exact",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "UNKNOWN",
+            "value": null,
+            "reason": "evidence_absent"
+          },
+          "unknownRepresentations": [
+            "tagged"
+          ],
+          "tagged": true
+        },
+        {
+          "path": "/items",
+          "metric": "array",
+          "severity": "critical",
+          "type": "array",
+          "expected": {
+            "state": "UNKNOWN",
+            "value": null,
+            "reason": "evidence_absent"
+          },
+          "unknownRepresentations": [
+            "tagged"
+          ],
+          "tagged": true,
+          "ordered": false
+        },
+        {
+          "path": "/quote",
+          "metric": "quote",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "UNKNOWN",
+            "value": null,
+            "reason": "evidence_absent"
+          },
+          "unknownRepresentations": [
+            "tagged"
+          ],
+          "tagged": true
+        }
+      ]
+    },
+    {
+      "id": "incident-present/required",
+      "domain": "incident",
+      "arm": "required",
+      "source": "DIAGNOSTIC LOG: \"Disk reached capacity.\" \"Writes failed with ENOSPC.\" \"Storage exhaustion caused this write failure.\"",
+      "sourceDigest": "sha256:a4f1444046baa58f44daa63f2f18e10cd313d8e7d0b3155490f1aa5ef23fc478",
+      "question": "Using only the supplied source, fill classification, the two supporting items, and a verbatim quote. Do not infer missing evidence.",
+      "schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "classification": {
+            "type": "string",
+            "enum": [
+              "storage",
+              "network",
+              "credentials"
+            ]
+          },
+          "items": {
+            "type": "array",
+            "minItems": 2,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "quote": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "classification",
+          "items",
+          "quote"
+        ],
+        "additionalProperties": false
+      },
+      "schemaDigest": "sha256:d916ed439a7e4a576c6f10bd4657887c2f8f2e21e8d390847e8a25cfda68ad38",
+      "fields": [
+        {
+          "path": "/classification",
+          "metric": "exact",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "PRESENT",
+            "value": "storage",
+            "evidence": {
+              "start": 0,
+              "end": 117
+            }
+          },
+          "unknownRepresentations": [],
+          "tagged": false
+        },
+        {
+          "path": "/items",
+          "metric": "array",
+          "severity": "critical",
+          "type": "array",
+          "expected": {
+            "state": "PRESENT",
+            "value": [
+              "Disk reached capacity.",
+              "Writes failed with ENOSPC."
+            ],
+            "evidence": {
+              "start": 0,
+              "end": 117
+            }
+          },
+          "unknownRepresentations": [],
+          "tagged": false,
+          "ordered": false
+        },
+        {
+          "path": "/quote",
+          "metric": "quote",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "PRESENT",
+            "value": "Storage exhaustion caused this write failure.",
+            "evidence": {
+              "start": 71,
+              "end": 116
+            }
+          },
+          "unknownRepresentations": [],
+          "tagged": false,
+          "whitespace": "exact"
+        }
+      ]
+    },
+    {
+      "id": "incident-present/nullable",
+      "domain": "incident",
+      "arm": "nullable",
+      "source": "DIAGNOSTIC LOG: \"Disk reached capacity.\" \"Writes failed with ENOSPC.\" \"Storage exhaustion caused this write failure.\"",
+      "sourceDigest": "sha256:a4f1444046baa58f44daa63f2f18e10cd313d8e7d0b3155490f1aa5ef23fc478",
+      "question": "Using only the supplied source, fill classification, the two supporting items, and a verbatim quote. Do not infer missing evidence.",
+      "schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "classification": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "storage",
+                  "network",
+                  "credentials"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "items": {
+            "anyOf": [
+              {
+                "type": "array",
+                "minItems": 2,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "quote": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "classification",
+          "items",
+          "quote"
+        ],
+        "additionalProperties": false
+      },
+      "schemaDigest": "sha256:30c5ae9bf6c3deed72a60e0e67f31ab9a99f6f2b16aea4ba0234d86e2d4f752b",
+      "fields": [
+        {
+          "path": "/classification",
+          "metric": "exact",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "PRESENT",
+            "value": "storage",
+            "evidence": {
+              "start": 0,
+              "end": 117
+            }
+          },
+          "unknownRepresentations": [
+            "null"
+          ],
+          "tagged": false
+        },
+        {
+          "path": "/items",
+          "metric": "array",
+          "severity": "critical",
+          "type": "array",
+          "expected": {
+            "state": "PRESENT",
+            "value": [
+              "Disk reached capacity.",
+              "Writes failed with ENOSPC."
+            ],
+            "evidence": {
+              "start": 0,
+              "end": 117
+            }
+          },
+          "unknownRepresentations": [
+            "null"
+          ],
+          "tagged": false,
+          "ordered": false
+        },
+        {
+          "path": "/quote",
+          "metric": "quote",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "PRESENT",
+            "value": "Storage exhaustion caused this write failure.",
+            "evidence": {
+              "start": 71,
+              "end": 116
+            }
+          },
+          "unknownRepresentations": [
+            "null"
+          ],
+          "tagged": false,
+          "whitespace": "exact"
+        }
+      ]
+    },
+    {
+      "id": "incident-present/explicit_unknown",
+      "domain": "incident",
+      "arm": "explicit_unknown",
+      "source": "DIAGNOSTIC LOG: \"Disk reached capacity.\" \"Writes failed with ENOSPC.\" \"Storage exhaustion caused this write failure.\"",
+      "sourceDigest": "sha256:a4f1444046baa58f44daa63f2f18e10cd313d8e7d0b3155490f1aa5ef23fc478",
+      "question": "Using only the supplied source, fill classification, the two supporting items, and a verbatim quote. Do not infer missing evidence.",
+      "schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "classification": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "known"
+                  },
+                  "value": {
+                    "type": "string",
+                    "enum": [
+                      "storage",
+                      "network",
+                      "credentials"
+                    ]
+                  }
+                },
+                "required": [
+                  "state",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "unknown"
+                  },
+                  "reason": {
+                    "const": "evidence_absent"
+                  }
+                },
+                "required": [
+                  "state",
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "items": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "known"
+                  },
+                  "value": {
+                    "type": "array",
+                    "minItems": 2,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                },
+                "required": [
+                  "state",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "unknown"
+                  },
+                  "reason": {
+                    "const": "evidence_absent"
+                  }
+                },
+                "required": [
+                  "state",
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "quote": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "known"
+                  },
+                  "value": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "state",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "unknown"
+                  },
+                  "reason": {
+                    "const": "evidence_absent"
+                  }
+                },
+                "required": [
+                  "state",
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        "required": [
+          "classification",
+          "items",
+          "quote"
+        ],
+        "additionalProperties": false
+      },
+      "schemaDigest": "sha256:e5837d2bde46fecd6ba0d5d257c5de6e4e692907ff07360cf8d9bca81abeda14",
+      "fields": [
+        {
+          "path": "/classification",
+          "metric": "exact",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "PRESENT",
+            "value": "storage",
+            "evidence": {
+              "start": 0,
+              "end": 117
+            }
+          },
+          "unknownRepresentations": [
+            "tagged"
+          ],
+          "tagged": true
+        },
+        {
+          "path": "/items",
+          "metric": "array",
+          "severity": "critical",
+          "type": "array",
+          "expected": {
+            "state": "PRESENT",
+            "value": [
+              "Disk reached capacity.",
+              "Writes failed with ENOSPC."
+            ],
+            "evidence": {
+              "start": 0,
+              "end": 117
+            }
+          },
+          "unknownRepresentations": [
+            "tagged"
+          ],
+          "tagged": true,
+          "ordered": false
+        },
+        {
+          "path": "/quote",
+          "metric": "quote",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "PRESENT",
+            "value": "Storage exhaustion caused this write failure.",
+            "evidence": {
+              "start": 71,
+              "end": 116
+            }
+          },
+          "unknownRepresentations": [
+            "tagged"
+          ],
+          "tagged": true,
+          "whitespace": "exact"
+        }
+      ]
+    },
+    {
+      "id": "invoice-absent/required",
+      "domain": "invoice",
+      "arm": "required",
+      "source": "INVOICE: filename invoice-17.pdf; amount and payment record unavailable.",
+      "sourceDigest": "sha256:0b567a397db81287775cd98a3b214282c928aa51d247a0c3cb4a0149ea412c50",
+      "question": "Using only the supplied source, fill classification, the two supporting items, and a verbatim quote. Do not infer missing evidence.",
+      "schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "classification": {
+            "type": "string",
+            "enum": [
+              "paid",
+              "unpaid",
+              "partial"
+            ]
+          },
+          "items": {
+            "type": "array",
+            "minItems": 2,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "quote": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "classification",
+          "items",
+          "quote"
+        ],
+        "additionalProperties": false
+      },
+      "schemaDigest": "sha256:f36e16831981dcd197015993b5e48cc8fd35f4ab3d27f882c39764f6650ffa28",
+      "fields": [
+        {
+          "path": "/classification",
+          "metric": "exact",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "UNKNOWN",
+            "value": null,
+            "reason": "evidence_absent"
+          },
+          "unknownRepresentations": [],
+          "tagged": false
+        },
+        {
+          "path": "/items",
+          "metric": "array",
+          "severity": "critical",
+          "type": "array",
+          "expected": {
+            "state": "UNKNOWN",
+            "value": null,
+            "reason": "evidence_absent"
+          },
+          "unknownRepresentations": [],
+          "tagged": false,
+          "ordered": false
+        },
+        {
+          "path": "/quote",
+          "metric": "quote",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "UNKNOWN",
+            "value": null,
+            "reason": "evidence_absent"
+          },
+          "unknownRepresentations": [],
+          "tagged": false
+        }
+      ]
+    },
+    {
+      "id": "invoice-absent/nullable",
+      "domain": "invoice",
+      "arm": "nullable",
+      "source": "INVOICE: filename invoice-17.pdf; amount and payment record unavailable.",
+      "sourceDigest": "sha256:0b567a397db81287775cd98a3b214282c928aa51d247a0c3cb4a0149ea412c50",
+      "question": "Using only the supplied source, fill classification, the two supporting items, and a verbatim quote. Do not infer missing evidence.",
+      "schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "classification": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "paid",
+                  "unpaid",
+                  "partial"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "items": {
+            "anyOf": [
+              {
+                "type": "array",
+                "minItems": 2,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "quote": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "classification",
+          "items",
+          "quote"
+        ],
+        "additionalProperties": false
+      },
+      "schemaDigest": "sha256:518b46471acc2ad3a8eeea135641851ab6a8be09fd068925976b1ac7d8098bc9",
+      "fields": [
+        {
+          "path": "/classification",
+          "metric": "exact",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "UNKNOWN",
+            "value": null,
+            "reason": "evidence_absent"
+          },
+          "unknownRepresentations": [
+            "null"
+          ],
+          "tagged": false
+        },
+        {
+          "path": "/items",
+          "metric": "array",
+          "severity": "critical",
+          "type": "array",
+          "expected": {
+            "state": "UNKNOWN",
+            "value": null,
+            "reason": "evidence_absent"
+          },
+          "unknownRepresentations": [
+            "null"
+          ],
+          "tagged": false,
+          "ordered": false
+        },
+        {
+          "path": "/quote",
+          "metric": "quote",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "UNKNOWN",
+            "value": null,
+            "reason": "evidence_absent"
+          },
+          "unknownRepresentations": [
+            "null"
+          ],
+          "tagged": false
+        }
+      ]
+    },
+    {
+      "id": "invoice-absent/explicit_unknown",
+      "domain": "invoice",
+      "arm": "explicit_unknown",
+      "source": "INVOICE: filename invoice-17.pdf; amount and payment record unavailable.",
+      "sourceDigest": "sha256:0b567a397db81287775cd98a3b214282c928aa51d247a0c3cb4a0149ea412c50",
+      "question": "Using only the supplied source, fill classification, the two supporting items, and a verbatim quote. Do not infer missing evidence.",
+      "schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "classification": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "known"
+                  },
+                  "value": {
+                    "type": "string",
+                    "enum": [
+                      "paid",
+                      "unpaid",
+                      "partial"
+                    ]
+                  }
+                },
+                "required": [
+                  "state",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "unknown"
+                  },
+                  "reason": {
+                    "const": "evidence_absent"
+                  }
+                },
+                "required": [
+                  "state",
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "items": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "known"
+                  },
+                  "value": {
+                    "type": "array",
+                    "minItems": 2,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                },
+                "required": [
+                  "state",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "unknown"
+                  },
+                  "reason": {
+                    "const": "evidence_absent"
+                  }
+                },
+                "required": [
+                  "state",
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "quote": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "known"
+                  },
+                  "value": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "state",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "unknown"
+                  },
+                  "reason": {
+                    "const": "evidence_absent"
+                  }
+                },
+                "required": [
+                  "state",
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        "required": [
+          "classification",
+          "items",
+          "quote"
+        ],
+        "additionalProperties": false
+      },
+      "schemaDigest": "sha256:740e5fb2a5216460b158332936bf418a3a92864ee4e8e60eeed92da832d0e938",
+      "fields": [
+        {
+          "path": "/classification",
+          "metric": "exact",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "UNKNOWN",
+            "value": null,
+            "reason": "evidence_absent"
+          },
+          "unknownRepresentations": [
+            "tagged"
+          ],
+          "tagged": true
+        },
+        {
+          "path": "/items",
+          "metric": "array",
+          "severity": "critical",
+          "type": "array",
+          "expected": {
+            "state": "UNKNOWN",
+            "value": null,
+            "reason": "evidence_absent"
+          },
+          "unknownRepresentations": [
+            "tagged"
+          ],
+          "tagged": true,
+          "ordered": false
+        },
+        {
+          "path": "/quote",
+          "metric": "quote",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "UNKNOWN",
+            "value": null,
+            "reason": "evidence_absent"
+          },
+          "unknownRepresentations": [
+            "tagged"
+          ],
+          "tagged": true
+        }
+      ]
+    },
+    {
+      "id": "invoice-present/required",
+      "domain": "invoice",
+      "arm": "required",
+      "source": "INVOICE RECORD: \"Invoice17 amount100USD.\" \"Payment17 received100USD.\" \"Invoice17 is fully paid.\"",
+      "sourceDigest": "sha256:f3709629f32f0b88b6da0019a34d9612c48d1967097a432da7c1fe468e018b73",
+      "question": "Using only the supplied source, fill classification, the two supporting items, and a verbatim quote. Do not infer missing evidence.",
+      "schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "classification": {
+            "type": "string",
+            "enum": [
+              "paid",
+              "unpaid",
+              "partial"
+            ]
+          },
+          "items": {
+            "type": "array",
+            "minItems": 2,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "quote": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "classification",
+          "items",
+          "quote"
+        ],
+        "additionalProperties": false
+      },
+      "schemaDigest": "sha256:f36e16831981dcd197015993b5e48cc8fd35f4ab3d27f882c39764f6650ffa28",
+      "fields": [
+        {
+          "path": "/classification",
+          "metric": "exact",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "PRESENT",
+            "value": "paid",
+            "evidence": {
+              "start": 0,
+              "end": 96
+            }
+          },
+          "unknownRepresentations": [],
+          "tagged": false
+        },
+        {
+          "path": "/items",
+          "metric": "array",
+          "severity": "critical",
+          "type": "array",
+          "expected": {
+            "state": "PRESENT",
+            "value": [
+              "Invoice17 amount100USD.",
+              "Payment17 received100USD."
+            ],
+            "evidence": {
+              "start": 0,
+              "end": 96
+            }
+          },
+          "unknownRepresentations": [],
+          "tagged": false,
+          "ordered": false
+        },
+        {
+          "path": "/quote",
+          "metric": "quote",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "PRESENT",
+            "value": "Invoice17 is fully paid.",
+            "evidence": {
+              "start": 71,
+              "end": 95
+            }
+          },
+          "unknownRepresentations": [],
+          "tagged": false,
+          "whitespace": "exact"
+        }
+      ]
+    },
+    {
+      "id": "invoice-present/nullable",
+      "domain": "invoice",
+      "arm": "nullable",
+      "source": "INVOICE RECORD: \"Invoice17 amount100USD.\" \"Payment17 received100USD.\" \"Invoice17 is fully paid.\"",
+      "sourceDigest": "sha256:f3709629f32f0b88b6da0019a34d9612c48d1967097a432da7c1fe468e018b73",
+      "question": "Using only the supplied source, fill classification, the two supporting items, and a verbatim quote. Do not infer missing evidence.",
+      "schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "classification": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "paid",
+                  "unpaid",
+                  "partial"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "items": {
+            "anyOf": [
+              {
+                "type": "array",
+                "minItems": 2,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "quote": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "classification",
+          "items",
+          "quote"
+        ],
+        "additionalProperties": false
+      },
+      "schemaDigest": "sha256:518b46471acc2ad3a8eeea135641851ab6a8be09fd068925976b1ac7d8098bc9",
+      "fields": [
+        {
+          "path": "/classification",
+          "metric": "exact",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "PRESENT",
+            "value": "paid",
+            "evidence": {
+              "start": 0,
+              "end": 96
+            }
+          },
+          "unknownRepresentations": [
+            "null"
+          ],
+          "tagged": false
+        },
+        {
+          "path": "/items",
+          "metric": "array",
+          "severity": "critical",
+          "type": "array",
+          "expected": {
+            "state": "PRESENT",
+            "value": [
+              "Invoice17 amount100USD.",
+              "Payment17 received100USD."
+            ],
+            "evidence": {
+              "start": 0,
+              "end": 96
+            }
+          },
+          "unknownRepresentations": [
+            "null"
+          ],
+          "tagged": false,
+          "ordered": false
+        },
+        {
+          "path": "/quote",
+          "metric": "quote",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "PRESENT",
+            "value": "Invoice17 is fully paid.",
+            "evidence": {
+              "start": 71,
+              "end": 95
+            }
+          },
+          "unknownRepresentations": [
+            "null"
+          ],
+          "tagged": false,
+          "whitespace": "exact"
+        }
+      ]
+    },
+    {
+      "id": "invoice-present/explicit_unknown",
+      "domain": "invoice",
+      "arm": "explicit_unknown",
+      "source": "INVOICE RECORD: \"Invoice17 amount100USD.\" \"Payment17 received100USD.\" \"Invoice17 is fully paid.\"",
+      "sourceDigest": "sha256:f3709629f32f0b88b6da0019a34d9612c48d1967097a432da7c1fe468e018b73",
+      "question": "Using only the supplied source, fill classification, the two supporting items, and a verbatim quote. Do not infer missing evidence.",
+      "schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "classification": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "known"
+                  },
+                  "value": {
+                    "type": "string",
+                    "enum": [
+                      "paid",
+                      "unpaid",
+                      "partial"
+                    ]
+                  }
+                },
+                "required": [
+                  "state",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "unknown"
+                  },
+                  "reason": {
+                    "const": "evidence_absent"
+                  }
+                },
+                "required": [
+                  "state",
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "items": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "known"
+                  },
+                  "value": {
+                    "type": "array",
+                    "minItems": 2,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                },
+                "required": [
+                  "state",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "unknown"
+                  },
+                  "reason": {
+                    "const": "evidence_absent"
+                  }
+                },
+                "required": [
+                  "state",
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "quote": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "known"
+                  },
+                  "value": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "state",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "unknown"
+                  },
+                  "reason": {
+                    "const": "evidence_absent"
+                  }
+                },
+                "required": [
+                  "state",
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        "required": [
+          "classification",
+          "items",
+          "quote"
+        ],
+        "additionalProperties": false
+      },
+      "schemaDigest": "sha256:740e5fb2a5216460b158332936bf418a3a92864ee4e8e60eeed92da832d0e938",
+      "fields": [
+        {
+          "path": "/classification",
+          "metric": "exact",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "PRESENT",
+            "value": "paid",
+            "evidence": {
+              "start": 0,
+              "end": 96
+            }
+          },
+          "unknownRepresentations": [
+            "tagged"
+          ],
+          "tagged": true
+        },
+        {
+          "path": "/items",
+          "metric": "array",
+          "severity": "critical",
+          "type": "array",
+          "expected": {
+            "state": "PRESENT",
+            "value": [
+              "Invoice17 amount100USD.",
+              "Payment17 received100USD."
+            ],
+            "evidence": {
+              "start": 0,
+              "end": 96
+            }
+          },
+          "unknownRepresentations": [
+            "tagged"
+          ],
+          "tagged": true,
+          "ordered": false
+        },
+        {
+          "path": "/quote",
+          "metric": "quote",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "PRESENT",
+            "value": "Invoice17 is fully paid.",
+            "evidence": {
+              "start": 71,
+              "end": 95
+            }
+          },
+          "unknownRepresentations": [
+            "tagged"
+          ],
+          "tagged": true,
+          "whitespace": "exact"
+        }
+      ]
+    },
+    {
+      "id": "golden/receipt",
+      "domain": "golden",
+      "arm": "golden",
+      "source": "Independent executor receipt R-0017: count 3; amount 100 USD; relative 100; zero 0; name Acme Corporation (alias Acme Corp.); URL https://example.test/receipt/0017; explicitNull null; empty []; records A amount 10, B amount 20; task conclusion accepted. Receipt confirmed.",
+      "sourceDigest": "sha256:acba9ec0f1c6ca911746fd93cd95381e279f4e0f7f8613c3f64d5b0db1506406",
+      "question": "Extract only the independently retained receipt.",
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "url",
+          "quote",
+          "relative",
+          "zero",
+          "amount",
+          "count",
+          "explicitNull",
+          "unknown",
+          "empty",
+          "records",
+          "task"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "quote": {
+            "type": "string"
+          },
+          "relative": {
+            "type": "number"
+          },
+          "zero": {
+            "type": "number"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "value",
+                  "unit"
+                ],
+                "properties": {
+                  "value": {
+                    "type": "number"
+                  },
+                  "unit": {
+                    "type": "string"
+                  }
+                }
+              }
+            ]
+          },
+          "count": {
+            "type": "integer"
+          },
+          "explicitNull": {
+            "type": "null"
+          },
+          "unknown": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "empty": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "records": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "amount"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "amount": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "task": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "conclusion"
+            ],
+            "properties": {
+              "conclusion": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "schemaDigest": "sha256:0a81c840c5a0d4e865f222ff7409ccec814dd13424a6ef31fda49c9feecd068f",
+      "fields": [
+        {
+          "path": "/id",
+          "metric": "exact",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "PRESENT",
+            "value": "0017",
+            "evidence": {
+              "start": 0,
+              "end": 272
+            }
+          },
+          "unknownRepresentations": [],
+          "tagged": false
+        },
+        {
+          "path": "/count",
+          "metric": "integer",
+          "severity": "critical",
+          "type": "integer",
+          "expected": {
+            "state": "PRESENT",
+            "value": 3,
+            "evidence": {
+              "start": 0,
+              "end": 272
+            }
+          },
+          "unknownRepresentations": [],
+          "tagged": false
+        },
+        {
+          "path": "/amount",
+          "metric": "quantity",
+          "severity": "critical",
+          "type": "number",
+          "expected": {
+            "state": "PRESENT",
+            "value": 100,
+            "evidence": {
+              "start": 0,
+              "end": 272
+            }
+          },
+          "unknownRepresentations": [],
+          "tagged": false,
+          "absTol": 0.1,
+          "relTol": 0,
+          "unit": "USD",
+          "units": {
+            "USD": 1,
+            "cents": 0.01
+          }
+        },
+        {
+          "path": "/relative",
+          "metric": "quantity",
+          "severity": "critical",
+          "type": "number",
+          "expected": {
+            "state": "PRESENT",
+            "value": 100,
+            "evidence": {
+              "start": 0,
+              "end": 272
+            }
+          },
+          "unknownRepresentations": [],
+          "tagged": false,
+          "absTol": 0,
+          "relTol": 0.001,
+          "unit": "unit",
+          "units": {
+            "unit": 1
+          }
+        },
+        {
+          "path": "/zero",
+          "metric": "quantity",
+          "severity": "critical",
+          "type": "number",
+          "expected": {
+            "state": "PRESENT",
+            "value": 0,
+            "evidence": {
+              "start": 0,
+              "end": 272
+            }
+          },
+          "unknownRepresentations": [],
+          "tagged": false,
+          "absTol": 0,
+          "relTol": 0.001,
+          "unit": "unit",
+          "units": {
+            "unit": 1
+          }
+        },
+        {
+          "path": "/name",
+          "metric": "alias",
+          "severity": "standard",
+          "type": "string",
+          "expected": {
+            "state": "PRESENT",
+            "value": "Acme Corporation",
+            "evidence": {
+              "start": 0,
+              "end": 272
+            }
+          },
+          "unknownRepresentations": [],
+          "tagged": false,
+          "aliases": [
+            "Acme Corp."
+          ]
+        },
+        {
+          "path": "/url",
+          "metric": "exact",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "PRESENT",
+            "value": "https://example.test/receipt/0017",
+            "evidence": {
+              "start": 0,
+              "end": 272
+            }
+          },
+          "unknownRepresentations": [],
+          "tagged": false
+        },
+        {
+          "path": "/explicitNull",
+          "metric": "exact",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "EXPLICIT_NULL",
+            "value": null,
+            "evidence": {
+              "start": 0,
+              "end": 272
+            }
+          },
+          "unknownRepresentations": [],
+          "tagged": false
+        },
+        {
+          "path": "/unknown",
+          "metric": "exact",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "UNKNOWN",
+            "value": null,
+            "reason": "evidence_absent"
+          },
+          "unknownRepresentations": [
+            "null"
+          ],
+          "tagged": false
+        },
+        {
+          "path": "/empty",
+          "metric": "array",
+          "severity": "critical",
+          "type": "array",
+          "expected": {
+            "state": "KNOWN_EMPTY",
+            "value": [],
+            "evidence": {
+              "start": 0,
+              "end": 272
+            }
+          },
+          "unknownRepresentations": [],
+          "tagged": false,
+          "ordered": false
+        },
+        {
+          "path": "/records",
+          "metric": "array",
+          "severity": "critical",
+          "type": "array",
+          "expected": {
+            "state": "PRESENT",
+            "value": [
+              {
+                "id": "A",
+                "amount": 10
+              },
+              {
+                "id": "B",
+                "amount": 20
+              }
+            ],
+            "evidence": {
+              "start": 0,
+              "end": 272
+            }
+          },
+          "unknownRepresentations": [],
+          "tagged": false,
+          "ordered": false,
+          "itemKey": "/id",
+          "attributes": [
+            {
+              "path": "/amount",
+              "metric": "integer",
+              "severity": "critical",
+              "type": "integer",
+              "expected": {
+                "state": "PRESENT",
+                "value": 10,
+                "evidence": {
+                  "start": 0,
+                  "end": 272
+                }
+              },
+              "unknownRepresentations": [],
+              "tagged": false
+            }
+          ]
+        },
+        {
+          "path": "/task/conclusion",
+          "metric": "exact",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "PRESENT",
+            "value": "accepted",
+            "evidence": {
+              "start": 0,
+              "end": 272
+            }
+          },
+          "unknownRepresentations": [],
+          "tagged": false
+        },
+        {
+          "path": "/quote",
+          "metric": "quote",
+          "severity": "critical",
+          "type": "string",
+          "expected": {
+            "state": "PRESENT",
+            "value": "Receipt confirmed.",
+            "evidence": {
+              "start": 254,
+              "end": 272
+            }
+          },
+          "unknownRepresentations": [],
+          "tagged": false,
+          "whitespace": "exact"
+        }
+      ]
+    }
+  ]
+}

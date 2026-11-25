@@ -1,0 +1,8 @@
+{
+  "T-OG-04": [
+    "test/unit/ralph-external/structured-artifact-acceptance.test.ts"
+  ],
+  "T-OG-10": [
+    "test/unit/ralph-external/structured-artifact-acceptance.test.ts"
+  ]
+}
