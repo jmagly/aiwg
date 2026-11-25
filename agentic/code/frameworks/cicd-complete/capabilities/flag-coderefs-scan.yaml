@@ -19,6 +19,12 @@ spec:
     - name: flags
       type: list
       required: true
+    - name: project
+      type: string
+      required: false
+    - name: provider_options
+      type: object
+      required: false
   outputs:
     - name: scan_ref
       type: string

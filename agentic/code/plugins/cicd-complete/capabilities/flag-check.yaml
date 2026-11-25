@@ -22,6 +22,12 @@ spec:
     - name: states_test_evidence
       type: path
       required: true
+    - name: project
+      type: string
+      required: false
+    - name: provider_options
+      type: object
+      required: false
   outputs:
     - name: passed
       type: boolean

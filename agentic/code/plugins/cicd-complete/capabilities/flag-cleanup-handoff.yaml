@@ -7,7 +7,7 @@ metadata:
   annotations:
     blast-radius: "cleanup ticket creation or update; flag state is unchanged"
 spec:
-  description: "After release, read removal criteria from $AIWG_ROOT/agentic/code/frameworks/sdlc-complete/templates/deployment/feature-toggle-card.md and create or reuse an owner-assigned cleanup ticket only when those criteria are met. Attach release and code-reference evidence; hand off lifecycle work to sdlc-complete without deleting flags. Resolve the implementation from project feature_flags.provider through its provider addon; provider none requires a manual approval gate with recorded evidence. This resource is a provider-neutral definition only."
+  description: "After release, read removal criteria from $AIWG_ROOT/agentic/code/frameworks/sdlc-complete/templates/deployment/feature-toggle-card.md and create or reuse an owner-assigned cleanup ticket only when those criteria are met. Attach release and code-reference evidence; hand off lifecycle work to sdlc-complete without deleting flags. Resolve the implementation from project feature_flags.provider through its provider addon; provider none requires a manual approval gate with recorded evidence. This resource is a provider-neutral definition only. Report archive-only blockers (for example a flag or metric pinned by an experiment, which can only be archived, never deleted) in blockers instead of implying deletion is possible."
   version: "1.0.0"
   inputs:
     - name: flags
@@ -22,6 +22,12 @@ spec:
     - name: coderefs_evidence
       type: path
       required: true
+    - name: project
+      type: string
+      required: false
+    - name: provider_options
+      type: object
+      required: false
   outputs:
     - name: criteria_met
       type: boolean
@@ -31,6 +37,8 @@ spec:
       type: string
     - name: evidence_path
       type: path
+    - name: blockers
+      type: list
   idempotent: true
   verification:
     command: "jq -e '.criteria_met == true and (.ticket_ref | length > 0)' '{{ evidence_path }}'"

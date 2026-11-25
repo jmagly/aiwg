@@ -22,6 +22,12 @@ spec:
     - name: workspace
       type: path
       required: true
+    - name: project
+      type: string
+      required: false
+    - name: provider_options
+      type: object
+      required: false
   outputs:
     - name: off_exit_code
       type: integer
