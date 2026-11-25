@@ -1,4 +1,4 @@
-import { opendir } from 'node:fs/promises';
+import { discoverJsonl } from '../source-boundary.js';
 import { basename, extname, resolve } from 'node:path';
 import { z } from 'zod';
 import { dateTime, number } from '../../schema/zod-validation.mjs';
@@ -530,29 +530,6 @@ function extractToolResultText(value: unknown): string {
     .map((item) => typeof item.text === 'string' ? item.text : '')
     .filter(Boolean)
     .join('\n');
-}
-
-async function* discoverJsonl(root: string, maxDepth: number): AsyncIterable<string> {
-  const pending: Array<{ path: string; depth: number }> = [{ path: root, depth: 0 }];
-  while (pending.length > 0) {
-    const current = pending.shift()!;
-    let directory;
-    try {
-      directory = await opendir(current.path);
-    } catch {
-      throw new SessionContractError('SOURCE_NOT_AUTHORIZED', 'authorized Claude source root is inaccessible');
-    }
-    const childDirectories: string[] = [];
-    const files: string[] = [];
-    for await (const entry of directory) {
-      const path = resolve(current.path, entry.name);
-      if (entry.isSymbolicLink()) continue;
-      if (entry.isDirectory() && current.depth < maxDepth) childDirectories.push(path);
-      else if (entry.isFile() && entry.name.endsWith('.jsonl')) files.push(path);
-    }
-    for (const file of files.sort()) yield file;
-    for (const path of childDirectories.sort()) pending.push({ path, depth: current.depth + 1 });
-  }
 }
 
 function parseRecordCursor(value?: string): number {

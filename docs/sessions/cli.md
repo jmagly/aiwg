@@ -71,6 +71,7 @@ the adapter's stored boolean metadata, within the same provider and workspace.
 aiwg sessions sources [--expected-providers <comma-separated-ids>] [--json]
 aiwg sessions discover --workspace <path>
                        [--expected-providers <comma-separated-ids>]
+                       [--claude-project-dir <directory>]...
                        [--codex-root <authorized-path>]... [--muse-root <authorized-path>]
                        [--omp-root <authorized-path>] [--dsh-root <authorized-path>]
                        [--grok-root <authorized-path>] [--grok-active-sessions <path>]
@@ -79,6 +80,7 @@ aiwg sessions discover --workspace <path>
 aiwg sessions import-discovered --workspace <path>
                                 [--manifest <path>] [--confirm|--yes]
                                 [--expected-providers <comma-separated-ids>]
+                                [--claude-project-dir <directory>]...
                                 [--resume] [--lock-wait-ms <n>]
                                 [--dry-run] [--json]
 aiwg sessions import <file> --source-id <id> [--workspace <id>] [--dry-run] [--json]
@@ -177,6 +179,28 @@ set. Without explicit roots or provider-home authorization, Codex remains
 roots are scanned. Maintenance refreshes scan only the roots saved in the
 manifest, including previously authorized role roots; new role roots and changes
 to `$CODEX_HOME` require a new authorized discovery.
+
+For a strict Claude boundary, repeat `--claude-project-dir <directory>` for each
+selected project directory. These paths replace Claude provider-home discovery:
+AIWG never enumerates sibling project directories and skips child symlinks and
+junctions. Selected roots must be real directories without link traversal.
+Nested session JSONL files within those roots remain discoverable. Relative paths
+resolve from the current directory. The exact roots are saved in the manifest;
+`import-discovered` and its preview use that saved selection. If the flag is
+repeated on import, its directory set must match the saved roots, otherwise
+rediscover first. Provider-home authorization does not widen this Claude boundary.
+
+Codex discovery reads both `.jsonl` and `.jsonl.zst` rollouts, including nested
+session directories. Node's built-in Zstandard decoder streams decompressed
+records in memory, with the usual record/source byte limits and no plaintext
+file on disk. Damaged streams leave coverage incomplete. Re-staging identical
+Codex content under the same source ID resumes without inserting duplicate events;
+replaced files with changed content still require explicit recovery.
+
+Discovery totals distinguish `unsupported`, `unreadable`, and `excluded` sources.
+Import preview and receipts retain those dispositions, and report `imported`
+(including duplicates and previously committed sources) separately. Unsupported
+or unreadable sources leave acquisition coverage partial, even with zero imports.
 
 Canonical root aliases are scanned once. Matching Codex rollouts are deduplicated
 by their `session_meta` ID (falling back to the filename UUID, then content digest).

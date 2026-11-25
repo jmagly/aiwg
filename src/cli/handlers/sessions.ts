@@ -1,3 +1,4 @@
+import { assertClaudeManifestBoundary } from '../../sessions/source-boundary.js';
 import {
   existsSync, linkSync, mkdirSync, readFileSync, realpathSync, renameSync, statSync, unlinkSync, writeFileSync,
 } from 'node:fs';
@@ -215,6 +216,7 @@ Options:
                    use --db to read that catalog from another directory
   --expected-providers <ids>  Explicit scope for this invocation; refresh re-reads workspace config
   --carry-forward <catalog>  Rebuild from sources plus re-redacted stored history (import-discovered)
+  --claude-project-dir <directory>  Strict Claude root (repeatable; saved for import)
   --manifest <path>  Override the discovery manifest path
   --provider-home <path>  Override the provider home root (testing/portable homes)
   --codex-root <path>  Authorize a shared Codex sessions/export root (repeatable)
@@ -325,6 +327,7 @@ export interface ParsedArgs {
   flags: Set<string>;
   values: Map<string, string>;
   codexRoots: string[];
+  claudeProjectDirs: string[];
   exclude: string[];
 }
 
@@ -1297,6 +1300,7 @@ async function importSource(
         sourceId,
         ...workspaceReport,
         receipts,
+        alreadyImported: receipts.length === 0 || receipts.every(receipt => receipt.outcome === 'duplicate'),
         interruptedRuns,
         totals: {
           sessionsInserted: receipts.reduce((sum, item) => sum + item.sessionsInserted, 0),
@@ -1656,6 +1660,7 @@ async function discoverWorkspace(
   const previous = exclude.length > 0 && existsSync(manifestPath) ? await readDiscoveryManifest(manifestPath) : undefined;
   const manifest = await discoverWorkspaceHistories({
     workspace,
+    claudeProjectDirs: args.claudeProjectDirs.map(root => resolve(ctx.cwd, root)),
     knownSources: previous?.workspaceId === canonicalWorkspace ? previous.sources : undefined,
     exclude,
     expectedProviders: requestedProviders(args),
@@ -1708,6 +1713,7 @@ async function importDiscovered(
     args.values.get('--manifest') ?? defaultDiscoveryManifestPath(canonicalWorkspace),
   );
   const manifest = await readDiscoveryManifest(manifestPath);
+  await assertClaudeManifestBoundary(manifest, args.claudeProjectDirs.map(root => resolve(ctx.cwd, root)));
   if (manifest.workspaceId !== canonicalWorkspace) {
     throw new CliError(
       'MANIFEST_WORKSPACE_MISMATCH',
@@ -2309,6 +2315,7 @@ function parseArgs(argv: string[]): ParsedArgs {
   const flags = new Set<string>();
   const values = new Map<string, string>();
   const codexRoots: string[] = [];
+  const claudeProjectDirs: string[] = [];
   const exclude: string[] = [];
   const positionals: string[] = [];
   const valueFlags = new Set([
@@ -2317,7 +2324,7 @@ function parseArgs(argv: string[]): ParsedArgs {
     '--entity', '--sensitivity', '--extraction-state', '--page-size', '--max-documents',
     '--state', '--reviewer', '--reason', '--policy-version', '--min-confidence',
     '--consumer', '--actor-class', '--reason-code', '--dependent-action', '--basis',
-    '--carry-forward', '--manifest', '--provider-home', '--codex-root', '--omp-root', '--muse-root', '--dsh-root', '--grokbot-root', '--grok-root', '--grok-active-sessions', '--hermes-root', '--lock-wait-ms', '--min-coverage', '--gap',
+    '--claude-project-dir', '--carry-forward', '--manifest', '--provider-home', '--codex-root', '--omp-root', '--muse-root', '--dsh-root', '--grokbot-root', '--grok-root', '--grok-active-sessions', '--hermes-root', '--lock-wait-ms', '--min-coverage', '--gap',
     '--inactivity-threshold', '--expected-providers', '--exclude', '--max-record-bytes', '--max-source-bytes',
     '--control-events',
     '--session', '--status', '--actor', '--group-by',
@@ -2332,6 +2339,7 @@ function parseArgs(argv: string[]): ParsedArgs {
         throw new CliError('MISSING_OPTION_VALUE', `missing value for ${arg}`, EXIT.usage);
       }
       values.set(arg, value);
+      if (arg === '--claude-project-dir') claudeProjectDirs.push(value);
       if (arg === '--codex-root') codexRoots.push(value);
       if (arg === '--exclude') exclude.push(value);
       index += 1;
@@ -2343,7 +2351,7 @@ function parseArgs(argv: string[]): ParsedArgs {
       positionals.push(arg);
     }
   }
-  return { command, positionals, flags, values, codexRoots, exclude };
+  return { command, positionals, flags, values, codexRoots, claudeProjectDirs, exclude };
 }
 
 function requestedProviders(args: ParsedArgs): string[] | undefined {

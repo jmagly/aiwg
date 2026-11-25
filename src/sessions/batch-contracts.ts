@@ -7,6 +7,8 @@ export const BATCH_IMPORT_VERSION = '2.0.0' as const;
 export const COVERAGE_VERSION = '2.0.0' as const;
 
 export type BatchSourceStatus =
+  | 'unsupported'
+  | 'unreadable'
   | 'pending'
   | 'running'
   | 'committed'
@@ -76,6 +78,9 @@ export interface SessionCoverageReport {
     notChecked: string[];
   };
   sources: {
+    unsupported: number;
+    unreadable: number;
+    imported: number;
     discovered: number;
     accepted: number;
     rejected: number;
@@ -103,6 +108,8 @@ export function coverageFromBatchRun(
   const coveredStatuses = new Set<BatchSourceStatus>([
     'committed', 'duplicate', 'previously-committed',
   ]);
+  const unsupported = run.sources.filter(source => source.status === 'unsupported').length;
+  const unreadable = run.sources.filter(source => source.status === 'unreadable').length;
   const accepted = run.sources.filter((source) => source.status === 'committed').length;
   const rejected = run.sources.filter((source) => source.status === 'rejected').length;
   const excluded = run.sources.filter(source => source.status === 'excluded').length;
@@ -125,7 +132,7 @@ export function coverageFromBatchRun(
   const preflight = run.preflight ? reconcileCoveragePreflight(run.preflight, run.sources) : undefined;
   const unresolvedProviders = preflight?.unresolvedProviders
     ?? [...new Set([...unavailable, ...exportRequired, ...notChecked])].sort();
-  const acquisitionIncomplete = rejected > 0 || pending > 0 || skipped > 0
+  const acquisitionIncomplete = unsupported > 0 || unreadable > 0 || rejected > 0 || pending > 0 || skipped > 0
     || (preflight && ['explicit', 'workspace-config'].includes(preflight.expectedProviderBasis) && unresolvedProviders.length > 0);
   const incomplete = acquisitionIncomplete || !preflight || preflight.status !== 'complete'
     || unavailable.length > 0 || accepted + duplicated + previouslyCommitted + excluded === 0
@@ -170,6 +177,7 @@ export function coverageFromBatchRun(
     manifestAgeMs,
     providers: { checked, unavailable, exportRequired, notChecked },
     sources: {
+      unsupported, unreadable, imported: accepted + duplicated + previouslyCommitted,
       discovered: run.sources.length,
       accepted,
       rejected,
@@ -226,6 +234,7 @@ function unknownCoverage(): SessionCoverageReport {
       notChecked: [],
     },
     sources: {
+      unsupported: 0, unreadable: 0, imported: 0,
       discovered: 0,
       accepted: 0,
       rejected: 0,

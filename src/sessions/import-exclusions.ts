@@ -50,7 +50,8 @@ export function matchImportExclusion(
 export function nativeSessionIdFromLocator(source: SourceDescriptor): string | undefined {
   if (source.provider === 'grokbot') return grokbotConversationIdFromLocator(source.locator) ?? undefined;
   if (source.provider === 'muse') return basename(dirname(source.locator));
-  const name = basename(source.locator, extname(source.locator));
+  const locator = source.provider === 'codex' ? source.locator.replace(/\.zst$/i, '') : source.locator;
+  const name = basename(locator, extname(locator));
   if (source.provider === 'codex' || source.provider === 'pi') {
     return /([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(name)?.[1] ?? name;
   }

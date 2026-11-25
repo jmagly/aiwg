@@ -359,7 +359,10 @@ async function sourceContinuity(
         schemaIssueDetail('sourceSize'),
       );
     }
-    if (previous.sourceFileIdentity
+    const identicalRestaging = request.adapter.provider === 'codex'
+      && metadata.size === previous.sourceSize
+      && (await fingerprintSourcePrefix(authorization, metadata.size, skipPrefixBytes)).digest === previous.prefixDigest;
+    if (!identicalRestaging && previous.sourceFileIdentity
       && previous.sourceFileIdentity !== metadata.fileIdentity) {
       throw new SessionContractError(
         'SCHEMA_DRIFT',

@@ -97,7 +97,7 @@ export async function importFromDir(
       try {
         const result = await importSource(ctx, {
           command: 'import', positionals: [input], flags: new Set(args.flags),
-          values: fileValues, codexRoots: args.codexRoots, exclude: args.exclude,
+          values: fileValues, codexRoots: args.codexRoots, claudeProjectDirs: args.claudeProjectDirs, exclude: args.exclude,
         });
         const data = result.envelope.data as {
           receipts?: unknown;

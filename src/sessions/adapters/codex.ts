@@ -1,4 +1,4 @@
-import { opendir } from 'node:fs/promises';
+import { discoverJsonl } from '../source-boundary.js';
 import { basename, resolve } from 'node:path';
 import { z } from 'zod';
 import { integer } from '../../schema/zod-validation.mjs';
@@ -571,31 +571,6 @@ function sanitizeGitInfo(value: unknown): Record<string, unknown> | undefined {
   };
 }
 
-async function* discoverJsonl(root: string, maxDepth: number): AsyncIterable<string> {
-  const pending: Array<{ path: string; depth: number }> = [{ path: root, depth: 0 }];
-  while (pending.length > 0) {
-    const current = pending.shift()!;
-    let directory;
-    try {
-      directory = await opendir(current.path);
-    } catch {
-      throw new SessionContractError('SOURCE_NOT_AUTHORIZED', 'authorized Codex source root is inaccessible');
-    }
-    const directories: string[] = [];
-    const files: string[] = [];
-    for await (const entry of directory) {
-      const path = resolve(current.path, entry.name);
-      if (entry.isSymbolicLink()) continue;
-      if (entry.isDirectory() && current.depth < maxDepth) directories.push(path);
-      else if (entry.isFile() && entry.name.endsWith('.jsonl')) files.push(path);
-    }
-    for (const file of files.sort()) yield file;
-    for (const directoryPath of directories.sort()) {
-      pending.push({ path: directoryPath, depth: current.depth + 1 });
-    }
-  }
-}
-
 function isAppServerLocator(locator: string): boolean {
   return /\.app-server\.jsonl$/i.test(locator);
 }
@@ -614,7 +589,7 @@ function declaredSchemaVersion(records: BoundedJsonRecord[]): string {
 }
 
 function rolloutIdFromFilename(locator: string): string | undefined {
-  const match = /([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.jsonl$/i
+  const match = /([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.jsonl(?:\.zst)?$/i
     .exec(basename(locator));
   return match?.[1];
 }
