@@ -786,9 +786,7 @@ export async function resolveDynamicModelCatalog(
     codex: () => discoverCodexDebugModels(options.codex?.command ?? 'codex', options.runner, {
       accountBinding: options.codex?.accountBinding, now: options.now,
     }),
-    muse: () => discoverMuseCatalogModels({
-      ...options.muse, catalogDir: options.muse?.catalogDir ?? join(homeDir, MUSE_CATALOG_DIR), now: options.now,
-    }),
+    muse: async () => (await import('./muse-models.js')).discoverProjectMuseModels(options),
     cursor: async () => (await import('./cursor-models.js')).discoverProjectCursorModels(options),
     factory: async () => {
       const { discoverProjectFactoryModels } = await import('./factory-models.js');

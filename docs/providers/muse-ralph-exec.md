@@ -249,6 +249,25 @@ plain mode (no `--json`), where stdout is only the final answer text.
   `--no-foreign-personal-context` are not emitted. `--yolo` is never emitted either (`#230` out of scope);
   it disables approval **and** sandboxing (see below).
 
+## Model discovery and worker approval
+
+`aiwg models refresh --provider muse` reads Muse's local
+`~/.local/share/muse/model-catalog/*.json` catalog and probes the configured
+Muse executable with `--version`. With one enabled native Muse installation,
+refresh binds rows to its configured account label and normalized runtime version,
+using the same version parser as worker qualification. No inference call is made.
+
+Qualification accepts exact model rows such as `muse-spark-1.3` when the catalog
+reports `is_current: true`, an inference provider (`provider_id`), and matching
+runtime/account evidence. Catalog visibility alone does not prove accessibility.
+Missing evidence produces a Muse-specific `partial` warning: open the configured
+Muse executable, sign in to the intended account, select the exact model, and
+inspect its native catalog row. Then rerun
+`aiwg doctor --probe-workers --qualify --cli muse --yes`.
+If Muse omits `is_current: true`, use a Muse version that supplies this evidence;
+repeated AIWG refreshes cannot create it. Approval records operator trust and
+catalog observations, not a successful paid model call.
+
 ## CI sandbox / bubblewrap requirements
 
 Muse Code ships a real OS-enforced sandbox (bubblewrap/seccomp + namespaces
