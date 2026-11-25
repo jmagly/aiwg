@@ -136,6 +136,10 @@ and otherwise exits 2 with instructions.
 
 ## 4. Ask
 
+Confidence can be unreliable under wording shift. The default threshold of 0.8
+is a routing policy, not a correctness guarantee; see the
+[wording-shift caveat and threshold decision](jev-confidence-wording-shift.md).
+
 ```
 aiwg decision ask --question "<q>" (--yes-no | --choices a,b,c | --scale 1-5)
                   [--context "<text>" | --context-file <path> | --context-stdin]
