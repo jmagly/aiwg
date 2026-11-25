@@ -55,6 +55,7 @@
     "contracts/effect-ledger.v1",
     "contracts/authorization-grant.v1",
     "contracts/authorization-ledger.v1",
+    "contracts/eval-pilot.v1",
     "install/web-backed-resources",
     "install/non-interactive",
     "quickstart",
@@ -100,6 +101,7 @@
     "models/claude-optimization",
     "models/gpt-optimization",
     "models/local-models",
+    "models/worker-selection",
     "models/hybrid-architectures",
     "models/model-discovery-provider-decisions",
     "architecture/adr-optional-model-catalog-feed",
@@ -395,10 +397,14 @@
     "mcp",
     "decision",
     "decision/jev-quickstart",
+    "decision/jev-confidence-wording-shift",
+    "decision/criterion-calibration",
+    "decision/memory-update-controls",
     "decision/README",
     "decision/cli-mcp-driver",
     "getting-started/session-history",
     "getting-started/worker-dispatch",
+    "getting-started/worker-artifact-acceptance",
     "getting-started/worker-dispatch-runtime",
     "orchestration/guide",
     "sessions/cli",
@@ -993,6 +999,13 @@
       "parent": "models"
     },
     {
+      "id": "models/worker-selection",
+      "title": "Worker selection foundation (#2642)",
+      "summary": "Schema brief, reviewed against the operator decision of 2026-11-24. Canonical authority: schemas/models/model-config-compatibility.v1.schema.json, ID https://ai",
+      "file": "models/worker-selection.md",
+      "parent": "models"
+    },
+    {
       "id": "models/hybrid-architectures",
       "title": "Hybrid Architectures",
       "summary": "Multi-model routing strategies",
@@ -1268,6 +1281,13 @@
       "title": "Authorization Ledger Contract v1",
       "summary": "Verified grant lookup, deterministic explanations, signed revocation and read-only health reporting",
       "file": "contracts/authorization-ledger.v1.md",
+      "parent": "reference"
+    },
+    {
+      "id": "contracts/eval-pilot.v1",
+      "title": "Eval contract extension and offline H1/H2 pilot (#3315)",
+      "summary": "Schema brief (2026-11-24). Owner: roctinam / eval maintainers. This change formalizes and extends the existing TestCase, EvalResult, and EvalReport contracts in",
+      "file": "contracts/eval-pilot.v1.md",
       "parent": "reference"
     },
     {
@@ -3089,6 +3109,27 @@
       "parent": "decision"
     },
     {
+      "id": "decision/jev-confidence-wording-shift",
+      "title": "Jev confidence under wording shift (#2872)",
+      "summary": "Decision recorded 2026-11-23: Keep the aiwg decision ask default threshold at 0.8 and document the wording-shift caveat. Per-shape thresholds are not supported",
+      "file": "decision/jev-confidence-wording-shift.md",
+      "parent": "decision"
+    },
+    {
+      "id": "decision/criterion-calibration",
+      "title": "Offline criterion calibration on composition pilot outputs (#4240)",
+      "summary": "Owner: eval-maintainers (roctinam). The existing owners are tools/eval/datasets/contracts.v1.schema.json, src/contracts.ts, src/pilot-files.ts, src/pilot.ts and",
+      "file": "decision/criterion-calibration.md",
+      "parent": "decision"
+    },
+    {
+      "id": "decision/memory-update-controls",
+      "title": "Evidence-gated memory and prompt updates (#3318)",
+      "summary": "Status: research design and proposed experiment; no product behavior changes or measured AIWG improvement. This note supplies the research-phase acceptance for",
+      "file": "decision/memory-update-controls.md",
+      "parent": "decision"
+    },
+    {
       "id": "decision/README",
       "title": "Decisions and Rulesets",
       "summary": "Normalized decision definitions and rulesets that run through a Jev binding or an LLM-subagent binding",
@@ -3121,6 +3162,13 @@
       "title": "Turn On Direct Worker Dispatch",
       "summary": "What parallelism.worker_dispatch does, what it costs, how AIWG offers it, and how to turn it on or off",
       "file": "getting-started/worker-dispatch.md",
+      "parent": "getting-started"
+    },
+    {
+      "id": "getting-started/worker-artifact-acceptance",
+      "title": "Structured worker artifact acceptance",
+      "summary": "Check a worker's structured answer field by field against independent evidence, with missing-evidence and escape-value handling",
+      "file": "getting-started/worker-artifact-acceptance.md",
       "parent": "getting-started"
     },
     {
