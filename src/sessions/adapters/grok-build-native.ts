@@ -1,4 +1,4 @@
-// Bounded native projection pinned to the supported Grok Build 1.0.77/1.0.92 store.
+// Bounded native projection pinned to captured Grok Build 1.0.77 and 1.0.92 stores.
 import { createHash } from 'node:crypto';
 import { lstat, opendir, readFile } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, parse, resolve } from 'node:path';
@@ -43,8 +43,9 @@ export function grokBuildNativeAvailability() {
   return {
     reasonCode: enabled ? 'GROK_BUILD_NATIVE_EXPERIMENTAL_ENABLED' : 'GROK_BUILD_NATIVE_EXPERIMENTAL_DISABLED',
     remediation: `Grok Build native ingestion is experimental and ${enabled ? 'enabled for the captured subset; other scenarios remain' : 'disabled and'} unqualified. `
-      + 'AIWG_GROK_BUILD_NATIVE_EXPERIMENTAL=1 and AIWG_GROK_BUILD_NATIVE_VERSION=1.0.77 or 1.0.92 are both required; '
-      + 'only exact 1.0.77/1.0.92 text/tool records with chat_format_version 1 are supported. '
+      + 'AIWG_GROK_BUILD_NATIVE_EXPERIMENTAL=1 and AIWG_GROK_BUILD_NATIVE_VERSION set to exactly '
+      + `${GROK_BUILD_NATIVE_SUPPORTED_VERSIONS.join(' or ')} are both required; `
+      + 'only captured text/tool records with chat_format_version 1 are supported. '
       + 'Authorize the sessions root separately with --grok-root. '
       + 'Unknown versions or schemas must fall back to `grok export <session-id> <session-id>.md` and import the authorized Markdown file.',
   };
@@ -166,8 +167,20 @@ export async function grokBuildSourceWorkspaceMatch(
 export async function readGrokBuildNativeChatHistory(
   source: SelectedSource,
   limits?: Partial<ReaderLimits>,
+) {
+  try { return await readNativeChatHistory(source, limits); } catch (error) {
+    // Reader-level truncation/JSON failures need the same actionable export route.
+    if (error instanceof SessionContractError && error.code === 'SCHEMA_DRIFT') nativeDrift();
+    throw error;
+  }
+}
+
+async function readNativeChatHistory(
+  source: SelectedSource,
+  limits?: Partial<ReaderLimits>,
 ): Promise<{ records: Array<{ record: NativeProjection; line: BoundedJsonRecord }>; incompleteTail: boolean }> {
   assertGrokBuildNativeEnabled();
+  const grokVersion = process.env.AIWG_GROK_BUILD_NATIVE_VERSION!;
   const { sessionId, cwd } = await authorizeGrokBuildNativeSource(source);
   try { await rejectNativeSymlinks(resolve(dirname(source.locator), 'summary.json')); } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') nativeDrift();
@@ -178,7 +191,7 @@ export async function readGrokBuildNativeChatHistory(
   }, limits);
   let metadata: unknown;
   try { metadata = JSON.parse(summary.value); } catch { nativeDrift(); }
-  const sessionMetadata: NativeMetadata = parseNativeSummary(metadata, sessionId, cwd);
+  const sessionMetadata: NativeMetadata = { ...parseNativeSummary(metadata, sessionId, cwd), grokVersion };
   const subagents = await readNativeSubagents(source, sessionId, limits);
   if (subagents.length) sessionMetadata.lineage = { ...sessionMetadata.lineage, subagents };
   const input = await streamBoundedJsonLines({ selectedPath: source.locator, allowedRoots: source.authorizedScope.allowedRoots }, { consistency: 'complete', limits });

@@ -115,11 +115,16 @@ it('keeps skipped system/reminder/reasoning content out of native imports and re
   await expect(adapter.inspect(source)).rejects.toMatchObject({ code: 'SCHEMA_DRIFT' });
 });
 
-it.each([undefined, '', '1.0.76', '1.0.78', '1.0.91', '1.0.93', '1.0.92-preview', '^1.0.92', '^1.0.77', '1.0.77-preview'])('refuses native version %s after opt-in', async version => {
+it.each([undefined, '', '1.0.76', '1.0.78', '1.0.91', '1.0.93', '^1.0.77', '^1.0.92', '1.0.77-preview', '1.0.92-preview', 'grok 1.0.92'])('refuses native version %s after opt-in', async version => {
   vi.stubEnv('AIWG_GROK_BUILD_NATIVE_EXPERIMENTAL', '1');
   vi.stubEnv('AIWG_GROK_BUILD_NATIVE_VERSION', version);
   expect(new GrokBuildSessionAdapter().supportedOperations).toEqual(['inspect', 'stream']);
-  await expect(collect(new GrokBuildSessionAdapter().discover({ workspaceId: 'fixture', allowedRoots: [fixtures] }))).rejects.toMatchObject({ code: 'UNSUPPORTED_OPERATION' });
+  const adapter = new GrokBuildSessionAdapter();
+  const denied = { code: 'UNSUPPORTED_OPERATION', message: expect.stringMatching(/1\.0\.77.*1\.0\.92.*grok export/) };
+  await expect(collect(adapter.discover({ workspaceId: 'fixture', allowedRoots: [fixtures] }))).rejects.toMatchObject(denied);
+  const source = selected(join(fixtures, 'chat_history.jsonl'), fixtures);
+  await expect(adapter.inspect(source)).rejects.toMatchObject(denied);
+  await expect(collect(adapter.stream(source))).rejects.toMatchObject(denied);
 });
 
 it.each(['cli', 'native', 'fallback'] as const)('imports %s deterministically and idempotently through the repository port', async mode => {
@@ -179,9 +184,9 @@ it.each(['cli', 'native', 'fallback'] as const)('imports %s deterministically an
   expect(await importTwice()).toEqual(await importTwice());
 });
 
-it('automatically falls back to bounded CLI export on native drift and replays its cursor', async () => {
+it.each(['1.0.77', '1.0.92'])('automatically falls back to bounded CLI export on native %s drift and replays its cursor', async version => {
   vi.stubEnv('AIWG_GROK_BUILD_NATIVE_EXPERIMENTAL', '1');
-  vi.stubEnv('AIWG_GROK_BUILD_NATIVE_VERSION', '1.0.77');
+  vi.stubEnv('AIWG_GROK_BUILD_NATIVE_VERSION', version);
   const root = await temp();
   const cwd = join(root, 'workspace');
   const grokHome = join(root, '.grok');
@@ -208,8 +213,10 @@ it('automatically falls back to bounded CLI export on native drift and replays i
   expect(runner).toHaveBeenCalledTimes(3);
   vi.stubEnv('AIWG_GROK_BUILD_NATIVE_VERSION', '1.0.78');
   expect(await collect(adapter.stream(source))).toEqual(records);
+  vi.stubEnv('AIWG_GROK_BUILD_NATIVE_VERSION', '1.0.93');
+  expect(await collect(adapter.stream(source))).toEqual(records);
   await expect(collect(adapter.stream(source, { value: '1' }))).rejects.toMatchObject({ code: 'SCHEMA_DRIFT' });
-  expect(runner).toHaveBeenCalledTimes(4);
+  expect(runner).toHaveBeenCalledTimes(5);
   const wrongHome = new GrokBuildSessionAdapter(undefined, undefined, { cwd, env: { GROK_HOME: join(root, 'other-home'), PATH: '' }, runner });
   await expect(wrongHome.inspect(source)).rejects.toMatchObject({ code: 'SOURCE_NOT_AUTHORIZED' });
   const changedOutput = new GrokBuildSessionAdapter(undefined, undefined, { cwd, env: { GROK_HOME: grokHome, PATH: '' }, runner: async () => ({ stdout: 'changed output', stderr: '' }) });
@@ -217,7 +224,7 @@ it('automatically falls back to bounded CLI export on native drift and replays i
   await rm(source.locator);
   await symlink(join(fixtures, 'chat_history.jsonl'), source.locator);
   await expect(adapter.inspect(source)).rejects.toMatchObject({ code: 'SOURCE_SYMLINK' });
-  expect(runner).toHaveBeenCalledTimes(4);
+  expect(runner).toHaveBeenCalledTimes(5);
 });
 
 const variants = resolve('test/fixtures/sessions/grok-build/captured-1.0.77-20261110');

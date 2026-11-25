@@ -1,0 +1,7 @@
+{"type": "system", "content": "Synthetic omitted system context."}
+{"type": "user", "content": [{"type": "text", "text": "Synthetic omitted user context."}]}
+{"type": "user", "content": [{"type": "text", "text": "Synthetic omitted system reminder."}], "synthetic_reason": "system_reminder"}
+{"type": "user", "content": [{"type": "text", "text": "<user_query>\nSummarize @notes.txt in one sentence.\n</user_query>\n\n<system-reminder>\nBelow are some potentially helpful/relevant pieces of information for figuring out how to respond\n\n<attached_files>\n\n<file_contents path=\"/absolute/temp/project/notes.txt\" isFullFile=\"true\">\n1→Release checklist (synthetic fixture)\n2→1. Tag the release\n3→2. Publish packages\n4→3. Post the announcement\n</file_contents>\n\n</attached_files>\n\n</system-reminder>"}], "prompt_index": 0}
+{"type": "user", "content": [{"type": "text", "text": "Synthetic omitted system reminder."}], "synthetic_reason": "system_reminder"}
+{"type": "reasoning", "id": "rs_7d5d3353-ceae-4a74-b0d3-5c2838eda425", "summary": [], "encrypted_content": "synthetic-omitted-reasoning", "status": "completed"}
+{"type": "assistant", "content": "The release checklist is a three-step sequence: tag the release, publish the packages, and post the announcement.", "model_id": "grok-4.7-build-fast", "reasoning_effort": "low"}

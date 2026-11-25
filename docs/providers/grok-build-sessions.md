@@ -40,8 +40,8 @@ headings or malformed blocks fail with `MALFORMED_SOURCE` or `SCHEMA_DRIFT`.
 Message Markdown can resemble section headings; retain rejected exports for
 review rather than guessing their structure. Replaying the same source is
 deterministic; the existing importer uses stable identities and checkpoints
-for idempotent import. Adapter version 1.3.0 adds TUI checkpoint metadata to the
-extended native projection and checked cursors; use a separate source when
+for idempotent import. Adapter version 1.4.0 adds inline file ownership metadata
+to the extended native projection and checked cursors; use a separate source when
 migrating from older adapter versions.
 
 **The CLI export omits tool output.** It also omits event timestamps, model,
@@ -54,8 +54,11 @@ transcript prose.
 Imported sessions can contain private prompts, tool commands, file content,
 source code, secrets, attachment names and local paths. Native tool results can
 contain complete file contents. Review sources before import and restrict root
-authorization. AIWG does not import attachment or file-snapshot bytes; acquiring
-those would further increase privacy exposure and requires ownership evidence.
+authorization. Native prompts can already embed complete attached file contents;
+importing such a prompt imports those bytes as text. The captured `@notes.txt`
+example contains a full file with line numbers. AIWG does not open external
+attachment or file-snapshot files; acquiring those would further increase
+privacy exposure and requires ownership evidence.
 
 ## Experimental native projection: exact 1.0.77 and 1.0.92
 
@@ -64,8 +67,9 @@ Unknown versions and schemas still require CLI export fallback; emitted
 provenance records the declared version.
 
 The 2026-11-09 interactive and 2026-11-10 headless/ACP/TUI captures of Grok Build
-1.0.77 establish the store layout of
-`$GROK_HOME/sessions/<url-encoded cwd>/<session-id>/`. Direct reads remain
+1.0.77 and the 2026-11-23 headless captures of 1.0.92 establish the store layout of
+`$GROK_HOME/sessions/<url-encoded cwd>/<session-id>/`. Native reads accept the
+exact version list `1.0.77`, `1.0.92`, not a range. Direct reads remain
 experimental and require **both** variables for every discovery/import/refresh
 or tail operation:
 
@@ -76,8 +80,10 @@ aiwg sessions discover --workspace /work/project --expected-providers grok-build
 ```
 
 The version pin is an operator assertion about the source binary, not a live
-binary probe. No other version string or range enables native reads. Authorize
-only the sessions directory with `--grok-root`; an opt-in grants no filesystem
+binary probe. Use `1.0.77` for the earlier captures and `1.0.92` for November 23.
+No other version string, prerelease, banner or range enables native reads;
+unknown versions fail with `UNSUPPORTED_OPERATION` and an actionable CLI-export
+remediation. Authorize only the sessions directory with `--grok-root`; an opt-in grants no filesystem
 access. Symlinked roots/components and filesystem roots are rejected. Discovery
 matches the encoded cwd against the authorized workspace and ignores unrelated
 stores and files. Native reads require a sibling `summary.json` with matching
@@ -97,7 +103,20 @@ raw cwd and timestamp strings remain subject to that privacy policy. Native chat
 records expose no per-event timestamp. Stable event IDs use source positions,
 without claiming provider event IDs. System content, synthetic system reminders,
 compaction context and encrypted reasoning are excluded with a loss report.
-Attachment, snapshot, resource-state and credential files are never opened.
+External attachment, snapshot, resource-state and credential files are never opened.
+
+The 2026-11-23 headless capture from 1.0.92 establishes inline `<attached_files>` /
+`<file_contents path=...>` text in the owning user prompt. AIWG preserves the
+whole prompt verbatim and records `attachments.acquisitionMode: inline-prompt-text`,
+`ownerSessionId`, the exposed `promptIndex` when present, and
+`externalFilesRead: false` on that event's `native.grok-build` extension. These
+fields identify the text's source, without asserting ownership of an external
+file. The loss report distinguishes unavailable `externalAttachments` from
+the inline text already present. Missing prompt indices remain absent. File
+markup in assistant output remains response text without attachment ownership.
+Captured `rewind_points.jsonl` maps `file_snapshots` and `after_snapshots` are
+empty; their nonempty schemas and ownership remain unverified. Diagnostics in
+`events.jsonl` and rewind-point files are outside this projection and never read.
 
 ### Resume, fork and subagent lineage
 
@@ -187,13 +206,28 @@ the original prefix, rewritten history, appended recall and idempotent replay.
 
 The set-b headless `--prompt-json` image attempt did not reach the model and
 stored no image block in `chat_history.jsonl`. There is no headless attachment
-record to qualify in 1.0.77; accepting an image input does not establish native
-attachment persistence. TUI attachments remain deferred.
+image record to qualify in 1.0.77; accepting an image input does not establish
+native image persistence. TUI attachments remain deferred.
 
-Deferred: uncaptured TUI features, attachments and snapshot ownership,
+The [1.0.92 headless fixtures from 2026-11-23](../../test/fixtures/sessions/grok-build/captured-1.0.92-20261123/README.md)
+were corrected from an initial 1.0.77 label by the conductor on 2026-11-24.
+The binary reported `grok 1.0.92 (b06756fd6256) [stable]` after its November 21
+auto-update. Their historical directory name and captured bytes are retained;
+earlier November 9/10 fixtures remain evidence for 1.0.77. These 1.0.92 captures
+add inline file text, cancelled tool execution, same-ID continuation, explicit
+fork lineage, native diagnostic/empty rewind files, streaming output and public
+Markdown exports. The cancelled tool result preserves its cancellation text;
+the stream reports `status: failed` and `stopReason: cancelled`. No successful
+large tool read is claimed. Public export still omits tool results and inline
+file contents. Compaction did not trigger in these captures; existing ACP/TUI
+text-only fixtures remain the compaction evidence. Tests also mutate partial,
+corrupt and changed-schema records and verify idempotent repository imports.
+
+Deferred: uncaptured TUI features, external attachments and snapshot ownership,
 compaction involving tools, Windows paths, native active registry and
-cross-version drift. The absence of session kind or child-summary parent fields
-is recorded as missing evidence, not filled from transcript prose. ACP transport
+compatibility beyond the two exact captured versions. The absence of session
+kind or child-summary parent fields is recorded as missing evidence, not filled
+from transcript prose. ACP transport
 setup, cancellation and worktree management are outside session-store ingestion.
 
 Reference contracts: [sessions](https://docs.x.ai/build/features/sessions) and

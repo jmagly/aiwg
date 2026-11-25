@@ -1,4 +1,4 @@
-// Project only the supported 1.0.77/1.0.92 chat records; never acquire snapshots or attachments.
+// Project observed 1.0.77/1.0.92 records and inline file text; never open attachment/snapshot files.
 import { z } from 'zod';
 import { SessionContractError, type ProviderRecord } from '../contracts.js';
 import type { BoundedJsonRecord } from '../readers.js';
@@ -37,6 +37,8 @@ export interface NativeProjection {
   compaction?: { tokensBefore: number; tokensAfter: number; checkpointId?: string; promptIndexAtCompaction?: number };
   acquisition?: string;
   occurredAt?: string;
+  promptIndex?: number;
+  inlineFileContent?: boolean;
 }
 export interface NativeLineage {
   parentSessionId?: string;
@@ -68,7 +70,14 @@ export function projectNativeLine(line: BoundedJsonRecord, cwd: string, metadata
   const value = parsed.data;
   const records: NativeProjection[] = [];
   const base = { cwd, ...metadata, sequence: line.sequence * 1_000 };
-  if (value.type === 'user' && !value.synthetic_reason) records.push({ ...base, kind: 'message', role: 'user', content: value.content.map(c => c.text).join('\n') });
+  if (value.type === 'user' && !value.synthetic_reason) {
+    const content = value.content.map(c => c.text).join('\n');
+    records.push({ ...base, kind: 'message', role: 'user', content,
+      ...(value.prompt_index !== undefined ? { promptIndex: value.prompt_index } : {}),
+      ...(content.includes('<attached_files>') && content.includes('</attached_files>')
+        && content.includes('<file_contents path=') ? { inlineFileContent: true } : {}),
+    });
+  }
   if (value.type === 'assistant') {
     if (value.content) records.push({ ...base, kind: 'message', role: 'assistant', content: value.content, model: value.model_id });
     for (const [index, call] of (value.tool_calls ?? []).entries()) records.push({ ...base, sequence: base.sequence + index + 1, kind: 'tool-call', role: 'tool', content: call.arguments, toolName: call.name, toolCallId: call.id, model: value.model_id });
@@ -88,8 +97,10 @@ export function nativeProjectionRecord(sessionId: string, entry: { record: Nativ
       provenance: { product: 'grok-build', acquisition: record.acquisition ?? 'grok-build-native-chat-history', sourceSchema: '1.0.0', nativeStoreInspected: true, toolOutputAvailable: true, grokVersion: record.grokVersion, workingDirectory: record.cwd, sessionCreatedAt: record.sessionCreatedAt, sessionUpdatedAt: record.sessionUpdatedAt, sessionCreatedAtMs: Date.parse(record.sessionCreatedAt), sessionUpdatedAtMs: Date.parse(record.sessionUpdatedAt), currentModelId: record.currentModelId, ...(record.sessionKind ? { sessionKind: record.sessionKind } : {}) },
       ...(record.lineage ? { lineage: record.lineage } : {}),
       ...(record.compaction ? { compaction: record.compaction } : {}),
+      ...(record.inlineFileContent ? { attachments: { acquisitionMode: 'inline-prompt-text', ownerSessionId: sessionId,
+        ...(record.promptIndex !== undefined ? { promptIndex: record.promptIndex } : {}), externalFilesRead: false } } : {}),
       identity: { nativeSessionIdKnown: true, nativeEventIdKnown: false, eventIdentityBasis: 'source-position' },
-      lossReport: { lossless: false, excludedRecordTypes: ['system', 'system_reminder', 'reasoning', ...(record.acquisition ? ['compaction_meta'] : [])], unavailable: [...(record.occurredAt ? [] : ['eventTimestamps']), 'attachments', 'fileSnapshots'] },
+      lossReport: { lossless: false, excludedRecordTypes: ['system', 'system_reminder', 'reasoning', ...(record.acquisition ? ['compaction_meta'] : [])], unavailable: [...(record.occurredAt ? [] : ['eventTimestamps']), record.inlineFileContent ? 'externalAttachments' : 'attachments', 'fileSnapshots'] },
     },
   };
 }
