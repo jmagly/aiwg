@@ -124,7 +124,24 @@ describe('T-OG-04 verified publication and receipt ordering', () => {
       : command === 'empty' ? []
       : command === 'mixed' ? [{ id: 'exists', command: '/usr/bin/test', args: ['-f', artifact] }, { id: 'noop', command: process.execPath, args: ['--version'] }]
       : [{ id: 'probe', command: `/usr/bin/${command}`, args: ['-f', artifact] }];
-    await refused({ ...request(), checks: contentFree }, 'CHECKS_CONTENT_FREE');
+    const result = await refused({ ...request(), checks: contentFree }, 'CHECKS_CONTENT_FREE');
+    expect(result.findings[0]).toContain('referencing the artifact path, basename, or containing directory in args');
+  });
+  it.each([
+    '/usr/bin/node -e "read deliver/answer.json"', '/usr/bin/node\t--test', '/usr/bin/node\n--test',
+    '/usr/bin/node;true', '/usr/bin/node&&true', '/usr/bin/node|true', '/usr/bin/node>out',
+    '/usr/bin/node<input', '/usr/bin/$(node)', '/usr/bin/`node`', '/usr/bin/"node"',
+    "/usr/bin/'node'", '/usr/bin/(node)', '/usr/bin/{node}', '/usr/bin/node\\x',
+    '/usr/bin/node*', '/usr/bin/node?',
+  ])('explains embedded arguments or shell syntax in command %j (#4408)', async command => {
+    const result = await refused({ ...request(), checks: [{ id: 'embedded', command, args: [] }] }, 'CHECK_COMMAND_NOT_EXECUTABLE');
+    expect(result.findings[0]).toContain('command must be a single executable path');
+    expect(result.findings[0]).toContain('put arguments (including the artifact path) in args');
+  });
+  it.each(['omitted', 'reference', 'mixed'])('refuses malformed commands with %s args/checks (#4408)', async kind => {
+    const malformed = { id: 'malformed', command: `${process.execPath} --test`,
+      ...(kind === 'omitted' ? {} : { args: [artifact] }) };
+    await refused({ ...request(), checks: kind === 'mixed' ? [...request().checks, malformed] : [malformed] }, 'CHECK_COMMAND_NOT_EXECUTABLE');
   });
   it.each(['path', 'basename', 'directory', 'embedded', 'mixed'])('accepts a content check with an artifact %s reference', async kind => {
     const check = kind === 'basename' ? { id: 'python', command: '/usr/bin/python3', args: ['-c', 'assert open("artifact.txt").read() == "accepted"'] }

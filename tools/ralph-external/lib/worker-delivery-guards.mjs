@@ -129,8 +129,13 @@ export async function prepareWorkerDeliveryGuard({ worktreeRoot, artifactPath, f
     if (after.ctimeMs !== pinned.stat.ctimeMs || after.mtimeMs !== pinned.stat.mtimeMs || after.size !== pinned.stat.size) {
       refuse('ARTIFACT_CHANGED_AFTER_EXIT', 'artifact changed while checking exit evidence');
     }
+    for (const check of checks) {
+      if (/[\s;&|<>$`"'(){}\\*?]/.test(check.command)) {
+        refuse('CHECK_COMMAND_NOT_EXECUTABLE', 'command must be a single executable path; put arguments (including the artifact path) in args');
+      }
+    }
     if (!checks.some(check => !isContentFreeCheck(check, pinned.realPath))) {
-      refuse('CHECKS_CONTENT_FREE', 'publication requires at least one check beyond known content-free probes, referencing the artifact path, basename, or containing directory');
+      refuse('CHECKS_CONTENT_FREE', 'publication requires at least one check beyond known content-free probes, referencing the artifact path, basename, or containing directory in args');
     }
   };
   // Refuse before probing isolation, then repeat on the verifier's exact pin.

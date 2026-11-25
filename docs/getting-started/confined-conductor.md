@@ -93,7 +93,10 @@ present provider bootstrap skips deployment.
 
 Call `worker-verify-deliver` with `run_dir`, `deliverable_path`, explicit
 `artifact_path`, and a nonempty `checks` array. Each check has a unique `id`, an
-absolute `command`, and optional `args`, `cwd`, `envNames`, `timeoutMs`. These
+absolute `command`, and optional `args`, `cwd`, `envNames`, `timeoutMs`.
+`command` must be a single executable path without whitespace or shell syntax;
+put arguments (including the artifact path) in `args`. Publication refuses
+embedded arguments or shell syntax with `CHECK_COMMAND_NOT_EXECUTABLE`. These
 checks belong to conductor policy; worker claims and manifests never define them.
 Derive them from the task's done criteria: each stated requirement, including edge and
 rejection cases, needs a check that fails if it is missed. The worker's own tests alone
@@ -116,7 +119,7 @@ Publication has three requirements, enforced before any protected check runs:
   by more than two seconds. If the worker final claims a digest for the chosen
   artifact, its bytes must match (`ARTIFACT_CHANGED_AFTER_EXIT`).
 - Include at least one content check referencing the artifact path, basename,
-  or a containing directory in its arguments (`CHECKS_CONTENT_FREE`). The
+  or a containing directory in `args` (`CHECKS_CONTENT_FREE`). The
   narrow filter treats `test`, `[`, `stat`, `ls`, `true`, `file`, and `wc` with
   only path/flag arguments as content-free. A check whose arguments mention
   none of those artifact references is also content-free. Known-empty forms
