@@ -3,6 +3,7 @@ import type { EvalResult } from './models/types.js';
 import type { Adjudication, ArmSummary, Comparison, Interval, PilotDataset, PilotSummary, Resources, Split } from './pilot-types.js';
 import { digest, random } from './pilot-files.js';
 import { validateEvalContract } from './contracts.js';
+import { calibrationMarkdown } from './calibration.js';
 
 const keys = ['success', 'total_tokens', 'context_tokens', 'latency_ms', 'permission_violations', 'invalid_transitions', 'duplicate_effects', 'regressions'] as const;
 const mean = (v: number[]) => v.reduce((n, x) => n + x, 0) / v.length;
@@ -107,5 +108,6 @@ export function pilotMarkdown(pilot: PilotSummary): string {
     '', '| Candidate / baseline | n | Success delta [95% CI] | Token delta | Latency delta (ms) |', '|---|---:|---|---:|---:|');
   for (const c of pilot.comparisons) lines.push(`| ${c.candidate} / ${c.baseline} | ${c.sample_n} | ${c.metrics.success.estimate.toFixed(3)} [${c.metrics.success.lower.toFixed(3)}, ${c.metrics.success.upper.toFixed(3)}] | ${c.metrics.total_tokens.estimate.toFixed(1)} | ${c.metrics.latency_ms.estimate.toFixed(1)} |`);
   lines.push('', 'JSON retains every executable check, failed/partial artifact, blinded adjudication, regression and permission/transition/effect observation.');
+  if (pilot.calibration) lines.push('', calibrationMarkdown(pilot.calibration));
   return lines.join('\n');
 }

@@ -7,6 +7,7 @@ import { validateEvalContract } from './contracts.js';
 import type { EvalReportWithIntegrity, EvalResult } from './models/types.js';
 import type { Adjudication, PilotArm, PilotDataset, ResponseTape } from './pilot-types.js';
 import { buildIntegrityMetadata } from './integrity.js';
+import { loadCalibration } from './calibration.js';
 
 async function observation(dataset: PilotDataset, arm: PilotArm, task: PilotDataset['tasks'][number], tapes: ResponseTape[], root: string) {
   const tape = tapes.find(t => t.task_id === task.id && t.arm_id === (arm.hypothesis === 'H1' ? arm.id : 'h2'));
@@ -81,6 +82,8 @@ export async function runOfflinePilot(datasetPath: string, fixtureRoot: string):
     }
   }
   const pilot = summarizePilot(dataset, records);
+  pilot.calibration = await loadCalibration(fixtureRoot, records);
+  validateEvalContract('PilotSummary', pilot);
   const overall = records.reduce((n, r) => n + r.score, 0) / records.length * 100;
   return {
     model: dataset.pins.model, backend: 'fixture', date: '2026-11-24T00:00:00.000Z', aiwgVersion: 'offline-pilot-v1',

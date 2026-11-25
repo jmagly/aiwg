@@ -1,7 +1,8 @@
 {
   "T-OG-10": {
     "testFiles": [
-      "test/unit/tools/eval-pilot.test.ts"
+      "test/unit/tools/eval-pilot.test.ts",
+      "test/unit/tools/eval-calibration.test.ts"
     ]
   }
 }
