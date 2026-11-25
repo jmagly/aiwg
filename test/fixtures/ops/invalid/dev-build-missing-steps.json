@@ -1,0 +1,17 @@
+{
+  "apiVersion": "dev.ops.aiwg.io/v1",
+  "kind": "DevBuildPlaybook",
+  "metadata": {
+    "name": "ci-build"
+  },
+  "spec": {
+    "targets": {
+      "groups": [
+        "builders"
+      ]
+    },
+    "vars": {
+      "registry": "registry.example"
+    }
+  }
+}

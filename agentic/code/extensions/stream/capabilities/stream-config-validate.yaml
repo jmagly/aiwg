@@ -1,0 +1,46 @@
+apiVersion: ops.aiwg.io/v1
+kind: OpsCapability
+metadata:
+  name: stream-config-validate
+  labels:
+    category: streaming
+  annotations:
+    blast-radius: read-only — inspects one encoder configuration and probes output connectivity; never starts a broadcast
+spec:
+  description: >-
+    Inspect the systemd unit config_target and referenced encoder configuration without exposing credentials.
+    Execute every requested check: no_literal_credentials, env_file_populated, hardware_accel_device_exists,
+    output_endpoint_reachable. Reject unknown checks; do not start the unit. Inspect secret references and
+    presence without copying values. Emit checks {name, passed} and all_requested_checks_run in
+    verification_report. Emit a governed, redacted JSON verification_report containing the named observed
+    results; verification reads that output path. Fail if any requested check is missing or fails.
+  version: 1.0.0
+  inputs:
+    - name: config_target
+      type: string
+      required: true
+    - name: checks
+      type: list
+      required: true
+  outputs:
+    - name: status
+      type: string
+    - name: valid
+      type: boolean
+    - name: checks
+      type: list
+    - name: verification_report
+      type: path
+  target_requirements:
+    os:
+      - linux
+    capabilities:
+      - systemd
+      - jq
+  agent: ops-runbook-executor
+  idempotent: true
+  verification:
+    command: >-
+      jq -e '.all_requested_checks_run == true and (.checks | type == "array" and length > 0 and all(.[];
+      .passed == true))' '{{ verification_report }}'
+    expect: "true"

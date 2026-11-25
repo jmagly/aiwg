@@ -1,0 +1,38 @@
+apiVersion: ops.aiwg.io/v1
+kind: OpsCapability
+metadata:
+  name: flag-coderefs-scan
+  labels:
+    category: progressive-delivery
+  annotations:
+    blast-radius: "repository and flag metadata reads; scan records may be stored by the provider"
+spec:
+  description: "Delegate a code-references scan of the requested repository revision to the selected provider. Record scanned revision, flag references, scan identity and findings; require complete scan evidence before cleanup. Resolve the implementation from project feature_flags.provider through its provider addon; provider none requires a manual approval gate with recorded evidence. This resource is a provider-neutral definition only."
+  version: "1.0.0"
+  inputs:
+    - name: repository
+      type: string
+      required: true
+    - name: revision
+      type: string
+      required: true
+    - name: flags
+      type: list
+      required: true
+  outputs:
+    - name: scan_ref
+      type: string
+    - name: revision
+      type: string
+    - name: references
+      type: list
+    - name: complete
+      type: boolean
+    - name: approval_ref
+      type: string
+    - name: evidence_path
+      type: path
+  idempotent: true
+  verification:
+    command: "jq -e '.complete == true and (.references | type == \"array\") and (.scan_ref | length > 0)' '{{ evidence_path }}'"
+    expect: "true"

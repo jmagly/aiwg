@@ -1,0 +1,37 @@
+apiVersion: ops.aiwg.io/v1
+kind: OpsCapability
+metadata:
+  name: flag-check
+  labels:
+    category: progressive-delivery
+  annotations:
+    blast-radius: "read-only flag configuration, cards and test evidence"
+spec:
+  description: "Check all referenced flags exist, have an owner and explicit removal criteria in $AIWG_ROOT/agentic/code/frameworks/sdlc-complete/templates/deployment/feature-toggle-card.md. Consume flag-states-test evidence for the same flags, revision and suite; require passing forced-off and forced-on results before success. Resolve the implementation from project feature_flags.provider through its provider addon; provider none requires a manual approval gate with recorded evidence. This resource is a provider-neutral definition only."
+  version: "1.0.0"
+  inputs:
+    - name: flags
+      type: list
+      required: true
+    - name: flag_cards
+      type: list
+      required: true
+    - name: revision
+      type: string
+      required: true
+    - name: states_test_evidence
+      type: path
+      required: true
+  outputs:
+    - name: passed
+      type: boolean
+    - name: checked_flags
+      type: list
+    - name: approval_ref
+      type: string
+    - name: evidence_path
+      type: path
+  idempotent: true
+  verification:
+    command: "jq -e '.passed == true and (.checked_flags | length > 0)' '{{ evidence_path }}'"
+    expect: "true"

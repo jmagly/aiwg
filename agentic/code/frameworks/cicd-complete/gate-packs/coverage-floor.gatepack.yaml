@@ -1,0 +1,36 @@
+apiVersion: gates.aiwg.io/v1alpha1
+kind: GatePack
+metadata:
+  id: aiwg:cicd-complete/coverage-floor
+  version: 1.0.0
+  description: Coverage percentage floor for the exact tested revision. Missing observations HOLD. Compose separately with aiwg:dev/ci-flake; do not substitute coverage for test reliability.
+spec:
+  parameters:
+    minCoveragePercent:
+      type: value
+      direction: higher-is-stricter
+      default: 80
+      description: Minimum covered percentage points (0 through 100), computed by ci-coverage.
+  metrics:
+    measurement:
+      provider: test.scalar/v1
+      kind: scalar
+      description: Precomputed numeric observations per named slice; never pool slices with different units.
+  gates:
+    - id: coverage-minimum
+      kind: value-threshold
+      description: Require coverage at or above the configured floor.
+      metric:
+        provider: test.scalar/v1
+        name: measurement
+      threshold:
+        op: gte
+        param: minCoveragePercent
+      scope:
+        mode: listed
+        slices: [coverage]
+      direction: higher-is-stricter
+      onFail: HOLD
+      onInsufficient: HOLD
+  combine:
+    rule: max-severity

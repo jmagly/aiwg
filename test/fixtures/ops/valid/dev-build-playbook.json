@@ -1,0 +1,131 @@
+{
+  "apiVersion": "dev.ops.aiwg.io/v1",
+  "kind": "DevBuildPlaybook",
+  "metadata": {
+    "name": "ci-builder-build",
+    "labels": {
+      "domain": "dev-operations",
+      "type": "build"
+    }
+  },
+  "spec": {
+    "description": "Docker-in-Docker builder setup with GPU variant support",
+    "targets": {
+      "groups": [
+        "{builder-group}"
+      ]
+    },
+    "vars": {
+      "registry": "{registry-url}",
+      "base_image": "{base-image}:{pinned-tag}",
+      "gpu_enabled": false,
+      "resource_limits": {
+        "cpu": "{cpu-limit}",
+        "memory": "{memory-limit}",
+        "gpu": "{gpu-count}"
+      }
+    },
+    "steps": [
+      {
+        "id": "validate-dockerfile",
+        "capability": "dev-pipeline-validate",
+        "inputs": [
+          {
+            "name": "path",
+            "value": "{dockerfile-path}"
+          },
+          {
+            "name": "checks",
+            "value": [
+              "secret-leak",
+              "base-pin",
+              "resource-limits"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "build-image",
+        "capability": "docker-build",
+        "depends_on": [
+          "validate-dockerfile"
+        ],
+        "inputs": [
+          {
+            "name": "context",
+            "value": "{build-context}"
+          },
+          {
+            "name": "dockerfile",
+            "value": "{dockerfile-path}"
+          },
+          {
+            "name": "tags",
+            "value": [
+              "{registry}/{image}:{git-sha}",
+              "{registry}/{image}:{branch}"
+            ]
+          },
+          {
+            "name": "build_args",
+            "value": {
+              "GPU_ENABLED": "{gpu_enabled}"
+            }
+          }
+        ],
+        "retry": {
+          "limit": 1,
+          "backoff": "30s"
+        }
+      },
+      {
+        "id": "scan-image",
+        "capability": "image-scan",
+        "depends_on": [
+          "build-image"
+        ],
+        "outputs": [
+          {
+            "name": "evidence_path"
+          }
+        ],
+        "inputs": [
+          {
+            "name": "image",
+            "value": "{registry}/{image}:{git-sha}"
+          },
+          {
+            "name": "fail_on",
+            "value": "critical"
+          }
+        ]
+      },
+      {
+        "id": "push-image",
+        "capability": "docker-push",
+        "depends_on": [
+          "scan-image"
+        ],
+        "inputs": [
+          {
+            "name": "image",
+            "value": "{registry}/{image}:{git-sha}"
+          },
+          {
+            "name": "digest_record",
+            "value": "{artifact-manifest-path}"
+          },
+          {
+            "name": "scan_evidence",
+            "from": "steps.scan-image.outputs.evidence_path"
+          }
+        ],
+        "gate": {
+          "type": "automated",
+          "message": "Image scan passed, pushing to registry",
+          "blast_radius": "medium"
+        }
+      }
+    ]
+  }
+}

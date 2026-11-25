@@ -1,0 +1,37 @@
+apiVersion: ops.aiwg.io/v1
+kind: OpsCapability
+metadata:
+  name: flag-cleanup-handoff
+  labels:
+    category: progressive-delivery
+  annotations:
+    blast-radius: "cleanup ticket creation or update; flag state is unchanged"
+spec:
+  description: "After release, read removal criteria from $AIWG_ROOT/agentic/code/frameworks/sdlc-complete/templates/deployment/feature-toggle-card.md and create or reuse an owner-assigned cleanup ticket only when those criteria are met. Attach release and code-reference evidence; hand off lifecycle work to sdlc-complete without deleting flags. Resolve the implementation from project feature_flags.provider through its provider addon; provider none requires a manual approval gate with recorded evidence. This resource is a provider-neutral definition only."
+  version: "1.0.0"
+  inputs:
+    - name: flags
+      type: list
+      required: true
+    - name: flag_cards
+      type: list
+      required: true
+    - name: release_evidence
+      type: path
+      required: true
+    - name: coderefs_evidence
+      type: path
+      required: true
+  outputs:
+    - name: criteria_met
+      type: boolean
+    - name: ticket_ref
+      type: string
+    - name: approval_ref
+      type: string
+    - name: evidence_path
+      type: path
+  idempotent: true
+  verification:
+    command: "jq -e '.criteria_met == true and (.ticket_ref | length > 0)' '{{ evidence_path }}'"
+    expect: "true"

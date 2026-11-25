@@ -1,0 +1,46 @@
+apiVersion: ops.aiwg.io/v1
+kind: OpsCapability
+metadata:
+  name: host-verify
+  labels:
+    category: provisioning
+  annotations:
+    blast-radius: read-only — probes one host and its DNS, identity, monitoring and CMDB records
+spec:
+  description: >-
+    Run each requested check against hostname without changing it. Support dns_resolves, ssh_reachable,
+    identity_enrolled, monitoring_reporting and cmdb_registered. Reject unknown checks. Emit checks as a
+    nonempty array of {name, passed} observed results in verification_report, with all_requested_checks_run
+    true only when every requested check ran. Emit a governed, redacted JSON verification_report containing
+    the named observed results; verification reads that output path. Fail if any requested check is missing or
+    fails.
+  version: 1.0.0
+  inputs:
+    - name: hostname
+      type: string
+      required: true
+    - name: checks
+      type: list
+      required: true
+  outputs:
+    - name: status
+      type: string
+    - name: passed
+      type: boolean
+    - name: checks
+      type: list
+    - name: verification_report
+      type: path
+  target_requirements:
+    os:
+      - linux
+    capabilities:
+      - ssh
+      - jq
+  agent: ops-runbook-executor
+  idempotent: true
+  verification:
+    command: >-
+      jq -e '.all_requested_checks_run == true and (.checks | type == "array" and length > 0 and all(.[];
+      .passed == true))' '{{ verification_report }}'
+    expect: "true"

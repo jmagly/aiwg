@@ -5,7 +5,11 @@
     "source": "agentic/code/frameworks/cicd-complete/docs",
     "dest": "docs/frameworks/cicd-complete",
     "files": [
-      "ci-schema-contracts.md"
+      "ci-schema-contracts.md",
+      "phases/assess.md",
+      "phases/design.md",
+      "phases/implement.md",
+      "phases/operate.md"
     ]
   },
   {

@@ -1,0 +1,57 @@
+apiVersion: ops.aiwg.io/v1
+kind: OpsCapability
+metadata:
+  name: ops-audit-log
+  labels:
+    category: governance
+  annotations:
+    blast-radius: >-
+      audit sink only — appends a governed operational record; sensitive context must cross the evidence
+      boundary before any persistence
+spec:
+  description: >-
+    Record a generic operational event using ops-audit-trail. event is required; pipeline, profile,
+    destinations (names only) and verified_bitrate in kbps are optional context. Record timestamp, execution
+    correlation, result and minimum sufficient redacted evidence; never retain stream keys or raw
+    credential-bearing endpoints. Before persistence classify the record and pass
+    prepareEvidenceForSink/publishEvidence (or aiwg ops evidence prepare). Attach lifecycle policy, tier,
+    deadline and action; save only to the approved audit sink. Return the approved audit record path and
+    SHA-256 digest as 64 lowercase hexadecimal characters (without a prefix); verify that persisted record
+    matches the digest.
+  version: 1.0.0
+  inputs:
+    - name: event
+      type: string
+      required: true
+    - name: pipeline
+      type: string
+      required: false
+    - name: profile
+      type: string
+      required: false
+    - name: destinations
+      type: list
+      required: false
+    - name: verified_bitrate
+      type: number
+      required: false
+  outputs:
+    - name: status
+      type: string
+    - name: record_path
+      type: path
+    - name: record_digest
+      type: string
+    - name: boundary_passed
+      type: boolean
+  target_requirements:
+    capabilities:
+      - ops-audit-trail
+      - sha256sum
+  agent: ops-runbook-executor
+  idempotent: false
+  verification:
+    command: >-
+      printf '%s  %s\n' '{{ record_digest }}' '{{ record_path }}' | sha256sum --check --status && printf
+      'verified\n'
+    expect: ^verified$
