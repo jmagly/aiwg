@@ -195,7 +195,7 @@
     {
       "id": "devin",
       "location": "project",
-      "root": ".windsurf/skills",
+      "root": ".devin/skills",
       "status": "projected",
       "outcome": "deployed",
       "validator": "pass",

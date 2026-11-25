@@ -1,0 +1,55 @@
+{
+  "aiwg-model-reasoning-worker": {
+    "name": "aiwg-model-reasoning-worker",
+    "allowed-tools": [
+      "Bash",
+      "Read",
+      "Write",
+      "Edit",
+      "Grep"
+    ],
+    "contract": "WorkerClaims: criterion + evidence + verdict; stop rules"
+  },
+  "aiwg-model-coding-worker": {
+    "name": "aiwg-model-coding-worker",
+    "allowed-tools": [
+      "Bash",
+      "Read",
+      "Write",
+      "Edit",
+      "Grep"
+    ],
+    "contract": "WorkerClaims: criterion + evidence + verdict; stop rules"
+  },
+  "aiwg-model-efficiency-worker": {
+    "name": "aiwg-model-efficiency-worker",
+    "allowed-tools": [
+      "Bash",
+      "Read",
+      "Write",
+      "Edit",
+      "Grep"
+    ],
+    "contract": "WorkerClaims: criterion + evidence + verdict; stop rules"
+  },
+  "aiwg-model-explorer": {
+    "name": "aiwg-model-explorer",
+    "allowed-tools": [
+      "Read",
+      "Grep",
+      "Glob",
+      "Bash"
+    ],
+    "contract": "WorkerClaims: criterion + evidence + verdict; stop rules"
+  },
+  "aiwg-model-verifier": {
+    "name": "aiwg-model-verifier",
+    "allowed-tools": [
+      "Read",
+      "Grep",
+      "Glob",
+      "Bash"
+    ],
+    "contract": "WorkerClaims: criterion + evidence + verdict; stop rules"
+  }
+}

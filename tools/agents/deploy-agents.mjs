@@ -56,7 +56,7 @@
  *   copilot   - GitHub Copilot - .github/agents/, .github/commands/, .github/skills/, .github/copilot-rules/
  *   cursor    - Cursor IDE - .cursor/agents/, .cursor/commands/, .cursor/skills/, .cursor/rules/
  *   warp      - Warp Terminal - .warp/agents/, .warp/commands/, .warp/skills/, .warp/rules/ + WARP.md
- *   devin     - Devin Desktop - .windsurf/agents/, .windsurf/workflows/, .windsurf/skills/, .windsurf/rules/
+ *   devin     - Devin Desktop - .devin/agents/, .devin/skills/, .devin/rules/
  *   windsurf  - Deprecated alias for devin
  *   openclaw  - OpenClaw - ~/.openclaw/agents/, ~/.openclaw/commands/, ~/.openclaw/skills/, ~/.openclaw/rules/, ~/.openclaw/behaviors/
  *   pi        - Pi Coding Agent - .agents/skills/, .pi/skills/, .pi/prompts/, AGENTS.md
@@ -277,6 +277,8 @@ async function mainUnlocked(args, internal) {
     // canonical id keeps generated frontmatter byte-identical for devin,
     // devin-desktop, and the deprecated windsurf selector.
     provider: resolveProvider(cfg.provider),
+    // Retain the raw selector for diagnostics; aliases share native output.
+    providerSelector: cfg.provider,
     dryRun: cfg.dryRun,
     force: cfg.force,
     reasoningModel: cfg.reasoningModel,

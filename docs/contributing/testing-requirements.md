@@ -248,10 +248,11 @@ node tools/testing/check-native-shards.mjs 4
 `test:release-slow`; default shards exclude them. Small public CLI deployment
 smokes and focused CLI contracts remain on every merge. The `test:deployment`
 lane owns the full-corpus deployment suites and runs them one file at a time.
-CI splits it into two shards (`deploymentShards` in `config/test-lanes.mjs`),
-selected with `AIWG_DEPLOYMENT_SHARD=1` or `2`. Locally, `npm run test:deployment`
-runs every file. When you add a deployment suite, add it to the shard whose
-measured time is lower. See
+CI splits it into three shards (`deploymentShards` in `config/test-lanes.mjs`),
+selected with `AIWG_DEPLOYMENT_SHARD=1`, `2`, or `3`. Locally, `npm run test:deployment`
+runs every file. The real legacy Devin upgrade regression owns shard 3; the
+original provider suites keep their existing groups and deadlines. When you add
+a deployment suite, consider its measured time when assigning a shard. See
 [release validation](versioning.md#publication-surfaces-and-release-infrastructure-validation) for the
 required pre-tag/publication gates and manual workflow entry point.
 

@@ -172,8 +172,8 @@ describe('provider definition registry', () => {
     expect(getProviderDefinition('openhuman')?.paths.deployTarget).toBe('mixed');
     expect(getProviderDefinition('openhuman')?.paths.kernelSkills).toBe('~/.openhuman/skills');
     expect(getProviderDefinition('devin')?.surfaces.precedence).toContain('.devin/rules/');
-    expect(getProviderDefinition('devin')?.paths.artifacts.rules).toBe('.windsurf/rules');
-    expect(getProviderDefinition('devin')?.paths.kernelSkills).toBe('.windsurf/skills');
+    expect(getProviderDefinition('devin')?.paths.artifacts.rules).toBe('.devin/rules');
+    expect(getProviderDefinition('devin')?.paths.kernelSkills).toBe('.devin/skills');
   });
 
   it('records the Devin Desktop topology decision without enabling .devin writes', () => {
@@ -191,7 +191,7 @@ describe('provider definition registry', () => {
     expect(windsurf?.aliases).toEqual(expect.arrayContaining(['windsurf', 'devin-desktop', 'devin-local', 'cascade']));
     expect(desktop?.paths.rules).toEqual(['.devin/rules/*.md', '.windsurf/rules/*.md']);
     expect(desktop?.paths.agentsMd).toEqual(['AGENTS.md', 'agents.md']);
-    expect(desktop?.notes.join('\n')).toContain('AIWG keeps .devin/ as ignored local provider output');
+    expect(desktop?.notes.join('\n')).toContain('Devin 3.14 loads .devin/rules/, .devin/skills/, .devin/agents/, and .agents/skills/ natively');
     expect(windsurf?.surfaces.precedence).toEqual([
       '.devin/rules/',
       '.windsurf/rules/',

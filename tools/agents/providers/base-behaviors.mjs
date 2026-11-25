@@ -67,7 +67,7 @@ export const BEHAVIOR_EMULATION_TARGETS = {
   factory: { dir: '.factory/rules/behaviors', extension: '.md', surface: 'Factory rules' },
   opencode: { dir: '.opencode/rule/behaviors', extension: '.md', surface: 'OpenCode rules' },
   warp: { dir: '.warp/rules/behaviors', extension: '.md', surface: 'Warp rules/context surface' },
-  devin: { dir: '.windsurf/rules/behaviors', extension: '.md', surface: 'Devin Desktop rules' },
+  devin: { dir: '.devin/rules/behaviors', extension: '.md', surface: 'Devin Desktop rules' },
   hermes: { dir: '.hermes/behaviors', extension: '.md', surface: 'Hermes behavior context' },
 };
 

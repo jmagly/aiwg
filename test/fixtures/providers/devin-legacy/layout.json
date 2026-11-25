@@ -1,0 +1,157 @@
+{
+  "id": "devin",
+  "displayName": "Devin Desktop",
+  "status": "stable",
+  "aliases": [
+    "windsurf",
+    "devin-desktop",
+    "devin-local",
+    "cascade"
+  ],
+  "builtIn": true,
+  "surfaces": {
+    "primary": "devin",
+    "compatibility": [
+      "devin-desktop",
+      "windsurf",
+      "devin-local",
+      "cascade"
+    ],
+    "precedence": [
+      ".devin/rules/",
+      ".windsurf/rules/",
+      "AGENTS.md",
+      ".windsurfrules"
+    ],
+    "related": [
+      {
+        "id": "devin-desktop",
+        "displayName": "Devin Desktop",
+        "relationship": "same-provider",
+        "deployable": true,
+        "aliases": [
+          "devin",
+          "windsurf",
+          "cascade"
+        ],
+        "paths": {
+          "rules": [
+            ".devin/rules/*.md",
+            ".windsurf/rules/*.md"
+          ],
+          "skills": [],
+          "agentsMd": [
+            "AGENTS.md",
+            "agents.md"
+          ],
+          "legacy": [
+            ".windsurfrules"
+          ]
+        },
+        "notes": [
+          "Devin Desktop is the current product name; --provider devin is preferred and --provider windsurf remains a deprecated compatibility id.",
+          "AIWG keeps .devin/ as ignored local provider output and retains .windsurf/ plus AGENTS.md; the installed 3.11 package is insufficient to verify 3.14 project discovery. Verify on titan before changing paths."
+        ]
+      },
+      {
+        "id": "devin-cli",
+        "displayName": "Devin CLI",
+        "relationship": "future-provider",
+        "deployable": false,
+        "aliases": [],
+        "paths": {
+          "rules": [
+            "AGENTS.md",
+            "AGENTS.local.md",
+            "AGENT.md",
+            ".windsurfrules",
+            "CLAUDE.md"
+          ],
+          "skills": [
+            ".devin/skills/<skill-name>/SKILL.md",
+            ".windsurf/skills/<skill-name>/SKILL.md"
+          ],
+          "agentsMd": [
+            "AGENTS.md"
+          ],
+          "legacy": [
+            ".windsurfrules"
+          ]
+        },
+        "notes": [
+          "Devin CLI has distinct rules and skills surfaces and should not normalize to devin until a dedicated provider behavior issue adds writer support."
+        ]
+      },
+      {
+        "id": "devin-product-skills",
+        "displayName": "Devin Product Skills",
+        "relationship": "companion-standard",
+        "deployable": false,
+        "aliases": [],
+        "paths": {
+          "rules": [],
+          "skills": [
+            ".agents/skills/<skill-name>/SKILL.md"
+          ],
+          "agentsMd": [],
+          "legacy": []
+        },
+        "notes": [
+          "Devin product skills use the Agent Skills layout and are recorded here as a readable surface, not as current AIWG devin deploy output."
+        ]
+      }
+    ]
+  },
+  "detection": {
+    "env": [
+      "WINDSURF_VERSION"
+    ],
+    "process": [
+      "devin-desktop",
+      "windsurf"
+    ],
+    "capabilityId": "devin",
+    "runtimeEnvPriority": 30
+  },
+  "paths": {
+    "artifacts": {
+      "agents": ".windsurf/agents",
+      "commands": ".windsurf/workflows",
+      "skills": ".windsurf/.aiwg/skills",
+      "rules": ".windsurf/rules",
+      "behaviors": ".windsurf/rules"
+    },
+    "kernelSkills": ".windsurf/skills",
+    "configFile": ".windsurfrules",
+    "contextFiles": {
+      "aiwgMd": true,
+      "agentsMd": true,
+      "claudeMdHook": false,
+      "hookFile": "AIWG-windsurf.md",
+      "contextFile": "AGENTS.md"
+    }
+  },
+  "smithPaths": {
+    "agents": ".windsurf/agents",
+    "commands": ".windsurf/workflows",
+    "skills": ".windsurf/skills",
+    "rules": ".windsurf/rules",
+    "fileExtension": ".md",
+    "configFile": ".windsurfrules",
+    "aggregated": true
+  },
+  "skillNamespace": {
+    "deploymentGroup": "one-level",
+    "pathType": "project",
+    "skillsBaseDir": ".windsurf/skills",
+    "subdirLayout": false
+  },
+  "adapters": {
+    "agentFormat": "windsurf-markdown",
+    "hookBridge": null,
+    "mcpInjection": "devin",
+    "contextAggregation": "agents-md",
+    "ruleFormat": "windsurf-rule"
+  },
+  "matrixRef": "devin"
+}

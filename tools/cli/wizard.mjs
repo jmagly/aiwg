@@ -218,6 +218,7 @@ function detectProviders(projectRoot, env = process.env) {
     ['cursor', '.cursor'],
     ['opencode', '.opencode'],
     ['warp', '.warp'],
+    ['devin', '.devin'],
     ['devin', '.windsurf'],
     ['generic', '.agents'],
   ];

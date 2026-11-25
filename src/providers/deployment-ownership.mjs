@@ -32,7 +32,7 @@ export function deploymentOutputRoots(provider, target) {
   const roots = Object.values(provider.paths || {}).filter(Boolean).map(dir => path.isAbsolute(dir)
     ? dir : path.join(target, dir.split(/[\\/]/)[0]));
   if (provider.kernelSkillsPath) roots.push(path.resolve(target, provider.kernelSkillsPath));
-  return [...new Set([...roots, path.join(target, `.${provider.name === 'devin' ? 'windsurf' : provider.name}`), path.join(target, '.agents'),
+  return [...new Set([...roots, path.join(target, `.${provider.name}`), ...(provider.name === 'devin' ? [path.join(target, '.windsurf')] : []), path.join(target, '.agents'),
     ...(provider.deploymentFiles?.(target) || []).map(name => path.join(target, name)),
     ...['AGENTS.md', 'AIWG.md', 'WORKSPACE.md', 'CLAUDE.md', 'WARP.md', '.hermes.md', 'opencode.json',
       '.windsurfrules', 'models.json', '.aiwg/frameworks', '.aiwg/.aiwg-manifest.json'].map(name => path.join(target, name))])];

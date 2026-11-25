@@ -28,10 +28,11 @@ describe('Devin Desktop identity and legacy installation support', () => {
     expect(listProviderDefinitions().filter(d => ['devin', 'windsurf'].includes(d.id)).map(d => d.id)).toEqual(['devin']);
     const def = getProviderDefinition('devin')!;
     expect(def.displayName).toBe('Devin Desktop');
-    expect(def.paths.artifacts).toEqual({ agents: '.windsurf/agents', commands: '.windsurf/workflows', skills: '.windsurf/.aiwg/skills', rules: '.windsurf/rules', behaviors: '.windsurf/rules' });
-    expect(def.paths.kernelSkills).toBe('.windsurf/skills');
-    expect(resolveMcpConfigPath('windsurf')).toBe(resolveMcpConfigPath('devin'));
-    expect(resolveMcpConfigPath('devin')).toMatch(/\.codeium\/windsurf\/mcp_config\.json$/);
+    expect(def.paths.artifacts).toEqual({ agents: '.devin/agents', commands: null, skills: '.devin/.aiwg/skills', rules: '.devin/rules', behaviors: '.devin/rules' });
+    expect(def.paths.kernelSkills).toBe('.devin/skills');
+    expect(resolveMcpConfigPath('devin', '/proj')).toBe(join('/proj', '.devin/mcp_config.json'));
+    // The deprecated selector resolves to the same native destination.
+    expect(resolveMcpConfigPath('windsurf', '/proj')).toBe(join('/proj', '.devin/mcp_config.json'));
   });
   it.each(['windsurf', 'devin-desktop'])('detects the %s binary as Devin Desktop', async binary => {
     const { home, project } = await fixture();

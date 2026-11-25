@@ -394,7 +394,7 @@ Content`,
 
       await deployer.deploy(target);
 
-      const agentsDir = path.join(projectDir, '.windsurf/agents');
+      const agentsDir = path.join(projectDir, '.devin/agents');
       expect(existsSync(agentsDir)).toBe(true);
       const files = await fs.readdir(agentsDir);
       expect(files.some((f) => f === 'writing-validator.md')).toBe(true);

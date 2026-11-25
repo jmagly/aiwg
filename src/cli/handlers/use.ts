@@ -562,6 +562,7 @@ function getProviderKernelSkillsPath(provider: string): string {
 
 const PROVIDER_GENERATED_GITIGNORE_PATTERNS: Record<string, string[]> = {
   codex: ['.codex/', '.agents/'],
+  devin: ['.devin/', '.windsurf/', '.agents/'],
 };
 
 /**
@@ -3830,7 +3831,7 @@ export class UseHandler implements CommandHandler {
       return { exitCode: 1, message: unsupportedMessage };
     }
     if (requestedProvider.trim().toLowerCase() === 'windsurf') {
-      ui.warn("Provider id 'windsurf' is deprecated; use '--provider devin' for Devin Desktop. Existing .windsurf/ output paths remain supported.");
+      ui.warn("Provider id 'windsurf' is deprecated; use '--provider devin' for Devin Desktop. Deploying native .devin/ paths; managed .windsurf/ output will be migrated.");
     }
     const provider = builtInProviderResolution.provider;
     const providerDeployArgs = builtInProviderResolution.requestedProvider

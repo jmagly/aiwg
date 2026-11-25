@@ -192,7 +192,7 @@ describe('AgentGenerator', () => {
       expect(agent.path).toBe(path.join(tempDir, '.cursor/agents/test-agent.json'));
     });
 
-    it('should generate deployment path from ProviderDefinition for windsurf', async () => {
+    it('should generate native Devin deployment path from ProviderDefinition', async () => {
       const options: AgentOptions = {
         name: 'test-agent',
         description: 'Test agent',
@@ -202,7 +202,7 @@ describe('AgentGenerator', () => {
 
       const agent = await generator.generateAgent(options);
 
-      expect(agent.path).toBe(path.join(tempDir, '.windsurf/agents/test-agent.md'));
+      expect(agent.path).toBe(path.join(tempDir, '.devin/agents/test-agent.md'));
     });
 
     it('should validate agent name format', async () => {

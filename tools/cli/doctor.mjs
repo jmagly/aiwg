@@ -175,7 +175,7 @@ const PROVIDER_AGENT_DIRS = {
   cursor:   '.cursor/agents',
   opencode: '.opencode/agent',
   warp:     '.warp/agents',
-  devin: '.windsurf/agents',
+  devin: '.devin/agents',
   openhuman: '.agents/agents',
   omp: '.omp/agents',
   pi: '.pi',

@@ -143,6 +143,7 @@
     "test/integration/decision-playground-skill.test.ts": 7.104,
     "test/integration/deploy-prune-stale.test.ts": 2.505,
     "test/integration/deployment-in-process.test.ts": 3.029,
+    "test/integration/devin-legacy-migration.test.ts": 555.196,
     "test/integration/devin-provider-selector.test.ts": 9.467,
     "test/integration/docs-discoverability-audit.test.ts": 0.3,
     "test/integration/effect-cli.test.ts": 12.444,
