@@ -1,8 +1,8 @@
 # aiwg-dev Overview
 
-aiwg-dev is the contributor toolkit for building AIWG itself. Use it when you are adding or validating addons,
-frameworks, agents, skills, commands, rules, or templates in the AIWG source tree. It is not installed by default and
-is not intended for end users of deployed frameworks.
+aiwg-dev is the toolkit for developing and extending AIWG. Use it when you run AIWG from a local checkout (dev mode,
+`aiwg --use-dev <path>`), or when you add or validate addons, frameworks, agents, skills, commands, rules, or templates
+in an AIWG source tree. It is not installed by default or by `aiwg use all`; install it with `aiwg use aiwg-dev`.
 
 ## Common Use Cases
 
@@ -76,10 +76,11 @@ A "normalized" `.aiwg/` path is one that exists (or will exist) in every project
 
 aiwg-dev is for:
 - AIWG contributors adding new addons, frameworks, or skills
+- Users who customize AIWG by running it from their own checkout in dev mode
 - Developers building custom addons that follow AIWG conventions
 - Anyone running pre-PR validation checks on AIWG source changes
 
-It is not for end users of deployed AIWG frameworks. End users should use `aiwg doctor` (the runtime health check) rather than `dev-doctor` (the source structure check).
+If you only use deployed AIWG frameworks and do not change AIWG itself, you do not need it: use `aiwg doctor` (the runtime health check) rather than `dev-doctor` (the source structure check).
 
 ## References
 

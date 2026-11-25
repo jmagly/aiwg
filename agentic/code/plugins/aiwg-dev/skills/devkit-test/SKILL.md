@@ -2,7 +2,7 @@
 namespace: aiwg
 name: devkit-test
 platforms: [all]
-description: Auto-fix discoverable issues
+description: Run comprehensive tests on an AIWG package (addon, framework or extension) to verify structure, functionality and deployment readiness
 ---
 
 # Test AIWG Package

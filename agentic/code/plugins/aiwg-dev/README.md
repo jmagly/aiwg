@@ -2,40 +2,55 @@
 
 Evidence status: design intent.
 
-**For AIWG contributors only.** This addon provides rules and skills to help people building AIWG itself, AIWG addons, and AIWG extensions avoid common structural mistakes.
+Tools for **developing and extending AIWG**: dev mode (run AIWG from a local checkout instead of the installed copy), scaffolding, validation, and source-structure checks. It is for AIWG contributors and for users who customize AIWG from their own checkout. Its rules help people building AIWG itself, AIWG addons, and AIWG extensions avoid common structural mistakes.
 
 This addon is **intentionally excluded from `aiwg use all`** and must be installed explicitly.
+
+> Naming note: `aiwg use dev` is a different bundle (the ops DevOps extension). Dev mode is `aiwg --use-dev <path>`; this toolkit is `aiwg use aiwg-dev`.
 
 ---
 
 ## Installation
 
 ```bash
-aiwg use aiwg-dev
+aiwg --use-dev <path-to-aiwg-checkout>   # optional: run AIWG from your local checkout (dev mode)
+aiwg use aiwg-dev                        # install the developer toolkit
 ```
 
-This is a contributor tool. Do not install it in production projects or end-user workspaces.
+Install it where you develop or customize AIWG. Projects that only use deployed AIWG frameworks do not need it.
 
 ---
 
 ## What It Provides
 
-### Rules (4)
+### Rules (6)
 
 | Rule | Priority | Purpose |
 |------|----------|---------|
 | `skill-placement` | HIGH | Prevent accidental file placement in `.claude/` or provider dirs instead of `agentic/code/` |
 | `no-circular-skill-calls` | HIGH | Prevent infinite loops from skills that call back into their own CLI command |
+| `aiwg-ci-safety` | HIGH | Require explicit human authorization before changing AIWG's own CI; keep deployable CI templates in framework source |
 | `component-completeness` | MEDIUM | Ensure each artifact type has all required files before sharing |
 | `addon-boundaries` | MEDIUM | Enforce the `agentic/code/` vs `.aiwg/` source/output boundary |
+| `aiwg-dir-reference-contract` | MEDIUM | Use manifest-derived project paths and `$AIWG_ROOT` references in distributable artifacts |
 
-### Skills (3)
+### Skills (13)
 
 | Skill | Purpose |
 |-------|---------|
+| `dev-mode-init` | Switch the AIWG CLI to dev mode (local checkout), rebuild, deploy the toolkit, and run a health check |
+| `dev-doctor` | Development-focused health check of the AIWG repository structure |
+| `devkit-create-addon` | Guided creation of a new addon |
+| `devkit-create-agent` | Guided creation of a new agent |
+| `devkit-create-command` | Guided creation of a new slash command |
+| `devkit-create-extension` | Guided creation of a new extension |
+| `devkit-create-framework` | Guided creation of a new framework (wraps `scaffold-framework`) |
+| `devkit-create-skill` | Guided creation of a new skill (wraps `add-skill`) |
+| `devkit-validate` | Validate addon, framework, or extension structure and manifest |
+| `devkit-test` | Test an AIWG package for structure, functionality, and deployment readiness |
 | `validate-component` | Check a single skill, agent, or command for completeness and correctness |
 | `validate-addon` | Check an entire addon directory for release readiness |
-| `dev-doctor` | Full development-environment health check across the AIWG repository |
+| `link-check` | Verify `@file` references in skills and agents against the linking contract |
 
 ---
 
@@ -61,7 +76,7 @@ aiwg use aiwg-dev        # Install
 aiwg remove aiwg-dev     # Remove
 ```
 
-End users do not need contributor tooling in their workspaces.
+Projects that only use deployed AIWG frameworks do not need this toolkit.
 
 ---
 

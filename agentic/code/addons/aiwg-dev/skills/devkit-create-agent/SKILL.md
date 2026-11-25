@@ -40,7 +40,7 @@ Create a new agent with AI assistance to define expertise, workflow, and capabil
 
 ## Templates
 
-Templates are in `~/.local/share/ai-writing-guide/templates/agent-scaffolding/`.
+Templates are in `$AIWG_ROOT/templates/agent-scaffolding/`.
 
 ### simple (default)
 Single-purpose, focused agent with minimal structure (Rule 1: Single Responsibility).

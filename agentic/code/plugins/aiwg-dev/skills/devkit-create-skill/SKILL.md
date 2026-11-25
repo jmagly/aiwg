@@ -2,7 +2,7 @@
 namespace: aiwg
 name: devkit-create-skill
 platforms: [all]
-description: Enable interactive design mode
+description: Create a new skill (SKILL.md) inside an existing AIWG addon or framework with AI-guided design. Wraps the canonical add-skill skill and `aiwg add-skill` command.
 triggers:
   - "help me build a custom workflow"
   - "help me turn this repeated process into an AIWG workflow"
@@ -37,9 +37,9 @@ Verify `$ARGUMENTS` contains:
 
 Check target exists:
 ```bash
-ls ~/.local/share/ai-writing-guide/agentic/code/addons/<target>/
+ls agentic/code/addons/<target>/
 # or
-ls ~/.local/share/ai-writing-guide/agentic/code/frameworks/<target>/
+ls agentic/code/frameworks/<target>/
 ```
 
 ### 2. Interactive Design (if --interactive)
@@ -79,9 +79,7 @@ Guide the user through skill design:
 Run the CLI scaffolding tool:
 
 ```bash
-node ~/.local/share/ai-writing-guide/tools/scaffolding/add-skill.mjs \
-  <name> \
-  --to <target>
+aiwg add-skill <name> --to <target>
 ```
 
 ### 4. Generated Structure
