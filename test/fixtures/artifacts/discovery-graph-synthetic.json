@@ -1,0 +1,21 @@
+{
+  "note": "Synthetic unit-test counts and similarities only; these are not observed AIWG usage or model embeddings.",
+  "coUse": {
+    "windows": 100,
+    "occurrences": {"a": 20, "b": 20, "c": 80, "d": 10},
+    "pairs": [
+      {"source": "a", "target": "b", "count": 10},
+      {"source": "a", "target": "c", "count": 10}
+    ]
+  },
+  "similarities": [
+    {"source": "a", "target": "b", "similarity": 0.9},
+    {"source": "b", "target": "c", "similarity": 0.8},
+    {"source": "a", "target": "c", "similarity": 0.7},
+    {"source": "c", "target": "d", "similarity": 0.95}
+  ],
+  "nearestNeighbours": 3,
+  "minSharedNeighbours": 1,
+  "nowSeconds": 1000,
+  "uses": {"a": [100, 900], "b": [990, 995]}
+}

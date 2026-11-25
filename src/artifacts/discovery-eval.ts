@@ -9,10 +9,11 @@ import { loadGraphIndexFile } from './index-reader.js';
 import { loadFortemiCoreExport, loadFortemiCoreMetadataEntries, scoreStaticRecord } from './fortemi-core-query-adapter.js';
 import { discoverCapability } from './query-engine.js';
 import type { AiwgFortemiIndexExport } from './browser-export.js';
+import { measureDiscoveryGraphMatrix, type DiscoveryGraphMatrixReport } from './discovery-graph-eval.js';
 
 export const DISCOVERY_EVAL_SCHEMA = 'aiwg.discovery-relevance.v1';
 export const DISCOVERY_EVAL_REPORT_SCHEMA = 'aiwg.discovery-eval-report.v1';
-export const DISCOVERY_EVAL_STRATEGIES = ['lexical', 'dense', 'hybrid-rrf', 'rerank', 'chunk-multivector'] as const;
+export const DISCOVERY_EVAL_STRATEGIES = ['lexical', 'dense', 'hybrid-rrf', 'rerank', 'chunk-multivector', 'graph', 'degree-matched-random', 'shuffled-graph'] as const;
 export type DiscoveryEvalStrategy = typeof DISCOVERY_EVAL_STRATEGIES[number];
 export type DiscoveryEvalBackend = 'local' | 'fortemi-core';
 
@@ -34,6 +35,7 @@ export interface DiscoveryEvalMetrics {
 }
 
 export interface DiscoveryEvalReport {
+  experimental_graph?: DiscoveryGraphMatrixReport;
   schema: typeof DISCOVERY_EVAL_REPORT_SCHEMA;
   corpus: { path: string; schema: typeof DISCOVERY_EVAL_SCHEMA; query_count: number };
   configuration: { backend: DiscoveryEvalBackend; strategy: DiscoveryEvalStrategy; limit: number; graph: 'framework' };
@@ -149,14 +151,14 @@ function prototypeRank(entries: MetadataEntry[], query: string, strategy: Exclud
     .map(({ entry, score }) => ({ id: identity(entry), type: entry.type, name: entry.name ?? entry.title, score: round(score) }));
 }
 
-async function currentRank(cwd: string, query: DiscoveryRelevanceQuery, backend: DiscoveryEvalBackend, limit: number): Promise<RankedDiscoveryItem[]> {
+async function currentRank(cwd: string, query: DiscoveryRelevanceQuery, backend: DiscoveryEvalBackend, limit: number, experimentalGraph = false): Promise<RankedDiscoveryItem[]> {
   const output: string[] = []; const original = console.log;
   console.log = (...args: unknown[]) => output.push(args.map(String).join(' '));
   try {
-    await discoverCapability(cwd, { phrase: query.query, typeFilter: [query.target_type], graph: 'framework', backend, limit, json: true, jsonPretty: false, includePaths: false });
+    await discoverCapability(cwd, { phrase: query.query, typeFilter: [query.target_type], graph: 'framework', backend, limit, json: true, jsonPretty: false, includePaths: false, noBuild: true, experimentalGraph });
   } finally { console.log = original; }
-  const envelope = JSON.parse(output.join('')) as { results: Array<{ id: string; type: string; name?: string; title: string; score: number }> };
-  return envelope.results.map((item) => ({ id: item.id, type: item.type, name: item.name ?? item.title, score: item.score }));
+  const envelope = JSON.parse(output.join('')) as { results: Array<{ id: string; type: string; name?: string; title: string; score: number; ranking?: { final_score: number } }> };
+  return envelope.results.map((item) => ({ id: item.id, type: item.type, name: item.name ?? item.title, score: item.ranking?.final_score ?? item.score }));
 }
 
 function fortemiStaticRank(exported: AiwgFortemiIndexExport, query: DiscoveryRelevanceQuery, limit: number): RankedDiscoveryItem[] {
@@ -223,6 +225,10 @@ export async function evaluateDiscovery(options: {
   cwd: string; fixturePath: string; backend: DiscoveryEvalBackend; strategy: DiscoveryEvalStrategy; limit?: number;
   latencyCeilingMs?: number; storageCeilingRatio?: number;
 }): Promise<DiscoveryEvalReport> {
+  if (['graph', 'degree-matched-random', 'shuffled-graph'].includes(options.strategy)) {
+    if (options.backend !== 'local') throw new Error('Experimental graph evaluation requires the local backend');
+    return graphEvaluationReport(options);
+  }
   const records = parseDiscoveryRelevanceJsonl(fs.readFileSync(options.fixturePath, 'utf8'));
   validateOperationalCoverage(records);
   const limit = options.limit ?? 10; const entries = loadEntries(options.cwd, options.backend);
@@ -288,6 +294,40 @@ export async function evaluateDiscovery(options: {
   };
 }
 
+/** Offline matrix uses the current lexical owner for every strategy and never creates observations. */
+export async function evaluateDiscoveryGraphMatrix(options: {
+  cwd: string; fixturePath: string; limit?: number; latencyCeilingMs?: number; storageCeilingRatio?: number; rssCeilingBytes?: number;
+}): Promise<DiscoveryGraphMatrixReport> {
+  const records = parseDiscoveryRelevanceJsonl(fs.readFileSync(options.fixturePath, 'utf8'));
+  validateOperationalCoverage(records);
+  return measureDiscoveryGraphMatrix({ ...options, records, limit: options.limit ?? 10,
+    lexicalIndexBytes: indexBytes(options.cwd, 'local'), metrics: calculateDiscoveryMetrics,
+    lexicalRank: (query, limit) => currentRank(options.cwd, query, 'local', limit),
+    graphRank: (query, limit) => currentRank(options.cwd, query, 'local', limit, true) });
+}
+
+async function graphEvaluationReport(options: Parameters<typeof evaluateDiscovery>[0]): Promise<DiscoveryEvalReport> {
+  const matrix = await evaluateDiscoveryGraphMatrix(options);
+  const run = matrix.runs.find(item => item.strategy === options.strategy)!;
+  const cpus = os.cpus();
+  return {
+    schema: DISCOVERY_EVAL_REPORT_SCHEMA, experimental_graph: matrix,
+    corpus: { path: path.relative(options.cwd, options.fixturePath), schema: DISCOVERY_EVAL_SCHEMA, query_count: run.metrics.query_count },
+    configuration: { backend: 'local', strategy: options.strategy, limit: options.limit ?? 10, graph: 'framework' },
+    hardware: { ...matrix.hardware, logical_cpus: cpus.length, total_memory_bytes: os.totalmem() },
+    metrics: run.metrics,
+    performance: { p50_latency_ms: run.warm_p50_latency_ms, p95_latency_ms: run.warm_p95_latency_ms,
+      index_bytes: matrix.measurements.lexical_index_bytes + matrix.measurements.serialized_graph_bytes,
+      peak_resident_memory_bytes: matrix.measurements.peak_rss_bytes },
+    adoption_gate: { baseline: 'local:lexical', no_per_type_hit_at_3_regression: null, aggregate_mrr_improvement: null,
+      mrr_95pct_confidence_interval: null, latency_ceiling_ms: matrix.budgets.latency_ms, storage_ceiling_ratio: matrix.budgets.storage_ratio,
+      clears_gate: false, decision: matrix.budgets.passed
+        ? 'Measured resource budgets pass; experimental only. Review graph observations, controls and held-out downstream evidence before adoption.'
+        : `Budget missed: ${matrix.budgets.missed.join(', ')}. Experimental only; do not adopt.` },
+    queries: run.queries,
+  };
+}
+
 export function formatDiscoveryEvalSummary(report: DiscoveryEvalReport): string {
   const m = report.metrics;
   return [
@@ -300,5 +340,14 @@ export function formatDiscoveryEvalSummary(report: DiscoveryEvalReport): string 
     `Peak resident memory  ${report.performance.peak_resident_memory_bytes}`, '', 'Per-type Hit@3:',
     ...Object.entries(m.per_type_recall_at_3).map(([type, value]) => `  ${type.padEnd(10)} ${value.toFixed(4)}`), '',
     `Decision: ${report.adoption_gate.decision}`,
+    ...(report.experimental_graph ? [
+      'Historical 80-query partition: not identified',
+      `Graph storage ratio: ${report.experimental_graph.measurements.storage_ratio.toFixed(3)}`,
+      `Incremental RSS bytes: ${report.experimental_graph.measurements.incremental_rss_bytes}`,
+      `Graph construction: ${report.experimental_graph.measurements.construction_ms} ms`,
+      `Resource budgets: ${report.experimental_graph.budgets.passed ? 'pass' : `MISSED: ${report.experimental_graph.budgets.missed.join(', ')}`}`,
+      ...report.experimental_graph.runs.map(run => `${run.strategy} seed=${run.seed ?? 'none'} Hit@3=${run.metrics.hit_at_3} MRR=${run.metrics.mrr} warm p95=${run.warm_p95_latency_ms} ms`),
+      ...report.experimental_graph.limitations,
+    ] : []),
   ].join('\n');
 }

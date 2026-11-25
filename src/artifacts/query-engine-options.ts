@@ -38,6 +38,8 @@ export interface QueryOptions {
  * @implements #1214
  */
 export interface DiscoverParams {
+  /** Default false: offline graph prototype over cached local metadata and supplied fixtures. */
+  experimentalGraph?: boolean;
   /** Host hook only: read prebuilt/local metadata, omit writes, refresh and rule assembly.
    * Candidates are hints; callers must fetch governing rule bodies before apply. */
   promptContext?: boolean;

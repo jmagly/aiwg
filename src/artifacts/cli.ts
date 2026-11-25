@@ -412,12 +412,12 @@ export function printIndexUsage(): void {
 
 async function handleEvalDiscovery(args: string[]): Promise<void> {
   if (args.includes('--help') || args.includes('-h')) {
-    console.log('Usage: aiwg index eval-discovery --queries <jsonl> --backend <local|fortemi-core> --strategy <lexical|dense|hybrid-rrf|rerank|chunk-multivector> [options]');
+    console.log('Usage: aiwg index eval-discovery --queries <jsonl> --backend <local|fortemi-core> --strategy <name> [options]');
     console.log('');
     console.log('Options:');
     console.log('  --queries <path>   Versioned relevance JSONL fixture (required)');
     console.log('  --backend <name>   local or fortemi-core (required)');
-    console.log('  --strategy <name>  lexical, dense, hybrid-rrf, rerank, or chunk-multivector');
+    console.log('  --strategy <name>  lexical, dense, hybrid-rrf, rerank, chunk-multivector, graph, degree-matched-random, shuffled-graph (graph strategies: offline local matrix)');
     console.log('  --out <path>       Write the JSON report to a file');
     console.log('  --json             Emit JSON instead of the readable summary');
     return;
@@ -1756,6 +1756,7 @@ async function handleDiscover(args: string[]): Promise<void> {
     webReleaseOptions,
     includePaths: false,
     noBuild: flags.includes('--no-build'),
+    experimentalGraph: flags.includes('--experimental-graph'),
     verbose: flags.includes('--verbose') || flags.includes('--debug'),
   });
 }

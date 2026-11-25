@@ -31,9 +31,12 @@ export async function discoverCapability(
   cwd: string,
   params: DiscoverParams,
 ): Promise<void> {
+  if (params.experimentalGraph && params.resourceSource && params.resourceSource !== 'local') {
+    throw new Error('Experimental graph discovery requires local resources');
+  }
   loadGlobalGraphConfigs();
   const startTime = Date.now();
-  const readOnly = Boolean(params.promptContext || params.noBuild);
+  const readOnly = Boolean(params.promptContext || params.noBuild || params.experimentalGraph);
   let indexWriteFailure: 'framework' | 'project' | undefined;
   const types = params.typeFilter && params.typeFilter.length > 0
     ? params.typeFilter
@@ -350,13 +353,19 @@ export async function discoverCapability(
       lexicalDiagnostics.set(entry.path, detailed.diagnostic);
     }
   }
-  const scored = dedupeDiscoverResults(
+  let scored = dedupeDiscoverResults(
     await applyFacetFusion(
       Array.from(combinedByPath.values()).sort(compareDiscoverResults),
       candidates,
       params.phrase,
     ),
-  ).slice(0, limit);
+  );
+  if (params.experimentalGraph) {
+    const { loadOfflineDiscoveryGraph } = await import('./discovery-graph-loader.js');
+    const { rankDiscoveryGraph } = await import('./discovery-graph.js');
+    scored = rankDiscoveryGraph(loadOfflineDiscoveryGraph(cwd, entries, params.graph), scored, candidates, params.phrase);
+  }
+  scored = scored.slice(0, limit);
   const relaxed = scored.some(result => !strictPaths.has(result.entry.path));
 
   if (params.shadowRoute) {
