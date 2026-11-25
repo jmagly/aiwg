@@ -247,7 +247,7 @@
     {
       "name": "aiwg-dev",
       "source": "./agentic/code/plugins/aiwg-dev",
-      "description": "Developer tooling for building AIWG itself and AIWG addons/frameworks. Not for end users — install explicitly with `aiwg use aiwg-dev`.",
+      "description": "Tools for developing and extending AIWG: dev mode (run AIWG from a local checkout), scaffolding, validation and source-structure checks. For AIWG contributors and for users who customize AIWG from their own checkout. Not part of `aiwg use all`; install explicitly with `aiwg use aiwg-dev`.",
       "version": "2026.11.9",
       "author": {
         "name": "AIWG Contributors"

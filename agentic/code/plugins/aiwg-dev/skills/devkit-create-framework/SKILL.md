@@ -2,12 +2,14 @@
 namespace: aiwg
 name: devkit-create-framework
 platforms: [all]
-description: Comma-separated phase names
+description: Guided creation of a new AIWG framework (lifecycle phases, agents, templates) in a local AIWG checkout. Wraps the canonical scaffold-framework skill and `aiwg scaffold-framework` command.
 ---
 
 # Create AIWG Framework
 
 Create a new AIWG framework with complete lifecycle structure.
+
+The canonical skill for this action is `scaffold-framework` (aiwg-utils); this skill adds the guided design questions and runs the same `aiwg scaffold-framework` command. Run it from the root of your AIWG checkout (for example after switching to dev mode with `aiwg --use-dev <path>`).
 
 ## Process
 
@@ -19,7 +21,7 @@ Check that `$ARGUMENTS` contains a valid framework name:
 
 Check existing frameworks:
 ```bash
-ls ~/.local/share/ai-writing-guide/agentic/code/frameworks/
+ls agentic/code/frameworks/
 ```
 
 ### 2. Interactive Design (if --interactive)
@@ -59,8 +61,7 @@ If `--interactive` is specified, guide the user through framework design:
 Run the CLI scaffolding tool:
 
 ```bash
-node ~/.local/share/ai-writing-guide/tools/scaffolding/scaffold-framework.mjs \
-  <name> \
+aiwg scaffold-framework <name> \
   --description "<derived from interactive>" \
   --phases "<phase1,phase2,...>"
 ```
@@ -105,7 +106,7 @@ Reference documentation:
 Framework Created: <name>
 ─────────────────────────
 
-Location: ~/.local/share/ai-writing-guide/agentic/code/frameworks/<name>/
+Location: agentic/code/frameworks/<name>/
 
 Phases: <phase1> → <phase2> → ... → <phaseN>
 

@@ -13,11 +13,14 @@ You activate AIWG dev mode, rebuild the local source, deploy the developer toolk
 ## Triggers
 
 - "switch to dev mode" → full dev mode bootstrap
-- "aiwg use dev" → full dev mode bootstrap
+- "aiwg --use-dev" → full dev mode bootstrap
+- "run aiwg from my local checkout" → full dev mode bootstrap
 - "activate dev mode" → full dev mode bootstrap
 - "use local repo source" → switch CLI to dev + build
 - "switch back to stable" → deactivate dev mode
 - "rebuild and redeploy dev" → build + redeploy aiwg-dev without switching mode
+
+> `aiwg use dev` is not dev mode: it installs the ops DevOps extension (`dev`). Dev mode is `aiwg --use-dev <path>`; the developer toolkit is `aiwg use aiwg-dev`.
 
 ## Trigger Patterns Reference
 

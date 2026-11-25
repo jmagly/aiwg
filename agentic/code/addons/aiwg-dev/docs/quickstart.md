@@ -8,7 +8,7 @@ Enable the developer toolkit and validate one AIWG component before review.
 
 ## Who This Is For
 
-aiwg-dev is for contributors working on AIWG source code — adding addons, frameworks, agents, skills, or commands. If you are an end user of deployed AIWG frameworks, use `aiwg doctor` instead.
+aiwg-dev is for anyone developing or extending AIWG: contributors working on AIWG source code, and users who run AIWG from their own checkout in dev mode (`aiwg --use-dev <path>`) to customize it — adding addons, frameworks, agents, skills, or commands. If you only use deployed AIWG frameworks, use `aiwg doctor` instead.
 
 ## Enable If Needed
 

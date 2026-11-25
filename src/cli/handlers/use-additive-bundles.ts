@@ -4,7 +4,7 @@ import path from 'node:path';
 
 /**
  * Addons excluded from `aiwg use all`.
- * aiwg-dev is contributor-only tooling — not for end users.
+ * aiwg-dev is developer tooling (dev mode, scaffolding, validation) — installed only on explicit request.
  */
 export const USE_ALL_DISALLOW = new Set(['aiwg-dev']);
 
