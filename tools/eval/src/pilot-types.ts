@@ -1,5 +1,6 @@
 // Typed projections of the canonical eval contract's optional pilot evidence.
 import type { EvalResult, TestCase } from './models/types.js';
+import type { CalibrationReport } from './calibration.js';
 
 export type Split = 'dev' | 'held-out';
 export type Hypothesis = 'H1' | 'H2';
@@ -98,6 +99,7 @@ export interface Comparison {
   metrics: Record<'success' | 'total_tokens' | 'context_tokens' | 'latency_ms' | 'permission_violations' | 'invalid_transitions' | 'duplicate_effects' | 'regressions', Interval>;
 }
 export interface PilotSummary {
+  calibration?: CalibrationReport;
   dataset_id: string;
   dataset_commitment: string;
   evidence_mode: 'offline-fixture';

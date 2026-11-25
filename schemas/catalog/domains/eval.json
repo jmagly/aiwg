@@ -45,7 +45,8 @@
           "test/fixtures/eval-pilot/contracts/TestCase.valid.json",
           "test/fixtures/eval-pilot/contracts/EvalResult.valid.json",
           "test/fixtures/eval-pilot/contracts/EvalResult.pilot.valid.json",
-          "test/fixtures/eval-pilot/contracts/Adjudication.valid.json"
+          "test/fixtures/eval-pilot/contracts/Adjudication.valid.json",
+          "test/fixtures/eval-pilot/calibration.v1.json"
         ],
         "invalid": [
           "test/fixtures/eval-pilot/contracts/TestCase.split.invalid.json",
@@ -53,10 +54,16 @@
           "test/fixtures/eval-pilot/contracts/EvalResult.latency.invalid.json",
           "test/fixtures/eval-pilot/contracts/EvalResult.status.invalid.json",
           "test/fixtures/eval-pilot/contracts/EvalResult.resources.invalid.json",
-          "test/fixtures/eval-pilot/contracts/Adjudication.label.invalid.json"
+          "test/fixtures/eval-pilot/contracts/Adjudication.label.invalid.json",
+          "test/fixtures/eval-pilot/contracts/CalibrationStudy.incomplete.invalid.json"
         ]
       },
       "projections": [
+        {
+          "kind": "types",
+          "path": "tools/eval/src/calibration-types.ts",
+          "generated": false
+        },
         {
           "kind": "types",
           "path": "tools/eval/src/models/types.ts",

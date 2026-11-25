@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AiwgEvalRunner } from '../../../tools/eval/src/runner.js';
 import { validateEvalContract } from '../../../tools/eval/src/contracts.js';
 import { executeHiddenCheck } from '../../../tools/eval/src/pilot-checks.js';
-import { summarizePilot } from '../../../tools/eval/src/pilot-report.js';
+import { summarizePilot, pilotMarkdown } from '../../../tools/eval/src/pilot-report.js';
 import { generateJsonReport } from '../../../tools/eval/src/reporters/json.js';
 import { generateMarkdownReport } from '../../../tools/eval/src/reporters/markdown.js';
 import { loadSchemaCatalog, SchemaResolver, SchemaValidator } from '../../../src/schema/index.js';
@@ -123,6 +123,9 @@ describe('offline H1/H2 eval pilot', () => {
     expect(JSON.parse(generateJsonReport(report)).pilot.claim_gate.state).toBe('BLOCKED');
     expect(generateMarkdownReport(report)).toContain('success per total tokens');
     expect(generateMarkdownReport(report)).toContain('paired-percentile');
+    expect(generateMarkdownReport(report)).toContain('Criterion calibration');
+    const { calibration: _calibration, ...historical } = pilot;
+    expect(pilotMarkdown(historical)).not.toContain('Criterion calibration');
   });
 
   it('executes real Flow routes/joins and rejects weakened guards with unchanged checks', async () => {
