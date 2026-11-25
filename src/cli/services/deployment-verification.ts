@@ -243,6 +243,8 @@ const BUNDLE_INDEX_TOKENS: Readonly<Record<string, string[]>> = {
   dfir: ['forensics-complete'],
   'security-engineering': ['security-engineering'],
   ops: ['ops-complete'],
+  'cicd-complete': ['cicd-complete'],
+  cicd: ['cicd-complete'],
   validation: ['validation-complete'],
   'knowledge-base': ['knowledge-base'],
 };

@@ -60,7 +60,7 @@ This table tells you *what to say*. The right-hand columns are AIWG-internal —
 | "Help write better content." | Voice, writing quality, marketing | Voice profiles, writing validation, marketing flows |
 | "Help make this less chaotic." | Planning, orchestration, gates | Orchestration and planning workflows |
 | "Help me build a custom workflow." | Project-local extension or skill authoring | Skill-architect and extension-authoring paths |
-| "Help with CI, builds, or deployment." | Dev-ops and release gates | Pipeline safety and release-readiness skills |
+| "Help with CI, builds, or deployment." | CI/CD Complete lifecycle and schemas; ops `dev` for existing operational patterns | Pipeline/environment contracts; execution skills planned (#4424) |
 
 You only need the left column. The agent handles the rest.
 

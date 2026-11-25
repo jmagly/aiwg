@@ -2728,7 +2728,7 @@ descriptions, versions, and sources live in `.claude-plugin/marketplace.json`.
 Local packages resolve from `./agentic/code/plugins/<name>`; `training` is the
 only externally sourced package.
 
-- Frameworks: `sdlc`, `marketing`, `forensics`, `security-engineering`,
+- Frameworks: `sdlc`, `marketing`, `forensics`, `security-engineering`, `cicd-complete` (alias `cicd`),
   `research`, `media-curator`, `ops`, `knowledge-base`, and `validation-complete`.
 - Agent runtime: `agent-loop`, `agent-persistence`, `guided-implementation`,
   `context-curator`, `daemon`, `droid-bridge`, `prose-integration`, and `rlm`.

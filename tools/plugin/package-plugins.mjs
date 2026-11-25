@@ -674,6 +674,7 @@ Traces are written to \`.aiwg/traces/\` in JSONL format.
 // installs marketplace plugins into an isolated cache, so skills must not rely
 // on ../ paths back into the AIWG monorepo for templates, schemas, or scripts.
 const MANIFEST_PLUGIN_SOURCES = [
+  ['cicd-complete', 'agentic/code/frameworks/cicd-complete'],
   ['validation-complete', 'agentic/code/frameworks/validation-complete'],
   ['agent-loop', 'agentic/code/addons/agent-loop'],
   ['agent-persistence', 'agentic/code/addons/agent-persistence'],

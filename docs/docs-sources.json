@@ -1,6 +1,15 @@
 [
   {
     "kind": "frameworks",
+    "name": "cicd-complete",
+    "source": "agentic/code/frameworks/cicd-complete/docs",
+    "dest": "docs/frameworks/cicd-complete",
+    "files": [
+      "ci-schema-contracts.md"
+    ]
+  },
+  {
+    "kind": "frameworks",
     "name": "forensics-complete",
     "source": "agentic/code/frameworks/forensics-complete/docs",
     "dest": "docs/frameworks/forensics-complete",

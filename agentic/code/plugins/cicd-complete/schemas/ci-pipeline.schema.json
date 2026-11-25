@@ -1,0 +1,429 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://aiwg.io/schemas/cicd/v1/ci-pipeline.schema.json",
+  "title": "CIPipeline",
+  "description": "CIPipeline v1. Owner: cicd-complete. Consumers: agents and provider extensions. Additive changes only within v1.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "apiVersion",
+    "kind",
+    "metadata",
+    "spec"
+  ],
+  "properties": {
+    "apiVersion": {
+      "const": "cicd.aiwg.io/v1"
+    },
+    "kind": {
+      "const": "CIPipeline"
+    },
+    "metadata": {
+      "$ref": "#/definitions/metadata"
+    },
+    "spec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "triggers",
+        "environments",
+        "stages",
+        "render"
+      ],
+      "properties": {
+        "triggers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/trigger"
+          },
+          "minItems": 1
+        },
+        "environments": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "stages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/stage"
+          },
+          "minItems": 1
+        },
+        "gates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/gate"
+          }
+        },
+        "render": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "targets"
+          ],
+          "properties": {
+            "targets": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "gitea-actions",
+                  "github-actions",
+                  "gitlab-ci"
+                ]
+              },
+              "minItems": 1,
+              "uniqueItems": true
+            }
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "labels": {
+          "type": "object",
+          "description": "User-defined string labels.",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "trigger": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "enum": [
+            "push",
+            "pull_request",
+            "schedule",
+            "manual"
+          ]
+        },
+        "branches": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "paths": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "cron": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Cron expression for a schedule trigger."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "schedule"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "required": [
+              "cron"
+            ],
+            "properties": {
+              "cron": {}
+            }
+          }
+        }
+      ]
+    },
+    "stage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "jobs"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "depends_on": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "jobs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/job"
+          },
+          "minItems": 1
+        },
+        "rollout": {
+          "$ref": "#/definitions/rollout"
+        }
+      }
+    },
+    "job": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "capability"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "capability": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Name of an OpsCapability resource."
+        },
+        "inputs": {
+          "type": "object",
+          "description": "Capability-defined inputs; validated by the selected capability.",
+          "additionalProperties": true
+        },
+        "depends_on": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "retry": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "max_attempts",
+            "backoff"
+          ],
+          "properties": {
+            "max_attempts": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "backoff": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Retry delay or policy interpreted by the consumer, e.g. exponential or 30s."
+            }
+          }
+        }
+      }
+    },
+    "gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pack",
+        "after"
+      ],
+      "properties": {
+        "pack": {
+          "type": "string",
+          "minLength": 1,
+          "description": "GatePack metadata id (gates.aiwg.io/v1alpha1)."
+        },
+        "after": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Stage id after which this gate runs."
+        },
+        "parameters": {
+          "type": "object",
+          "description": "GatePack-defined parameters; validated by the selected pack.",
+          "additionalProperties": true
+        }
+      }
+    },
+    "rollout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "strategy",
+        "steps"
+      ],
+      "properties": {
+        "strategy": {
+          "enum": [
+            "canary",
+            "blue-green",
+            "rolling",
+            "flag"
+          ]
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/rolloutStep"
+          },
+          "minItems": 1
+        },
+        "gates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/gate"
+          }
+        },
+        "rollback": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "on",
+            "capability"
+          ],
+          "properties": {
+            "on": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "gate-failure",
+                  "manual"
+                ]
+              },
+              "minItems": 1,
+              "uniqueItems": true
+            },
+            "capability": {
+              "type": "string",
+              "minLength": 1,
+              "description": "OpsCapability name used to roll back."
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "strategy": {
+                "const": "flag"
+              }
+            },
+            "required": [
+              "strategy"
+            ]
+          },
+          "then": {
+            "properties": {
+              "steps": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "capability": {
+                      "type": "string",
+                      "minLength": 1,
+                      "default": "progressive-rollout"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "rolloutStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "weight": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "percentage": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "pause": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Duration before continuing, e.g. 5m; consumer interprets units."
+        },
+        "gate": {
+          "type": "string",
+          "minLength": 1,
+          "description": "GatePack id to evaluate before continuing."
+        },
+        "capability": {
+          "type": "string",
+          "minLength": 1,
+          "description": "OpsCapability name; flag consumers default omission to progressive-rollout."
+        }
+      },
+      "oneOf": [
+        {
+          "required": [
+            "weight"
+          ],
+          "not": {
+            "required": [
+              "percentage"
+            ],
+            "properties": {
+              "percentage": {}
+            }
+          },
+          "properties": {
+            "weight": {}
+          }
+        },
+        {
+          "required": [
+            "percentage"
+          ],
+          "not": {
+            "required": [
+              "weight"
+            ],
+            "properties": {
+              "weight": {}
+            }
+          },
+          "properties": {
+            "percentage": {}
+          }
+        }
+      ]
+    }
+  }
+}

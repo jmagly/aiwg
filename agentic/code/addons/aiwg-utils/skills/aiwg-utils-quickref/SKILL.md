@@ -32,6 +32,7 @@ If a user asks about a specific framework's surface, the corresponding quickref 
 - `media-curator-quickref` — media archive management
 - `marketing-quickref` — marketing operations and campaigns
 - `ops-quickref` — operational infrastructure and runbooks
+- `cicd-quickref` — end-user CI/CD lifecycle and pipeline/environment schemas
 - `security-engineering-quickref` — applied security and crypto decisions
 - `knowledge-base-quickref` — wiki and documentation workflows
 

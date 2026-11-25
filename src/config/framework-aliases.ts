@@ -10,6 +10,7 @@ export const REGISTRY_ID_TO_USE_NAME: Record<string, string> = {
   'forensics-complete': 'forensics',
   dfir: 'forensics',
   'ops-complete': 'ops',
+  'cicd-complete': 'cicd',
   'validation-complete': 'validation',
 };
 

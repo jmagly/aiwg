@@ -17,6 +17,7 @@ example that produces a saved report, use [Just Try It](../getting-started/just-
 | Organize research | Source notes, citations, and synthesis | [Research overview](../frameworks/research-complete/overview.md) |
 | Curate media | Collection assessment and metadata or acquisition work | [Media curator](../frameworks/media-curator/overview.md) |
 | Maintain a reference collection | Linked notes and a maintenance process | [Knowledge base](../frameworks/knowledge-base/overview.md) |
+| Design your CI/CD pipelines | Governed pipeline and environment contracts; execution tooling planned (#4423–#4425) | [CI/CD Complete](../frameworks/cicd-complete/ci-schema-contracts.md) |
 | Organize infrastructure work | Operational reviews and runbooks | [Operations](../frameworks/ops-complete/overview.md) |
 | Review civic information | Cited analysis and publication preparation | [Civic action](../addons/civic-action/overview.md) |
 | Prepare a dataset | Dataset assessment and curation artifacts | [Dataset intelligence](../addons/dataset-intelligence/overview.md) |

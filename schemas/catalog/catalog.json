@@ -17,6 +17,7 @@
     "domains/repository-json-schemas.json",
     "domains/network-analysis.json",
     "domains/testing-quality.json",
-    "domains/effects.json"
+    "domains/effects.json",
+    "domains/cicd-complete.json"
   ]
 }

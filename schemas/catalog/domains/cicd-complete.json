@@ -1,0 +1,114 @@
+{
+  "$schema": "../domain-manifest.v1.schema.json",
+  "schemaVersion": "1",
+  "domain": "cicd-complete",
+  "owner": {
+    "id": "cicd-complete"
+  },
+  "policy": {
+    "strict": true,
+    "compatibility": "backward",
+    "requireFixtures": true
+  },
+  "artifacts": [
+    {
+      "logicalName": "cicd-complete.ci-pipeline",
+      "id": "https://aiwg.io/schemas/cicd/v1/ci-pipeline.schema.json",
+      "version": "1.0.0",
+      "format": "json-schema",
+      "dialect": "http://json-schema.org/draft-07/schema#",
+      "lifecycle": "active",
+      "stability": "preview",
+      "owner": {
+        "id": "cicd-complete"
+      },
+      "authority": {
+        "kind": "canonical",
+        "path": "agentic/code/frameworks/cicd-complete/schemas/ci-pipeline.schema.json"
+      },
+      "compatibility": {
+        "mode": "backward"
+      },
+      "consumers": [
+        {
+          "id": "cicd-agents",
+          "boundary": "End-user pipeline and environment design; agents planned (#4423)"
+        },
+        {
+          "id": "cicd-provider-extensions",
+          "boundary": "Provider render and execution contracts; implementation planned (#4424)"
+        }
+      ],
+      "fixtures": {
+        "valid": [
+          "test/fixtures/cicd/valid/ci-pipeline-canary.json",
+          "test/fixtures/cicd/valid/ci-pipeline-flag.json"
+        ],
+        "invalid": [
+          "test/fixtures/cicd/invalid/ci-pipeline-unknown-stage.json",
+          "test/fixtures/cicd/invalid/ci-pipeline-no-capability.json",
+          "test/fixtures/cicd/invalid/ci-pipeline-render-target.json"
+        ]
+      },
+      "projections": [
+        {
+          "kind": "mirror",
+          "path": "agentic/code/plugins/cicd-complete/schemas/ci-pipeline.schema.json",
+          "digest": "sha256:a4657e425d79b7485c991f22bd737d0a4115c5c1489845f33c6b8651f2a9bf95",
+          "generated": true
+        }
+      ],
+      "publication": {
+        "public": true
+      }
+    },
+    {
+      "logicalName": "cicd-complete.ci-environment",
+      "id": "https://aiwg.io/schemas/cicd/v1/ci-environment.schema.json",
+      "version": "1.0.0",
+      "format": "json-schema",
+      "dialect": "http://json-schema.org/draft-07/schema#",
+      "lifecycle": "active",
+      "stability": "preview",
+      "owner": {
+        "id": "cicd-complete"
+      },
+      "authority": {
+        "kind": "canonical",
+        "path": "agentic/code/frameworks/cicd-complete/schemas/ci-environment.schema.json"
+      },
+      "compatibility": {
+        "mode": "backward"
+      },
+      "consumers": [
+        {
+          "id": "cicd-agents",
+          "boundary": "End-user pipeline and environment design; agents planned (#4423)"
+        },
+        {
+          "id": "cicd-provider-extensions",
+          "boundary": "Provider render and execution contracts; implementation planned (#4424)"
+        }
+      ],
+      "fixtures": {
+        "valid": [
+          "test/fixtures/cicd/valid/ci-environment.json"
+        ],
+        "invalid": [
+          "test/fixtures/cicd/invalid/ci-environment-secret-value.json"
+        ]
+      },
+      "projections": [
+        {
+          "kind": "mirror",
+          "path": "agentic/code/plugins/cicd-complete/schemas/ci-environment.schema.json",
+          "digest": "sha256:3b837d8913a03f0cc348718d0035d811583608f27165c6f8e732fd20afd2f9bb",
+          "generated": true
+        }
+      ],
+      "publication": {
+        "public": true
+      }
+    }
+  ]
+}

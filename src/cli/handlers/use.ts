@@ -146,7 +146,7 @@ import { createResourceCredentialProvider, prepareResourceCredentials } from '..
 /**
  * Valid framework identifiers
  */
-const VALID_FRAMEWORKS = ['sdlc', 'marketing', 'media-curator', 'research', 'forensics', 'dfir', 'security-engineering', 'ops', 'validation', 'knowledge-base', 'writing', 'general', 'all'] as const;
+const VALID_FRAMEWORKS = ['sdlc', 'marketing', 'media-curator', 'research', 'forensics', 'dfir', 'security-engineering', 'cicd-complete', 'cicd', 'ops', 'validation', 'knowledge-base', 'writing', 'general', 'all'] as const;
 type Framework = typeof VALID_FRAMEWORKS[number];
 
 function providerReceiptWebReleaseOptions(): Omit<WebReleaseOptions, 'selector' | 'offline'> {
@@ -225,6 +225,8 @@ const MODE_MAP: Record<Framework, string> = {
   forensics: 'forensics',
   dfir: 'dfir',
   'security-engineering': 'security-engineering',
+  'cicd-complete': 'cicd-complete',
+  cicd: 'cicd-complete',
   ops: 'ops-complete',      // ops-complete manifest id is 'ops-complete' (modeAlias: ops)
   validation: 'validation-complete',
   'knowledge-base': 'knowledge-base',
@@ -350,6 +352,8 @@ const FRAMEWORK_DIR_MAP: Partial<Record<string, string>> = {
   forensics: 'forensics-complete',
   dfir: 'forensics-complete',
   'security-engineering': 'security-engineering',
+  'cicd-complete': 'cicd-complete',
+  cicd: 'cicd-complete',
   ops: 'ops-complete',
   validation: 'validation-complete',
   'knowledge-base': 'knowledge-base',
@@ -820,6 +824,8 @@ const NEXT_STEPS: Record<string, string[]> = {
   'media-curator': agenticNextSteps('Open platform:    Open your chosen AI tool and ask for a media collection next action.'),
   'research': agenticNextSteps('Open platform:    Open your chosen AI tool and ask for a research workflow next action.'),
   'security-engineering': agenticNextSteps('Open platform:    Open your chosen AI tool and ask for a security-engineering decision path.'),
+  'cicd-complete': agenticNextSteps('Open platform:    Ask your AI tool to design your CI/CD pipeline.'),
+  cicd: agenticNextSteps('Open platform:    Ask your AI tool to design your CI/CD pipeline.'),
   'all': agenticNextSteps('Open platform:    Open Claude Code, Codex, Cursor, Warp, or your chosen AI tool.'),
 
   'hermes/sdlc': agenticNextSteps('Start Hermes:      Open a Hermes chat attached to this project.'),
@@ -3160,7 +3166,7 @@ export class UseHandler implements CommandHandler {
           : '';
         return {
           exitCode: 1,
-          message: `Error: Framework, addon, or extension name required\nFrameworks: sdlc, marketing, media-curator, research, forensics, dfir, security-engineering, ops, validation, knowledge-base, all\nAddons: rlm, ring, daemon, aiwg-dev (full list: \`aiwg list\`)\nExtensions: sys, net, it, sec, stream, dev (full list: \`ls $AIWG_ROOT/agentic/code/extensions\`)\n'all' deploys the kernel surface (kernel skills, kernel and core rules, behaviors).${advisory}`,
+          message: `Error: Framework, addon, or extension name required\nFrameworks: sdlc, marketing, media-curator, research, forensics, dfir, security-engineering, cicd-complete (cicd), ops, validation, knowledge-base, all\nAddons: rlm, ring, daemon, aiwg-dev (full list: \`aiwg list\`)\nExtensions: sys, net, it, sec, stream, dev (full list: \`ls $AIWG_ROOT/agentic/code/extensions\`)\n'all' deploys the kernel surface (kernel skills, kernel and core rules, behaviors).${advisory}`,
         };
       }
       const installedNames = Object.keys(config.installed);
