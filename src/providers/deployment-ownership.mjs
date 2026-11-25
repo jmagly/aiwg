@@ -75,10 +75,13 @@ const LEGACY_CODEX_PROMPTS = {
   'aiwg-schema.md': ['sha256:65000b74de7149b70229f5c8409e2c6a6c4d5e45086f776e0db2ae8633c176f9', 'schema-governance'],
   'aiwg-sessions.md': ['sha256:ad0591041932dbbb8a08a5d0e946490b2ef3e18a1b65f610df3555b6b67eb690', 'aiwg-utils'],
 };
+const legacyCodexPrompt = file => {
+  if (path.basename(path.dirname(file)) !== 'prompts' || path.basename(path.dirname(path.dirname(file))) !== '.codex') return undefined;
+  return LEGACY_CODEX_PROMPTS[path.basename(file)];
+};
 /** Recognize only historical bytes at their original Codex prompt names. */
 export function legacyCodexPromptOwner(file, entry) {
-  if (path.basename(path.dirname(file)) !== 'prompts' || path.basename(path.dirname(path.dirname(file))) !== '.codex') return undefined;
-  const known = LEGACY_CODEX_PROMPTS[path.basename(file)];
+  const known = legacyCodexPrompt(file);
   return known && known[0] === digestOf(entry) ? known[1] : undefined;
 }
 const bytesOf = (file, entry) => {
@@ -148,7 +151,7 @@ export function captureDeploymentOutputs(roots, { previous } = {}) {
     } else if (stat.isFile()) {
       const key = path.resolve(file), base = path.basename(key);
       capture(key, stat, base === SIDECAR || SETTINGS_FILE.test(base) || FLUE_OUTPUT.test(key)
-        || depth === 0 || parent !== null || claims.has(key), artifactKind(path.relative(root, key)) !== 'generated');
+        || depth === 0 || parent !== null || claims.has(key), artifactKind(path.relative(root, key)) !== 'generated' || Boolean(legacyCodexPrompt(key)));
       if (base === SIDECAR) claimsOf(key, files.get(key), claims);
     }
   };

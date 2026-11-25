@@ -4,8 +4,8 @@
  * @source @tools/ralph-external/snapshot-manager.mjs
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { existsSync, mkdirSync, rmSync, writeFileSync, readFileSync } from 'fs';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { execSync } from 'child_process';
@@ -19,11 +19,15 @@ describe('SnapshotManager', () => {
   let snapshotManager: InstanceType<typeof SnapshotManager>;
   let iterationDir: string;
   let isGitRepo: boolean;
+  const allocatedDirectories = new Set<string>();
 
   beforeEach(() => {
-    // Create unique test directory
-    testDir = join(tmpdir(), `ralph-snapshot-test-${Date.now()}`);
-    mkdirSync(testDir, { recursive: true });
+    // A stalled clock must not make separate tests reuse a fixture path.
+    const clock = vi.spyOn(Date, 'now').mockReturnValue(0);
+    testDir = mkdtempSync(join(tmpdir(), 'ralph-snapshot-test-'));
+    clock.mockRestore();
+    expect(allocatedDirectories.has(testDir), 'fixture paths must remain unique with an unchanged clock').toBe(false);
+    allocatedDirectories.add(testDir);
 
     // Create iteration directory
     iterationDir = join(testDir, '.aiwg', 'ralph-external', 'iterations', '001');

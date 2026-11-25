@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import fixtures from '../../fixtures/providers/codex/legacy-prompts/2026.10.3.json';
 import { captureDeploymentOutputs, recordDeploymentOutputs } from '../../../src/providers/deployment-ownership.mjs';
@@ -95,11 +96,34 @@ it('leaves legacy receipts absent during a dry run', async () => {
   expect(fs.existsSync(path.join(prompts, '.aiwg-manifest.json'))).toBe(false);
 });
 
+it.each([(home: string) => home, (home: string) => path.join(home, '.codex'), (home: string) => path.join(home, '.codex/prompts')])(
+  'adopts settled October prompts regardless of the snapshot root (%#)', snapshotRoot => {
+    vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 60_000);
+    const roots = [snapshotRoot(home)];
+    recordDeploymentOutputs(captureDeploymentOutputs(roots), roots, { provider: 'codex', target: home, mode: 'all' });
+    for (const [name, fixture] of Object.entries(fixtures)) {
+      expect(receipt()[name]).toMatchObject({ hash: hash(fixture.prompt), owners: [fixture.owner] });
+    }
+  },
+);
+
+it('preserves settled edited and unrelated prompts in a prompt-root snapshot', () => {
+  const edited = fixtures['aiwg-dataset.md'].prompt + '\nOperator changes.';
+  write(path.join(prompts, 'aiwg-dataset.md'), edited);
+  write(path.join(prompts, 'personal.md'), fixtures['aiwg-dataset.md'].prompt);
+  vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 60_000);
+  recordDeploymentOutputs(captureDeploymentOutputs([prompts]), [prompts], { provider: 'codex', target: home, mode: 'all' });
+  expect(fs.readFileSync(path.join(prompts, 'aiwg-dataset.md'), 'utf8')).toBe(edited);
+  expect(receipt()['aiwg-dataset.md']).toBeUndefined();
+  expect(receipt()['personal.md']).toBeUndefined();
+});
+
 it('adopts October prompts through aiwg use all --global without force', () => {
   const repo = path.resolve(import.meta.dirname, '../../..');
   const output = execFileSync(process.execPath, [path.join(repo, 'bin/aiwg.mjs'),
     'use', 'all', '--global', '--providers', 'codex', '--no-hooks'], {
-    cwd: root, env: { ...process.env, AIWG_RESOLVE_IMPL_FROM: 'dist' },
+    cwd: root, env: { ...process.env, AIWG_RESOLVE_IMPL_FROM: 'dist',
+      NODE_OPTIONS: `${process.env.NODE_OPTIONS || ''} --import=${pathToFileURL(path.join(repo, 'test/fixtures/providers/codex/settled-clock.mjs')).href}` },
     encoding: 'utf8', timeout: 120_000, stdio: ['ignore', 'pipe', 'pipe'],
   });
   // Intermittent CI miss (shard 2/4 on 0a8bf29a5): show the CLI output if the receipt is absent.
