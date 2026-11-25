@@ -38,6 +38,7 @@ README](just-try-it.md). The result is a saved report with three prioritized fix
 | Research and source synthesis | [Research](research-framework.md) |
 | Media collections | [Media Curator](media-curator-framework.md) |
 | Shared notes and reference material | [Knowledge Base](../frameworks/knowledge-base/overview.md) |
+| Design your CI/CD pipelines | [CI/CD Complete](../frameworks/cicd-complete/ci-schema-contracts.md) |
 | Operational reviews and runbooks | [Operations](../frameworks/ops-complete/overview.md) |
 
 Each domain supplies workflows and templates. Choose a concrete deliverable before expanding to a larger process. The

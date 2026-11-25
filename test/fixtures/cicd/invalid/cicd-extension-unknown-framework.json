@@ -1,0 +1,12 @@
+{
+  "apiVersion": "workflow.aiwg.io/v1",
+  "kind": "WorkflowExtension",
+  "metadata": {
+    "name": "cicd-provider"
+  },
+  "spec": {
+    "extends": "unknown-framework",
+    "description": "CI provider extension",
+    "version": "1.0.0"
+  }
+}

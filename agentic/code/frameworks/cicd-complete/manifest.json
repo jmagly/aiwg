@@ -1,0 +1,36 @@
+{
+  "id": "cicd-complete",
+  "type": "framework",
+  "name": "CI/CD Complete",
+  "version": "1.0.0",
+  "description": "End-user CI/CD framework: design, build, operate and evolve your own CI/CD pipelines with agents, skills, templates and extensible YAML pipelines",
+  "modeAliases": [
+    "cicd"
+  ],
+  "entry": {
+    "skills": "skills",
+    "schemas": "schemas"
+  },
+  "agents": [],
+  "commands": [],
+  "skills": [
+    "cicd-quickref"
+  ],
+  "rules": [],
+  "templates": [],
+  "phases": [
+    "assess",
+    "design",
+    "implement",
+    "operate"
+  ],
+  "defaultPhase": "assess",
+  "memory": {
+    "creates": [
+      {
+        "path": ".aiwg/frameworks/cicd-complete/",
+        "description": "CI/CD pipeline designs, environment references and operational records"
+      }
+    ]
+  }
+}

@@ -323,6 +323,7 @@ function componentSection(kind, name, parentId) {
     'media-marketing-kit': { title: 'Media Marketing Kit', summary: 'Multi-channel campaign management and content operations' },
     'research-complete': { title: 'Research Complete', summary: 'Academic research workflow with GRADE methodology and FAIR compliance' },
     'ops-complete': { title: 'Ops Complete', summary: 'Operational infrastructure framework — YAML-native with sys, it, dev, stream extensions' },
+    'cicd-complete': { title: 'CI/CD Complete', summary: 'End-user CI/CD lifecycle and governed pipeline/environment contracts' },
     // Addons
     'ralph': { title: 'Ralph Addon', summary: 'Iterative loop execution — quickstart, best practices, troubleshooting' },
     'rlm': { title: 'RLM Addon', summary: 'Recursive Language Model — deployment, multi-provider, integration guides' },

@@ -59,7 +59,7 @@ function displayHelp(): void {
   ui.blank();
 
   helpGroup('FRAMEWORK', [
-    ['use <framework>', 'Deploy framework (sdlc, marketing, media-curator, research, forensics, security-engineering, ops, validation, knowledge-base, all)'],
+    ['use <framework>', 'Deploy framework (sdlc, marketing, media-curator, research, forensics, security-engineering, cicd-complete (cicd), ops, validation, knowledge-base, all)'],
     ['use cockpit', 'Install the opt-in @aiwg/cockpit package outside the base aiwg footprint'],
     ['list', 'List installed frameworks and addons'],
     ['remove <id>', 'Remove a framework or addon'],

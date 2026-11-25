@@ -607,7 +607,9 @@
     "addons/voice-framework/natural-voice/verification-2026-09-06",
     "addons/voice-framework/voice-output-impact",
     "addons/voice-framework/writing-workflows",
-    "blog/2026-10-aiwg-october-2026-report"
+    "blog/2026-10-aiwg-october-2026-report",
+    "frameworks/cicd-complete",
+    "frameworks/cicd-complete/ci-schema-contracts"
   ],
   "sections": [
     {
@@ -4645,6 +4647,20 @@
       "summary": "These recipes use the existing mode resolver and opt-in writer sidecars. They do not activate a univ",
       "file": "addons/voice-framework/writing-workflows.md",
       "parent": "addons/voice-framework"
+    },
+    {
+      "id": "frameworks/cicd-complete",
+      "title": "CI/CD Complete",
+      "summary": "End-user CI/CD lifecycle and governed pipeline/environment contracts",
+      "collapsed": true,
+      "parent": "frameworks"
+    },
+    {
+      "id": "frameworks/cicd-complete/ci-schema-contracts",
+      "title": "Ci Schema Contracts",
+      "summary": "CI/CD Complete models end-user delivery pipelines independently of a forge.",
+      "file": "frameworks/cicd-complete/ci-schema-contracts.md",
+      "parent": "frameworks/cicd-complete"
     }
   ],
   "pages": [

@@ -31,6 +31,7 @@ const FRAMEWORKS = [
   'forensics',
   'security-engineering',
   'ops',
+  'cicd-complete',
   'knowledge-base',
 ] as const;
 
@@ -58,6 +59,8 @@ const PROFILE_FRAMEWORKS: Record<string, string[]> = {
   'security-engineering': ['security-engineering'],
   security: ['security-engineering'],
   ops: ['ops'],
+  'cicd-complete': ['cicd-complete'],
+  cicd: ['cicd-complete'],
   'knowledge-base': ['knowledge-base'],
   kb: ['knowledge-base'],
 };
