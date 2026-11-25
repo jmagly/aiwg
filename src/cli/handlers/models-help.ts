@@ -23,7 +23,7 @@ Artifact selectors and options:
   --recover                    Restore retained pair with the original authorization
   --scope project|user         set-default destination (default: project)
   --dry-run                    Preview mutations without writing
-  --json                       Emit JSON
+  --json                       Emit JSON (refresh: counts, cache path and warnings)
   --drift                      Include catalog drift for sources/refresh
   --url <url>                  Remote catalog URL for refresh
   --help, -h                   Show this reference
@@ -51,6 +51,8 @@ Direct worker resolution (plans an invocation; does not launch it):
                                JSON includes ceilings and their origins
   --authorize-premium          Authorize premium for this resolution only
                                Agents require explicit human confirmation of escalation
+
+Use models sources --json or the refresh cachePath for the complete catalog.
 
 Worker groups live in .aiwg/aiwg.config; role guidance lives in project-root models.json.
 Configure both, then run aiwg doctor --probe-workers --qualify.

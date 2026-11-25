@@ -181,7 +181,11 @@ describe('T-OG-05/06 orchestration changed-code coverage helper', () => {
     }
     const suites = result.stdout.split('\n').filter(line => line.startsWith('SUITES='))
       .map(line => JSON.parse(line.slice('SUITES='.length)));
-    for (const include of suites) expect(include).toContain('test/unit/ralph-external/**/*.test.mjs');
+    for (const include of suites) {
+      expect(include).toContain('test/unit/ralph-external/**/*.test.mjs');
+      expect(include).toContain('test/unit/cli/doctor-factory-worker.test.ts');
+      expect(include).toContain('test/unit/cli/handlers/models.test.ts');
+    }
   });
 
   it('passes covered changed lines while unchanged statements and branch arms are uncovered', () => {

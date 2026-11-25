@@ -136,14 +136,25 @@ describe('models CLI handler', () => {
       expect(refresh).toHaveBeenCalledWith(expect.objectContaining({ allowNetwork: true, forceRefresh: true }));
       expect(fetchImpl).toHaveBeenCalledOnce();
       for (const source of Object.values(nativeDiscoverers)) expect(source).toHaveBeenCalledOnce();
-      const output = JSON.parse(String(log.mock.calls.at(-1)?.[0]));
+      const summary = JSON.parse(String(log.mock.calls.at(-1)?.[0]));
+      expect(summary).toMatchObject({ cachePath: cacheFile, source: outcome === 'failure' ? 'static' : 'remote',
+        modelCount: outcome === 'success' ? 2 : outcome === 'partial' ? 1 : 0 });
+      const output = JSON.parse(await readFile(cacheFile, 'utf8'));
       expect(output.discovery.source).toBe(outcome === 'failure' ? 'static' : 'remote');
       expect(output.discovery.providers.codex).toMatchObject(outcome === 'failure'
         ? { models: [], error: 'synthetic catalog unavailable' }
         : { models: [{ id: 'new-codex-model' }] });
       expect(output.discovery.providers.pi).toMatchObject(outcome === 'success'
         ? { models: [{ id: 'new-pi-model' }] } : { models: [], error: 'synthetic catalog unavailable' });
-      expect(JSON.parse(await readFile(cacheFile, 'utf8'))).toEqual(output);
+      log.mockClear();
+      await run(root, ['sources', '--json']);
+      expect(JSON.parse(String(log.mock.calls.at(-1)?.[0])).discovery.providers).toEqual(output.discovery.providers);
+      log.mockClear();
+      await run(root, ['refresh', '--url', 'https://catalog.invalid/models', '--drift', '--json']);
+      const drift = JSON.parse(String(log.mock.calls.at(-1)?.[0]));
+      expect(drift.catalog).toMatchObject({ cachePath: cacheFile });
+      expect(drift.catalog.discovery).toBeUndefined();
+      expect(drift.drift).toHaveProperty('changed');
       for (let i = 0; i < files.length; i++) expect(await readFile(files[i]), files[i]).toEqual(before[i]);
     },
   );

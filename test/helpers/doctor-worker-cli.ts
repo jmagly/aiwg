@@ -1,7 +1,7 @@
 import { installedResourceModelsHandler } from './host-resource-handler.js';
 // Offline public doctor fixture: disposable installed code, fake CLI and synthetic signing trust.
 import { execFile } from 'node:child_process';
-import { mkdtemp, mkdir, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
@@ -19,6 +19,7 @@ export async function doctorWorkerCliFixture() {
   await mkdir(path.join(project, '.aiwg'), { recursive: true });
   await mkdir(config, { mode: 0o700 });
   await mkdir(bin);
+  await symlink(process.execPath, path.join(bin, 'node'));
   await writeExecutable(path.join(bin, 'codex'), `#!${process.execPath}
 if (process.argv.includes('--version')) console.log('codex-cli 0.161.0');
 else if (process.argv.slice(2).join(' ') === 'debug models') console.log(JSON.stringify({models:[{
@@ -44,24 +45,23 @@ else process.exit(90);
     guards: { denySelfDelegation: false }, dataPolicy: { allowUnknown: true } } } }));
   const brief = path.join(project, 'brief.txt');
   await writeFile(brief, 'Synthetic brief.');
-  // Host CLIs that doctor inspects (e.g. a real opencode) may write to TMPDIR; keep the child's
-  // temp directory inside the fixture root so it is removed with it (#4195).
+  // Keep subprocess state disposable, and discover only the fake executables.
+  // Inheriting PATH ran unrelated host model discovery during refresh (#4386).
   const tmp = path.join(root, 'tmp');
   await mkdir(tmp, { recursive: true });
-  const env = { ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}`,
+  const env = { ...process.env, PATH: bin,
     TMPDIR: tmp, TMP: tmp, TEMP: tmp, HOME: root, USERPROFILE: root,
     XDG_CONFIG_HOME: path.join(root, 'xdg-config'), XDG_DATA_HOME: path.join(root, 'data'),
     XDG_CACHE_HOME: path.join(root, 'cache'), XDG_STATE_HOME: path.join(root, 'state'),
     AIWG_CONFIG: config, AIWG_HOME: installed, AIWG_ROOT: installed, AIWG_RESOLVE_IMPL_FROM: 'dist',
     AIWG_NO_UPDATE_CHECK: '1', NO_UPDATE_NOTIFIER: '1', AIWG_COMMAND_LOG: 'off', AIWG_SKILL_USAGE: 'off',
+    AIWG_MODEL_CATALOG_URL: '', AIWG_DISABLE_PROCESS_PROVIDER_DETECTION: '1',
     NODE_OPTIONS: '', NO_COLOR: '1' };
   delete (env as NodeJS.ProcessEnv).VITEST;
   // Both paths run shipped code; the public launcher also exercises router/handler propagation.
   const run = async (args: string[], direct = false) => {
     try {
       const result = await exec(process.execPath, [path.join(installed, direct ? 'tools/cli/doctor.mjs' : 'bin/aiwg.mjs'),
-        // `models refresh --json` prints the full model catalog (2.6 MB on 2026-11-24), so
-        // leave headroom for catalog growth instead of failing with ERR_CHILD_PROCESS_STDIO_MAXBUFFER.
         ...(direct ? args.slice(1) : args)], { cwd: project, env, timeout: 60_000, maxBuffer: 32 * 1024 * 1024 });
       return { code: 0, ...result };
     } catch (error: any) { return { code: error.code, stdout: error.stdout ?? '', stderr: error.stderr ?? '' }; }

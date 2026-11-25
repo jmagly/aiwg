@@ -1,4 +1,5 @@
 import { MODELS_HELP } from './models-help.js';
+import { summarizeModelRefresh } from '../../models/model-refresh-summary.js';
 import { museWrapperArtifacts, museWrapperCompilation } from './models-muse-wrapper.js';
 import { shellRefusalDiagnostics } from './models-refusal.js';
 import { updateJson } from '../../models/config-writer.js';
@@ -334,7 +335,6 @@ function replaceFrontmatter(raw: string, item: Artifact, tier: string): string {
   }
   return `---\n${frontmatter}\n---\n${match[2]}`;
 }
-
 async function execute(ctx: HandlerContext, services: ModelsWorkerServices = { load: loadWorkerInputs }): Promise<HandlerResult> {
   if (ctx.args.length === 0 || ctx.args[0] === 'help' || ctx.args.includes('--help') || ctx.args.includes('-h')) {
     print(MODELS_HELP, false);
@@ -359,14 +359,16 @@ async function execute(ctx: HandlerContext, services: ModelsWorkerServices = { l
   if (parsed.subcommand === 'sources' || parsed.subcommand === 'refresh') {
     const { diffModelCatalog } = await import('../../models/model-discovery.js');
     const catalog = await effectiveCatalog(ctx, target, parsed.subcommand === 'refresh', parsed, provider);
+    const output = parsed.subcommand === 'refresh' && json
+      ? summarizeModelRefresh(catalog, path.join(os.homedir(), '.cache/aiwg/model-catalog.v1.json')) : catalog;
     if (parsed.flags.has('drift')) {
       const staticCatalog = JSON.parse(await fs.readFile(
         path.join(ctx.frameworkRoot, 'agentic/code/providers/model-catalog.v1.json'),
         'utf8',
       ));
-      print({ catalog, drift: diffModelCatalog(staticCatalog, catalog) }, json);
+      print({ catalog: output, drift: diffModelCatalog(staticCatalog, catalog) }, json);
     } else {
-      print(catalog, json);
+      print(output, json);
     }
     return { exitCode: 0 };
   }
@@ -484,7 +486,6 @@ async function execute(ctx: HandlerContext, services: ModelsWorkerServices = { l
   }
   return { exitCode: 2, message: `Unknown models subcommand: ${parsed.subcommand}` };
 }
-
 export const modelsHandler: CommandHandler = {
   id: 'models',
   name: 'Models',
@@ -494,7 +495,6 @@ export const modelsHandler: CommandHandler = {
   help: async () => ({ exitCode: 0, message: MODELS_HELP, rawOutput: true }),
   execute,
 };
-
 export function createModelsHandler(services: ModelsWorkerServices): CommandHandler {
   return { ...modelsHandler, execute: ctx => execute(ctx, services) };
 }

@@ -1,5 +1,5 @@
 // Public offline qualification and refresh exercise only a fake Cursor executable.
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { afterEach, expect, it } from 'vitest';
 import { doctorWorkerCliFixture } from '../../helpers/doctor-worker-cli.js';
@@ -13,8 +13,7 @@ async function fixture(model = 'gpt-5.3-codex-high', failed = false, limits = tr
   roots.push(f.root);
   const binary = path.join(f.root, 'fake-bin/cursor-agent');
   const calls = path.join(f.root, 'cursor-calls.jsonl');
-  // Keep public JSON output within the shared CLI fixture's buffer. The parser
-  // suite covers the entire capture; these exact first rows cover dispatch.
+  // The parser suite covers the entire capture; these exact first rows cover dispatch.
   const capture = (await readFile(new URL('../../fixtures/providers/cursor/list-models.txt', import.meta.url), 'utf8'))
     .split('\n').slice(0, 14).join('\n');
   const listing = path.join(f.root, 'cursor-models.txt');
@@ -28,6 +27,7 @@ else if (process.argv.slice(2).join(' ') === '--list-models') {
   console.log(readFileSync(${JSON.stringify(listing)}, 'utf8'));
 } else process.exit(90);
 `);
+  await symlink(binary, path.join(f.root, 'fake-bin/cursor'));
   const configFile = path.join(f.project, '.aiwg/aiwg.config');
   const config = JSON.parse(await readFile(configFile, 'utf8'));
   config.providers = ['cursor'];
@@ -47,7 +47,11 @@ it('caches listed Cursor observations, approves the exact configured model, and 
   const f = await fixture();
   const refresh = await f.run(['models', 'refresh', '--provider', 'cursor', '--json']);
   expect(refresh.code, refresh.stdout + refresh.stderr).toBe(0);
-  const cache = JSON.parse(await readFile(path.join(f.root, '.cache/aiwg/model-catalog.v1.json'), 'utf8'));
+  expect(Buffer.byteLength(refresh.stdout)).toBeLessThan(16 * 1024);
+  const cacheFile = path.join(f.root, '.cache/aiwg/model-catalog.v1.json');
+  expect(JSON.parse(refresh.stdout)).toMatchObject({ cachePath: cacheFile,
+    providers: expect.arrayContaining([{ provider: 'cursor', modelCount: 12 }]) });
+  const cache = JSON.parse(await readFile(cacheFile, 'utf8'));
   expect(cache.discovery.providers.cursor.models).toContainEqual(expect.objectContaining({
     id: 'gpt-5.3-codex-high', apiModelId: 'gpt-5.3-codex-high', llmProvider: 'cursor',
     worker: expect.objectContaining({ runtimeVersion: '2026.11.13-eacade1', accountScope: 'synthetic-account', contextTokens: 200000, maxOutputTokens: 16000 }),
