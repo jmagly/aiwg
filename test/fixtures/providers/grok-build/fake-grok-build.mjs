@@ -5,7 +5,7 @@
  *
  *   grok --prompt-file <path> -m <model> --reasoning-effort <effort>
  *     --permission-mode dontAsk --sandbox <profile> --cwd <dir>
- *     --output-format streaming-json --no-subagents --disallowed-tools workflow --no-plan
+ *     --output-format streaming-json --no-subagents --disallowed-tools workflow,scheduler_create,scheduler_list,scheduler_delete --no-plan
  *     --no-alt-screen --disable-web-search [--allow <rule>]... [--deny <rule>]...
  *   grok --version
  *
@@ -84,7 +84,7 @@ if (!SANDBOX_VALUES.includes(sandbox)) fail(`error: sandbox profile resolve fail
 if (!['read-only', 'workspace'].includes(sandbox)) fail(`refused: sandbox profile '${sandbox}' is outside the direct profile's allowlist (read-only, workspace)`);
 if (!cwd) fail('--cwd is required');
 if (outputFormat !== 'streaming-json') fail("--output-format must be 'streaming-json' for the direct profile");
-if (noSubagents && !denyRules.includes('workflow')) fail('--no-subagents also requires --disallowed-tools workflow');
+if (!noSubagents || !denyRules.includes('workflow,scheduler_create,scheduler_list,scheduler_delete')) fail('--no-subagents also requires --disallowed-tools workflow,scheduler_create,scheduler_list,scheduler_delete');
 
 let brief;
 try { brief = readFileSync(promptFile, 'utf8'); } catch { fail(`prompt-file not readable: ${promptFile}`); }

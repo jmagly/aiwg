@@ -57,7 +57,11 @@ contain complete file contents. Review sources before import and restrict root
 authorization. AIWG does not import attachment or file-snapshot bytes; acquiring
 those would further increase privacy exposure and requires ownership evidence.
 
-## Experimental native projection: exact 1.0.77 only
+## Experimental native projection: exact 1.0.77 and 1.0.92
+
+Both exact versions require the experimental opt-in and an authorized root.
+Unknown versions and schemas still require CLI export fallback; emitted
+provenance records the declared version.
 
 The 2026-11-09 interactive and 2026-11-10 headless/ACP/TUI captures of Grok Build
 1.0.77 establish the store layout of
@@ -66,7 +70,7 @@ experimental and require **both** variables for every discovery/import/refresh
 or tail operation:
 
 ```sh
-AIWG_GROK_BUILD_NATIVE_EXPERIMENTAL=1 AIWG_GROK_BUILD_NATIVE_VERSION=1.0.77 \
+AIWG_GROK_BUILD_NATIVE_EXPERIMENTAL=1 AIWG_GROK_BUILD_NATIVE_VERSION=1.0.92 \
 aiwg sessions discover --workspace /work/project --expected-providers grok-build \
   --grok-root /authorized/grok-home/sessions --json
 ```

@@ -1,7 +1,8 @@
-// Project only the observed 1.0.77 chat records; never acquire snapshots or attachments.
+// Project only the supported 1.0.77/1.0.92 chat records; never acquire snapshots or attachments.
 import { z } from 'zod';
 import { SessionContractError, type ProviderRecord } from '../contracts.js';
 import type { BoundedJsonRecord } from '../readers.js';
+export const GROK_BUILD_NATIVE_SUPPORTED_VERSIONS = Object.freeze(['1.0.77', '1.0.92']);
 const text = z.strictObject({ type: z.literal('text'), text: z.string() });
 const tool = z.strictObject({ id: z.string().min(1), name: z.string().min(1), arguments: z.string() });
 const recordSchema = z.discriminatedUnion('type', [
@@ -30,6 +31,7 @@ export interface NativeProjection {
   sessionCreatedAt: string;
   sessionUpdatedAt: string;
   currentModelId: string;
+  grokVersion: string;
   sessionKind?: string;
   lineage?: NativeLineage;
   compaction?: { tokensBefore: number; tokensAfter: number; checkpointId?: string; promptIndexAtCompaction?: number };
@@ -41,11 +43,16 @@ export interface NativeLineage {
   forkedAt?: string;
   subagents?: Array<{ subagentId: string; parentSessionId?: string; childSessionId?: string; status?: string; output?: string }>;
 }
-export type NativeMetadata = Pick<NativeProjection, 'sessionCreatedAt' | 'sessionUpdatedAt' | 'currentModelId' | 'sessionKind' | 'lineage'>;
+export type NativeMetadata = Pick<NativeProjection, 'sessionCreatedAt' | 'sessionUpdatedAt' | 'currentModelId' | 'grokVersion' | 'sessionKind' | 'lineage'>;
 export function nativeDrift(): never {
-  throw new SessionContractError('SCHEMA_DRIFT', 'Unrecognized Grok Build 1.0.77 native schema; fall back to `grok export <session-id> <session-id>.md`.');
+  throw new SessionContractError('SCHEMA_DRIFT', 'Unrecognized Grok Build 1.0.77/1.0.92 native schema; fall back to `grok export <session-id> <session-id>.md`.');
 }
 export function parseNativeSummary(value: unknown, sessionId: string, cwd: string) {
+  const grokVersion = process.env.AIWG_GROK_BUILD_NATIVE_VERSION;
+  if (process.env.AIWG_GROK_BUILD_NATIVE_EXPERIMENTAL !== '1'
+    || !GROK_BUILD_NATIVE_SUPPORTED_VERSIONS.includes(grokVersion ?? '')) {
+    throw new SessionContractError('UNSUPPORTED_OPERATION', 'Native parsing requires experimental opt-in and exact version 1.0.77 or 1.0.92; use grok export.');
+  }
   const parsed = summarySchema.safeParse(value);
   if (!parsed.success || parsed.data.info.id.toLowerCase() !== sessionId || parsed.data.info.cwd !== cwd) nativeDrift();
   for (const time of [parsed.data.created_at, parsed.data.updated_at]) if (!Number.isFinite(Date.parse(time))) nativeDrift();
@@ -53,7 +60,7 @@ export function parseNativeSummary(value: unknown, sessionId: string, cwd: strin
   if (data.forked_at !== undefined && (!data.parent_session_id || !Number.isFinite(Date.parse(data.forked_at)))) nativeDrift();
   if (data.parent_session_id?.toLowerCase() === sessionId) nativeDrift();
   const lineage = data.parent_session_id ? { parentSessionId: data.parent_session_id.toLowerCase(), ...(data.forked_at ? { forkedAt: data.forked_at } : {}) } : undefined;
-  return { sessionCreatedAt: data.created_at, sessionUpdatedAt: data.updated_at, currentModelId: data.current_model_id, ...(data.session_kind ? { sessionKind: data.session_kind } : {}), ...(lineage ? { lineage } : {}) };
+  return { grokVersion: grokVersion!, sessionCreatedAt: data.created_at, sessionUpdatedAt: data.updated_at, currentModelId: data.current_model_id, ...(data.session_kind ? { sessionKind: data.session_kind } : {}), ...(lineage ? { lineage } : {}) };
 }
 export function projectNativeLine(line: BoundedJsonRecord, cwd: string, metadata: NativeMetadata): Array<{ record: NativeProjection; line: BoundedJsonRecord }> {
   const parsed = recordSchema.safeParse(line.value);
@@ -78,7 +85,7 @@ export function nativeProjectionRecord(sessionId: string, entry: { record: Nativ
     rawReference: { locatorClass: record.acquisition ?? 'grok-build-native-chat-history', sequence: line.sequence },
     extensions: {
       lifecycle: 'unknown-at-import',
-      provenance: { product: 'grok-build', acquisition: record.acquisition ?? 'grok-build-native-chat-history', sourceSchema: '1.0.0', nativeStoreInspected: true, toolOutputAvailable: true, grokVersion: '1.0.77', workingDirectory: record.cwd, sessionCreatedAt: record.sessionCreatedAt, sessionUpdatedAt: record.sessionUpdatedAt, sessionCreatedAtMs: Date.parse(record.sessionCreatedAt), sessionUpdatedAtMs: Date.parse(record.sessionUpdatedAt), currentModelId: record.currentModelId, ...(record.sessionKind ? { sessionKind: record.sessionKind } : {}) },
+      provenance: { product: 'grok-build', acquisition: record.acquisition ?? 'grok-build-native-chat-history', sourceSchema: '1.0.0', nativeStoreInspected: true, toolOutputAvailable: true, grokVersion: record.grokVersion, workingDirectory: record.cwd, sessionCreatedAt: record.sessionCreatedAt, sessionUpdatedAt: record.sessionUpdatedAt, sessionCreatedAtMs: Date.parse(record.sessionCreatedAt), sessionUpdatedAtMs: Date.parse(record.sessionUpdatedAt), currentModelId: record.currentModelId, ...(record.sessionKind ? { sessionKind: record.sessionKind } : {}) },
       ...(record.lineage ? { lineage: record.lineage } : {}),
       ...(record.compaction ? { compaction: record.compaction } : {}),
       identity: { nativeSessionIdKnown: true, nativeEventIdKnown: false, eventIdentityBasis: 'source-position' },

@@ -274,7 +274,7 @@ export class GrokBuildDispatcher {
     this.active += 1;
     try {
       const worktree = options.isolate ? await prepareGrokWorktree(options.projectRoot) : undefined;
-      // Grok's internal autonomous subagent/workflow fan-out has no documented hard
+      // Grok's internal subagent/workflow/scheduler fan-out has no documented hard
       // project cap. Disable it in AIWG-controlled headless workers so every
       // parallel worker consumes one dispatcher slot. Interactive Grok use
       // remains outside this bounded API and must not be claimed as enforced.

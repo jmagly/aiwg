@@ -174,6 +174,25 @@ test('smoke cannot count an untrusted project, mismatched version or wrong provi
   assert.equal(run('grok 1.0.77', 'Project trusted: yes\n  └ AGENTS.md (project)\n  └ aiwg-utils-quickref project', { status: 'ready', provider: 'grokbot' }).status, 'failed');
 });
 
+test('smoke accepts exactly both supported versions with synthetic inspection', async () => {
+  const { collectSmoke } = await import('../../../tools/providers/grok-build-qualification.mjs');
+  for (const version of ['1.0.77', '1.0.92', '1.0.91', '1.0.93']) {
+    const calls = [];
+    const report = collectSmoke({ contract: recordedContract,
+      env: { AIWG_GROK_BUILD_LIVE_SMOKE: '1', AIWG_GROK_BUILD_AUTH_MODE: 'managed' },
+      execute: (_, args) => {
+        calls.push(args[0]);
+        return { status: 0, stdout: args[0] === '--version' ? `grok ${version}` : args[0] === 'inspect'
+          ? 'Project trusted: yes\n  └ AGENTS.md (project)\n  └ aiwg-utils-quickref project'
+          : JSON.stringify({ schema: 'aiwg.build.verify.v1', provider: 'grok-build', status: 'ready' }) };
+      } });
+    assert.equal(report.status, ['1.0.77', '1.0.92'].includes(version) ? 'passed' : 'failed');
+    if (report.status === 'passed') assert.equal(report.version, version);
+    else assert.deepEqual(calls, ['--version']);
+  }
+  assert.throws(() => validateContract({ ...recordedContract, supportedVersions: ['>=1.0.77'] }), /exact release list/);
+});
+
 test('captured release and fixture-backed native claims block stable promotion', () => {
   const mismatch = { ...contract, capturedRelease: { version: '1.0.77' } };
   assert.match(verifyPromotion(mismatch, [], 'stable').errors.join(' '), /release pin/);
@@ -266,13 +285,22 @@ test('offline drift CLI detects changed schema and never runs Grok', async () =>
     const current = spawnSync(process.execPath, args, { ...options, timeout: 30_000 });
     assert.equal(current.status, 0, current.stderr);
     assert.equal(JSON.parse(current.stdout).status, 'current');
+    writeFileSync(version, 'grok 1.0.92 (b06756fd6256) [stable]');
+    const supported = spawnSync(process.execPath, args, { ...options, timeout: 30_000 });
+    assert.equal(supported.status, 0, supported.stderr);
+    assert.equal(JSON.parse(supported.stdout).status, 'current');
+    assert.deepEqual(JSON.parse(supported.stdout).versionState, {
+      installed: '1.0.92', supported: ['1.0.77', '1.0.92'], status: 'supported',
+    });
     writeFileSync(help, '--new-only');
     const changed = spawnSync(process.execPath, args, { ...options, timeout: 30_000 });
     assert.equal(changed.status, 1);
     assert.equal(JSON.parse(changed.stdout).status, 'drift');
+    assert.equal(JSON.parse(changed.stdout).versionState.status, 'supported');
     writeFileSync(version, 'grok 1.0.78');
     const bump = spawnSync(process.execPath, args, { ...options, timeout: 30_000 });
     assert.equal(JSON.parse(bump.stdout).changes.includes('version'), true);
+    assert.equal(JSON.parse(bump.stdout).versionState.status, 'unsupported');
   } finally { rmSync(folder, { recursive: true, force: true }); }
 });
 

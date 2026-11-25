@@ -114,6 +114,19 @@ for(const event of events)console.log(JSON.stringify(event));`;
     expect(result.events).toEqual(wire.trim().split('\n').map(line => JSON.parse(line)));
   });
 
+  it.each([undefined, true, false])('always prohibits native fan-out (override=%s)', async disableSubagents => {
+    const result = await runGrokHeadless({ ...fake('process.stdout.write(JSON.stringify(process.argv.slice(1)))'),
+      prompt: 'offline', format: 'plain', disableSubagents });
+    const args: string[] = JSON.parse(result.text);
+    expect(args.includes('--no-subagents')).toBe(true);
+    expect(args[args.indexOf('--disallowed-tools') + 1]).toBe('workflow,scheduler_create,scheduler_list,scheduler_delete');
+  });
+
+  it('reports an unavailable default grok executable without waiting for the hard timeout', async () => {
+    await expect(runGrokHeadless({ cwd: tmpdir(), env: { PATH: '' }, prompt: 'offline' }))
+      .rejects.toThrow(/launch failed/);
+  });
+
   it('uses fixed safe argv and parses plain termination', async () => {
     const result = await runGrokHeadless({
       ...fake('process.stdout.write(process.argv.join(" "))'), prompt: 'hello', format: 'plain',
@@ -127,7 +140,7 @@ for(const event of events)console.log(JSON.stringify(event));`;
     const result = await runGrokHeadless({
       ...fake('process.stdout.write(process.argv.join(" "))'), prompt: 'hello', format: 'plain', disableSubagents: true,
     });
-    expect(result.text).toContain('--no-subagents --disallowed-tools workflow -p hello');
+    expect(result.text).toContain('--no-subagents --disallowed-tools workflow,scheduler_create,scheduler_list,scheduler_delete -p hello');
     expect(result.text).not.toContain('--permission-mode auto');
   });
 
@@ -308,18 +321,20 @@ describe('Grok Build 1.0.77 captured headless contracts', () => {
 
   it('keeps unverified native lifecycle claims conservative across the matrix', () => {
     const caps = getProviderCapabilities('grok-build')!;
-    expect(caps.native_features).toEqual({ agent_teams: false, tasks: false, cron: false,
+    expect(caps.native_features).toEqual({ agent_teams: false, tasks: true, cron: true,
       mission_control: false, daemon: false, mcp: true, behaviors: false });
     expect(caps.daemon_tier).toBe('unsupported');
-    for (const feature of ['agent_teams', 'tasks', 'cron', 'mission_control', 'daemon', 'behaviors'] as const) {
+    for (const feature of ['agent_teams', 'mission_control', 'daemon', 'behaviors'] as const) {
       expect(caps.emulation[feature]).not.toBe('native');
     }
   });
 
-  it('does not advertise native background tasks from headless tool events', () => {
+  it('routes captured native task lists and recurring loops without claiming mission lifecycle', () => {
     const caps = getProviderCapabilities('grok-build');
-    expect(caps?.native_features.tasks).toBe(false);
-    expect(caps?.emulation.tasks).not.toBe('native');
+    expect(caps?.native_features.tasks).toBe(true);
+    expect(caps?.emulation.tasks).toBe('native');
+    expect(caps?.emulation.cron).toBe('native');
+    expect(caps?.native_features.mission_control).toBe(false);
   });
 
   it('bounds a simulated Windows child after a terminal event', async () => {

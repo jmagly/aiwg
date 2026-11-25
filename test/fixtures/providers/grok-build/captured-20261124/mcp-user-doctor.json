@@ -1,0 +1,64 @@
+{
+  "sources": [
+    {
+      "path": "~/.grok/config.toml",
+      "status": {
+        "status": "found",
+        "server_count": 1
+      }
+    },
+    {
+      "path": "plugin: design",
+      "status": {
+        "status": "found",
+        "server_count": 7
+      }
+    },
+    {
+      "path": "~/.claude.json",
+      "status": {
+        "status": "found",
+        "server_count": 0
+      }
+    },
+    {
+      "path": ".mcp.json",
+      "status": {
+        "status": "not_found"
+      }
+    }
+  ],
+  "servers": [
+    {
+      "name": "aiwg",
+      "transport": "stdio",
+      "target": "aiwg mcp serve",
+      "source": "config",
+      "checks": [
+        {
+          "label": "command found",
+          "passed": true,
+          "detail": "$HOME/.nvm/versions/node/v24.12.0/bin/aiwg"
+        },
+        {
+          "label": "server started",
+          "passed": true,
+          "detail": "0.0s"
+        },
+        {
+          "label": "handshake OK",
+          "passed": true,
+          "detail": "protocol 2025-11-25"
+        },
+        {
+          "label": "19 tools discovered",
+          "passed": true,
+          "detail": ""
+        }
+      ],
+      "healthy": true
+    }
+  ],
+  "healthy_count": 1,
+  "failing_count": 0
+}

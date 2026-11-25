@@ -583,7 +583,7 @@ providers:
       scope: in
       identity: runtime-configured-only
       evidence: R
-      channel: "grok -p --output-format streaming-json; 1.0.77 captures: headless/ACP parser contracts, workflow fan-out bypass; combined deny flags rendered (live enforcement and model/effort pins unverified)"
+      channel: "grok -p --output-format streaming-json; exact profile versions 1.0.77 and 1.0.92; historical 1.0.77 headless contracts; 2026-11-21..24 1.0.92 ACP, native fan-out, combined bans and explicit -m modelUsage captured; conductor passed managed ACP dispatch on 1.0.92 (effort pins unverified)"
       fanout: unknown
       probe_budget: { status: authorized, calls: 3, tokens: 30000, authorized_by: operator, authorized_at: "2026-10-07", hosts: [titan, noodle] }
       coverage:
@@ -599,15 +599,16 @@ providers:
     status: experimental
     # xAI Grok Build CLI/TUI. Distinct from Grok Bot (`grokbot`).
     # #2577: every claim and its limits are recorded in
-    # docs/providers/grok-build-native-agents.md (1.0.77 evidence table).
+    # docs/providers/grok-build-native-agents.md (1.0.77 historical and 1.0.92 current evidence table).
     # Captured headless shapes: test/unit/providers/grok-build-headless.test.ts.
     # 2026-11-10 1.0.77: captured-20261110 fixtures replayed by the tests above.
     # Default headless cancels spawn_subagent/workflow: "a headless run cannot ask
     # for approval". --allow spawn_subagent did not cover them; permission-mode auto
     # ran them. AIWG permission defaults stay unchanged (no automatic approval).
     # --no-subagents alone still permits workflow-spawned children. All AIWG leaf
-    # argv builders also deny workflow with --disallowed-tools workflow; combined
-    # live flag enforcement is unverified, so route_feasibility.fanout stays unknown.
+    # argv builders deny workflow,scheduler_create,scheduler_list,scheduler_delete.
+    # The 2026-11-24 scheduler-inclusive tool diff removes all five fan-out tools;
+    # cron stays native, but AIWG dispatch removes it. Interactive fan-out is uncapped.
     # Native -w is a standalone copy under ~/.grok/worktrees/<slug>/<name>, NOT a
     # git worktree; list --json ownership/recovery metadata parsing is fixture-backed
     # in grok-build-dispatch.test.ts. AIWG isolation still uses its own detached Git
@@ -619,7 +620,8 @@ providers:
     # replayed by grok-build-provider.test.ts with captured-20261110/native-agents.json.
     # Only name/description frontmatter is emitted; role/tier intent lives in the
     # body, not model pins. User-scope mirroring is offline-tested in grok-build-use.test.ts.
-    # Resident lifecycle remains unverified.
+    # 2026-11-24 tool inventory + lifecycle replays: grok-build-capabilities.test.ts.
+    # Resident lifecycle remains unverified; ACP is an embedded transport only.
     daemon_tier: unsupported
     daemon_pty_adapter: false
     artifact_paths:
@@ -630,17 +632,17 @@ providers:
       rules: "Indexed: aiwg show rule + AGENTS.md / host .grok/rules (AIWG writer deferred #2577)"
       behaviors: null
     native_features:
-      cron: false          # unverified: needs recurring-loop execution capture
-      agent_teams: false   # unverified: needs team lifecycle capture
-      tasks: false         # unverified: headless tool calls do not prove background task lifecycle
-      mcp: true            # fixture-backed config only: grok-build-native-integration.test.ts; live MCP unverified
-      behaviors: false     # unverified: needs behavior registration/execution capture
-      mission_control: false # unverified: needs mission lifecycle capture
+      cron: true           # scheduler_create/list/delete: session-bound loops, 7-day expiry; execution unverified
+      agent_teams: false   # spawn_subagent is fan-out; no team membership/message lifecycle in tool inventory
+      tasks: true          # spawn_subagent: focused dispatch completes; todo_write also offers task lists
+      mcp: true            # live 19-tool user server connect + search_tool/use_tool; project trust refusal captured
+      behaviors: false     # monitor watches stdout; no persistent behavior contract in tool inventory
+      mission_control: false # session-local workflow controls; mission inventory/status/watch lifecycle unproven
       daemon: false        # deferred: ACP frame replay is not resident lifecycle qualification (grok-build-acp.test.ts)
     emulation:
-      cron: null
+      cron: native
       agent_teams: aiwg-mc
-      tasks: aiwg-mc
+      tasks: native
       mcp: null
       behaviors: aiwg-mc
       mission_control: aiwg-mc
