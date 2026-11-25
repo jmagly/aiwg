@@ -62,7 +62,7 @@ export async function prepareRuleDeployment(original, provider, deploy) {
 
 async function prepareWithInputs(original, provider, deploy) {
   const budgetEnv = { ...process.env };
-  const ruleDir = path.isAbsolute(provider.paths.rules || '') ? provider.paths.rules : path.join(original.target, provider.paths.rules || `.${provider.name === 'devin' ? 'windsurf' : provider.name}/rules`);
+  const ruleDir = path.isAbsolute(provider.paths.rules || '') ? provider.paths.rules : path.join(original.target, provider.paths.rules || `.${provider.name}/rules`);
   const manifestFile = path.join(ruleDir, '.aiwg-manifest.json');
   const previousText = fs.existsSync(manifestFile) ? read(manifestFile) : '';
   const previous = previousText ? JSON.parse(previousText) : {};
@@ -229,7 +229,7 @@ async function prepareWithInputs(original, provider, deploy) {
     // Mount directories independently so only provider-owned surfaces are promoted.
     const relativeRoots = Object.values(provider.paths).filter(dir => dir && !path.isAbsolute(dir))
       .map(dir => dir.split(/[\\/]/)[0]).filter(dir => dir && dir !== '.' && !path.extname(dir));
-    for (const dir of new Set([`.${provider.name === 'devin' ? 'windsurf' : provider.name}`, '.agents', '.aiwg/skills', ...relativeRoots])) mount(path.join(target, dir), path.join(stage, dir));
+    for (const dir of new Set([`.${provider.name}`, ...(provider.name === 'devin' ? ['.windsurf'] : []), '.agents', '.aiwg/skills', ...relativeRoots])) mount(path.join(target, dir), path.join(stage, dir));
     fs.mkdirSync(path.join(stage, '.aiwg'), { recursive: true });
     if (fs.existsSync(projectSnapshot)) materializeInput(projectSnapshot, path.join(stage, '.aiwg', 'aiwg.config'));
     const rootNames = ['opencode.json', ...GENERATED_CONTEXT_NAMES, ...OPERATOR_CONTEXT_NAMES, '.aiwg/frameworks/registry.json'];
@@ -257,7 +257,7 @@ async function prepareWithInputs(original, provider, deploy) {
     }
     const home = path.join(temp, 'home');
     for (const [key, dir] of Object.entries(provider.paths)) {
-      if (!path.isAbsolute(dir)) continue;
+      if (!dir || !path.isAbsolute(dir)) continue;
       const to = path.join(temp, 'native', key);
       mount(dir, to);
       setStagedProviderPath(provider, key, to);
@@ -373,12 +373,12 @@ async function prepareWithInputs(original, provider, deploy) {
     }
     projectBoundFlowSkills(opts, provider, selected);
     if (['warp', 'devin'].includes(provider.name)) {
-      for (const file of walk(path.join(stage, `.${provider.name === 'devin' ? 'windsurf' : provider.name}`, 'commands'))) {
-        if (/\.md$/.test(file)) opts.definitionRoutes.push(`${path.basename(file, '.md')}: .${provider.name === 'devin' ? 'windsurf' : provider.name}/commands/${path.basename(file)}`);
+      for (const file of walk(path.join(stage, `.${provider.name}`, 'commands'))) {
+        if (/\.md$/.test(file)) opts.definitionRoutes.push(`${path.basename(file, '.md')}: .${provider.name}/commands/${path.basename(file)}`);
       }
       for (const entry of delivery.targets.filter(entry => entry.type === 'agent' && selected(entry))) {
-        const dest = path.join(stage, `.${provider.name === 'devin' ? 'windsurf' : provider.name}`, 'agents', path.basename(entry.source));
-        if (fs.existsSync(dest)) opts.definitionRoutes.push(`${entry.name}: .${provider.name === 'devin' ? 'windsurf' : provider.name}/agents/${path.basename(entry.source)}`);
+        const dest = path.join(stage, `.${provider.name}`, 'agents', path.basename(entry.source));
+        if (fs.existsSync(dest)) opts.definitionRoutes.push(`${entry.name}: .${provider.name}/agents/${path.basename(entry.source)}`);
       }
     }
     if (!opts.deferRuleProjection) {

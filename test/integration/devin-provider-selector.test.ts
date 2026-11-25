@@ -52,7 +52,8 @@ describe('Devin Desktop provider selectors', () => {
     expect(deploy('windsurf')).toEqual(preferred);
     expect(preferred.size).toBeGreaterThan(0);
     for (const selector of ['devin', 'devin-desktop', 'windsurf']) {
-      expect(existsSync(join(ROOT, selector, '.devin')), `${selector}: keep legacy native paths`).toBe(false);
+      expect(existsSync(join(ROOT, selector, '.devin')), `${selector}: native Devin paths`).toBe(true);
+      expect(existsSync(join(ROOT, selector, '.windsurf')), `${selector}: no legacy output`).toBe(false);
     }
   });
 });

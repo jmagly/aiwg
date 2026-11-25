@@ -1,7 +1,7 @@
 import base from './vitest.config.js';
 import { deploymentFiles, deploymentShards } from './test-lanes.mjs';
 
-/** Files for AIWG_DEPLOYMENT_SHARD=1|2; unset runs the whole lane. */
+/** Files for AIWG_DEPLOYMENT_SHARD=1|2|3; unset runs the whole lane. */
 export function deploymentLaneFiles(shard = process.env.AIWG_DEPLOYMENT_SHARD) {
   if (shard === undefined || shard === '') return deploymentFiles;
   const index = Number(shard) - 1;
@@ -14,7 +14,7 @@ export function deploymentLaneFiles(shard = process.env.AIWG_DEPLOYMENT_SHARD) {
 // Full-corpus provider deployment is a required, deterministic offline lane.
 // Keep these files in one process-wide run so they share the reviewed immutable
 // source caches without competing with the general test worker pool.
-// CI sets AIWG_DEPLOYMENT_SHARD to run one of the two shards.
+// CI sets AIWG_DEPLOYMENT_SHARD to run one of the three shards.
 export default {
   ...base,
   test: {

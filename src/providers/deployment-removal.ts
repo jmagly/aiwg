@@ -36,7 +36,7 @@ function symlinkBetween(root: string, file: string): boolean {
 export function planDeploymentRemoval(project: string, provider: string, owner: string, includeProject = true, preserveRoots: string[] = []): DeploymentRemovalPlan {
   const paths = Object.values(getProviderArtifactPathStrings(provider) || {}).filter(Boolean);
   const roots = [...new Set([...paths.map(dir => path.isAbsolute(dir) ? dir : path.join(project, dir.split(/[\\/]/)[0])),
-    ...deployedSkillRoots(project, provider), path.join(project, `.${provider === 'devin' ? 'windsurf' : provider}`), ...(includeProject ? [path.join(project, '.aiwg/frameworks')] : [])])].map(root => path.resolve(root));
+    ...deployedSkillRoots(project, provider), path.join(project, `.${provider}`), ...(provider === 'devin' ? [path.join(project, '.windsurf')] : []), ...(includeProject ? [path.join(project, '.aiwg/frameworks')] : [])])].map(root => path.resolve(root));
   const files = new Set<string>();
   const decisions: RemovalDecision[] = [], writes: RemovalWrite[] = [], remaining: ArtifactOwnershipRecord[] = [], recorded: ArtifactOwnershipRecord[] = [];
   const visit = (file: string) => {

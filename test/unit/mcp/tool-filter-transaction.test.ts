@@ -179,15 +179,26 @@ describe('Desktop MCP installation selectors', () => {
     await main(['install', 'cursor', '--dry-run']);
     expect(console.log).toHaveBeenCalledWith('[DRY RUN] Config file: .cursor/mcp.json');
   });
-  it.each(['devin', 'windsurf', 'devin-desktop', 'devin-local', 'cascade'])('installs %s at the retained legacy destination', async selector => {
+  it.each(['devin', 'devin-desktop', 'devin-local', 'cascade'])('installs %s at the native .devin destination', async selector => {
     await main(['install', selector, '--project', join(root, 'project')]);
-    const file = join(root, 'home/.codeium/windsurf/mcp_config.json');
+    const file = join(root, 'project/.devin/mcp_config.json');
     expect(JSON.parse(readFileSync(file, 'utf8')).mcpServers.aiwg).toMatchObject({ command: 'aiwg', args: ['mcp', 'serve'] });
-    expect(existsSync(join(root, 'home/.devin'))).toBe(false);
+    expect(existsSync(join(root, 'home/.codeium'))).toBe(false);
   });
-  it.each(['devin', 'windsurf', 'devin-desktop', 'devin-local', 'cascade'])('previews the real destination for %s', async selector => {
+  it('installs the windsurf alias at the native destination', async () => {
+    await main(['install', 'windsurf', '--project', join(root, 'project')]);
+    const file = join(root, 'project/.devin/mcp_config.json');
+    expect(JSON.parse(readFileSync(file, 'utf8')).mcpServers.aiwg).toMatchObject({ command: 'aiwg', args: ['mcp', 'serve'] });
+    expect(existsSync(join(root, 'home/.codeium'))).toBe(false);
+  });
+  it.each(['devin', 'devin-desktop', 'devin-local', 'cascade'])('previews the native destination for %s', async selector => {
     await main(['install', selector, '--project', join(root, 'project'), '--dry-run']);
-    expect(console.log).toHaveBeenCalledWith(`[DRY RUN] Config file: ${join(root, 'home/.codeium/windsurf/mcp_config.json')}`);
+    expect(console.log).toHaveBeenCalledWith(`[DRY RUN] Config file: ${join(root, 'project/.devin/mcp_config.json')}`);
+    expect(existsSync(join(root, 'project/.devin'))).toBe(false);
+  });
+  it('previews the native destination for the windsurf alias', async () => {
+    await main(['install', 'windsurf', '--project', join(root, 'project'), '--dry-run']);
+    expect(console.log).toHaveBeenCalledWith(`[DRY RUN] Config file: ${join(root, 'project/.devin/mcp_config.json')}`);
     expect(existsSync(join(root, 'home/.codeium'))).toBe(false);
   });
 });

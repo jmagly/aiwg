@@ -151,7 +151,7 @@ export const BUILT_IN_SEEDS_3: BuiltInSeed[] = [
           },
           notes: [
             'Devin Desktop is the current product name; --provider devin is preferred and --provider windsurf remains a deprecated compatibility id.',
-            'AIWG keeps .devin/ as ignored local provider output and retains .windsurf/ plus AGENTS.md; the installed 3.11 package is insufficient to verify 3.14 project discovery. Verify on titan before changing paths.',
+            'Devin 3.14 loads .devin/rules/, .devin/skills/, .devin/agents/, and .agents/skills/ natively (verified via PROBE tokens on titan) and imports .windsurf/ as a legacy surface; both devin and the deprecated windsurf alias deploy .devin/ and migrate managed legacy output.',
           ],
         },
         {
@@ -194,24 +194,25 @@ export const BUILT_IN_SEEDS_3: BuiltInSeed[] = [
       capabilityId: 'devin',
       runtimeEnvPriority: 30,
     },
-    // Compatibility filenames stay unchanged; verify Desktop 3.14 on titan before migrating.
+    // Canonical devin selector writes native .devin/ paths (verified loadable
+    // on Devin Desktop 3.14, titan), including the deprecated windsurf alias.
     paths: {
       artifacts: {
-        agents: '.windsurf/agents',
-        commands: '.windsurf/workflows',
-        skills: '.windsurf/.aiwg/skills',
-        rules: '.windsurf/rules',
-        behaviors: '.windsurf/rules',
+        agents: '.devin/agents',
+        commands: null,
+        skills: '.devin/.aiwg/skills',
+        rules: '.devin/rules',
+        behaviors: '.devin/rules',
       },
-      kernelSkills: '.windsurf/skills',
+      kernelSkills: '.devin/skills',
       configFile: '.windsurfrules',
       contextFiles: { aiwgMd: true, agentsMd: true, claudeMdHook: false, hookFile: 'AIWG-windsurf.md', contextFile: 'AGENTS.md' },
     },
     smithPaths: {
-      agents: '.windsurf/agents',
-      commands: '.windsurf/workflows',
-      skills: '.windsurf/skills',
-      rules: '.windsurf/rules',
+      agents: '.devin/agents',
+      commands: '.devin/skills',
+      skills: '.devin/skills',
+      rules: '.devin/rules',
       fileExtension: '.md',
       configFile: '.windsurfrules',
       aggregated: true,
@@ -219,7 +220,7 @@ export const BUILT_IN_SEEDS_3: BuiltInSeed[] = [
     skillNamespace: {
       deploymentGroup: 'one-level',
       pathType: 'project',
-      skillsBaseDir: '.windsurf/skills',
+      skillsBaseDir: '.devin/skills',
       subdirLayout: false,
     },
     adapters: {

@@ -408,7 +408,7 @@ validated Agent Skills name.
 | `omp` | `<project>/.omp/skills/<name>` | `native` | exact | OMP project-local imported Agent Skills bundle; native one-level discovery |
 | `pi` | `<project>/.pi/skills/<name>` | `native` | exact | Pi project-local Agent Skills bundle; loading remains subject to Pi project trust |
 | `warp` | `<project>/.warp/skills/<name>` | `native` | exact | Recursive native bundle |
-| `devin` | `<project>/.windsurf/skills/<name>` | `projected` | exact | One bundle directly below the one-level surface |
+| `devin` | `<project>/.devin/skills/<name>` | `projected` | exact | Flat bundle; recursive native discovery remains unverified |
 | `generic` | `<project>/skills/<name>` | `native` | exact | Recursive portable fallback |
 
 Every supported portable projection is reparsed with the strict validator;

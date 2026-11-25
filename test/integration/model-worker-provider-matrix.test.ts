@@ -178,7 +178,7 @@ describe('model worker provider matrix', () => {
       const index = assertStartupRuleDelivery(windsurfTarget, 'devin', windsurf);
       for (const role of roles) {
         expect(index).toContain(`aiwg-model-${role}-worker`);
-        const content = await readFile(join(windsurfTarget, `.windsurf/agents/aiwg-model-${role}-worker.md`), 'utf8');
+        const content = await readFile(join(windsurfTarget, `.devin/agents/aiwg-model-${role}-worker.md`), 'utf8');
         expect(content).toContain('exactly pinned, semantically hinted, or inherited');
         expect(content).not.toMatch(/^model:/m);
       }

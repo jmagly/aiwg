@@ -26,7 +26,7 @@ export const nativeRuleLoader = name => ['claude', 'cursor', 'grok-build', 'devi
 export const nativePathLoader = name => ['claude', 'cursor', 'devin'].includes(name);
 export function ruleDirectory(opts, provider) {
   // Muse has no declared rules path; use its existing .muse harness convention.
-  const dir = provider.paths.rules || (provider.name === 'grok-build' ? '.grok/rules' : `.${provider.name === 'devin' ? 'windsurf' : provider.name}/rules`);
+  const dir = provider.paths.rules || (provider.name === 'grok-build' ? '.grok/rules' : `.${provider.name}/rules`);
   return path.isAbsolute(dir) ? dir : path.join(opts.target, dir);
 }
 const ruleName = (rule, provider) => rule.behavior

@@ -20,7 +20,7 @@ const providers = [
   ['factory', '.factory/.aiwg/skills'],
   ['opencode', '.opencode/.aiwg/skill'],
   ['warp', '.warp/.aiwg/skills'],
-  ['devin', '.windsurf/.aiwg/skills'],
+  ['devin', '.devin/.aiwg/skills'],
   ['grokbot', 'home/configured-grokbot-skills/.aiwg/skills'],
   ['hermes', 'home/.hermes/skills/.aiwg'],
   ['openclaw', 'home/.openclaw/.aiwg/skills'],

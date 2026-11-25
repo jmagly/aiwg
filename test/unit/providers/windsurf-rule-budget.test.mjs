@@ -32,8 +32,8 @@ describe('Devin Desktop aggregate rule budget', () => {
     expect(result.status, result.output).toBe(0);
     expect(result.output).not.toContain('Rules startup budget exceeded');
     expect(statSync(path.join(result.target, 'AGENTS.md')).size).toBeLessThanOrEqual(4096);
-    expect(readFileSync(path.join(result.target, 'AGENTS.md'), 'utf8')).toContain('.windsurf/rules/RULES-INDEX.md');
-    const agents = path.join(result.target, '.windsurf/agents');
+    expect(readFileSync(path.join(result.target, 'AGENTS.md'), 'utf8')).toContain('.devin/rules/RULES-INDEX.md');
+    const agents = path.join(result.target, '.devin/agents');
     expect(readdirSync(agents).filter(file => file.endsWith('.md')).reduce((bytes, file) => bytes + statSync(path.join(agents, file)).size, 0)).toBeGreaterThan(256_000);
   }, 300_000);
 

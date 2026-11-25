@@ -203,13 +203,13 @@ const USE_PATH_GOLDENS = {
   devin: {
     deployTarget: 'project',
     artifacts: {
-      agents: '.windsurf/agents',
-      commands: '.windsurf/workflows',
-      skills: '.windsurf/.aiwg/skills',
-      rules: '.windsurf/rules',
-      behaviors: '.windsurf/rules',
+      agents: '.devin/agents',
+      commands: null,
+      skills: '.devin/.aiwg/skills',
+      rules: '.devin/rules',
+      behaviors: '.devin/rules',
     },
-    kernelSkills: '.windsurf/skills',
+    kernelSkills: '.devin/skills',
   },
   generic: {
     deployTarget: 'project',
@@ -381,7 +381,7 @@ describe('provider output characterization for registry migration', () => {
     expect(getProviderConfigPath('grok-build', projectDir)).toBe(resolve(projectDir, '.grok/config.toml'));
     expect(getProviderConfigPath('grok-build', projectDir, { scope: 'user' })).toBe(resolve(homeDir, '.grok/config.toml'));
     expect(getProviderConfigPath('opencode', projectDir)).toBe(resolve(projectDir, 'opencode.json'));
-    expect(getProviderConfigPath('devin', projectDir)).toBe(resolve(homeDir, '.codeium/windsurf/mcp_config.json'));
+    expect(getProviderConfigPath('devin', projectDir)).toBe(resolve(projectDir, '.devin/mcp_config.json'));
     expect(getProviderConfigPath('warp', projectDir)).toBe(resolve(homeDir, '.warp/mcp.json'));
   });
 });

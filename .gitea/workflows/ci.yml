@@ -397,11 +397,11 @@ jobs:
   # immutable source cache. Keep them serial and outside the general worker
   # pool while retaining them as a required build prerequisite.
   deployment:
-    name: Provider deployment integration (shard ${{ matrix.shard }}/2)
+    name: Provider deployment integration (shard ${{ matrix.shard }}/3)
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2]
+        shard: [1, 2, 3]
     env:
       AIWG_DEPLOYMENT_SHARD: ${{ matrix.shard }}
     runs-on: ubuntu-latest

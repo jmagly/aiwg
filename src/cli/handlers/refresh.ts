@@ -22,6 +22,7 @@ import { promisify } from 'node:util';
 const execFileAsync = promisify(execFile);
 import { createScriptRunner } from './script-runner.js';
 import { createUseHandler } from './use.js';
+import { canonicalDesktopProviderId } from '../../providers/devin-compat.mjs';
 import { automaticRemovalAllowed } from '../../providers/deployment-preservation.mjs';
 import { refreshDeclaredBundles } from './refresh-bundles.js';
 import { bundledRuleOutputNames } from './refresh-rule-inventory.js';
@@ -55,7 +56,7 @@ const PROVIDER_AGENT_DIRS: Record<string, string> = {
   factory: '.factory/droids',
   opencode: '.opencode/agent',
   warp: '.warp/agents',
-  devin: '.windsurf/agents',
+  devin: '.devin/agents',
 };
 
 export async function currentBundledAgentBasenames(frameworkRoot: string): Promise<Set<string>> {
@@ -564,7 +565,9 @@ export const refreshHandler: CommandHandler = {
     // is its own decision, not a consequence of asking for a forceful re-write.
     // `--force` governs what gets written; this governs what gets destroyed.
     const pruneTracked = allowsTrackedDeletes(ctx.args);
-    const provider = parseFlag(ctx.args, '--provider');
+    const requestedProvider = parseFlag(ctx.args, '--provider');
+    const provider = requestedProvider ? canonicalDesktopProviderId(requestedProvider) : undefined;
+    if (requestedProvider === 'windsurf') ui.warn("Provider id 'windsurf' is deprecated; use '--provider devin' for Devin Desktop.");
     const channel = parseFlag(ctx.args, '--channel');
     const frameworksArg = parseFlag(ctx.args, '--frameworks');
     const modelDeployArgs = collectModelDeployArgs(ctx.args);

@@ -30,9 +30,11 @@ function serialized(provider: string, output: string) {
     return { fields, body: fields.developer_instructions as string };
   }
   if (provider === 'devin') {
-    const capabilities = output.match(/<capabilities>\n([\s\S]*?)\n<\/capabilities>/)![1];
-    expect(capabilities.split('\n').every(line => /^- \S+$/.test(line))).toBe(true);
-    return { fields: { capabilities: capabilities.split('\n').map(line => line.slice(2)) }, body: output };
+    const meta = metadata(output);
+    const tools = (meta['allowed-tools'] ?? []) as string[];
+    expect(Array.isArray(tools)).toBe(true);
+    expect(tools.every(line => /^\S+$/.test(line))).toBe(true);
+    return { fields: { ...meta, capabilities: tools }, body: output.split(/\n---\n/).slice(1).join('\n---\n') };
   }
   return { fields: metadata(output), body: output.split(/\n---\n/).slice(1).join('\n---\n') };
 }
@@ -210,7 +212,8 @@ describe('model wrapper provider translations', () => {
       expect(output).toContain('Stop rules');
       const fields = provider === 'codex' ? Object.fromEntries(Object.entries(toml(output))
         .filter(([key]) => ['name', 'model', 'model_reasoning_effort', 'sandbox_mode'].includes(key)))
-        : provider === 'devin' ? { capabilities: output.match(/<capabilities>([\s\S]*?)<\/capabilities>/)?.[1] }
+        : provider === 'devin' ? ((meta: Record<string, any>) => ({ name: meta.name,
+          'allowed-tools': meta['allowed-tools'], 'model-tier': meta['model-tier'] }))(metadata(output))
         : metadata(output);
       if (wrapper.readOnly) {
         if (provider === 'codex') expect(fields.sandbox_mode).toBe('read-only');
@@ -222,7 +225,7 @@ describe('model wrapper provider translations', () => {
         if (provider === 'copilot') expect(fields.tools).toEqual(['search/codebase', 'terminal']);
         if (provider === 'omp') expect(fields.tools).toEqual(['read', 'grep', 'glob', 'bash']);
         if (provider === 'factory') expect(fields.tools).toEqual(['Execute', 'Glob', 'Grep', 'Read']);
-        if (provider === 'devin') expect(fields.capabilities).toBe('\n- Read\n- Grep\n- Glob\n- Bash\n');
+        if (provider === 'devin') expect(fields['allowed-tools']).toEqual(['Read', 'Grep', 'Glob', 'Bash']);
       }
       if (fields.model) {
         expect(isFlagshipModel(String(fields.model))).toBe(false);
@@ -230,7 +233,7 @@ describe('model wrapper provider translations', () => {
       } else expect(output).toContain('stop unless the conductor confirms the required non-flagship session');
       outputs[wrapper.name] = { ...fields, contract: 'WorkerClaims: criterion + evidence + verdict; stop rules' };
     }
-    await expect(JSON.stringify(outputs, null, 2) + '\n').toMatchFileSnapshot(`../../fixtures/model-wrappers/${provider === "devin" ? "windsurf" : provider}.golden.json`);
+    await expect(JSON.stringify(outputs, null, 2) + '\n').toMatchFileSnapshot(`../../fixtures/model-wrappers/${provider}.golden.json`);
     // Warp uses aggregate context only. All other adapters deploy discrete mirrors or native agents.
     if (typeof adapter.deployAgents !== 'function' || provider === 'warp') return;
     const root = await mkdtemp(join(tmpdir(), 'aiwg-wrapper-matrix-')); roots.push(root);

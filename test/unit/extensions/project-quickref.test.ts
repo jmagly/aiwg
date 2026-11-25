@@ -402,7 +402,7 @@ describe('project quickref generation and deployment (#1788)', () => {
       openclaw: join(homeDir, '.openclaw', 'skills', 'aiwg'),
       openhuman: join(homeDir, '.openhuman', 'skills'),
       warp: join(projectDir, '.warp', 'skills'),
-      devin: join(projectDir, '.windsurf', 'skills'),
+      devin: join(projectDir, '.devin', 'skills'),
       generic: join(projectDir, '.agents', 'skills'),
     };
 

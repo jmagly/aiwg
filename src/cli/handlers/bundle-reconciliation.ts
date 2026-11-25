@@ -80,7 +80,7 @@ export async function pruneUndeclaredBundles(project: string, config: AiwgConfig
   const hashPruned = await pruneUndeclaredHashes(project, config, requested, dryRun);
   let failures = 0;
   const knownProviders = [...new Set([...Object.keys(history), ...(config.providers ?? []), ...Object.values(config.installed).flatMap(entry => Object.keys(entry.deployedTo ?? {})),
-    ...PROVIDER_IDS.filter(provider => fs.existsSync(path.join(project, `.${provider === 'devin' ? 'windsurf' : provider}`)))])];
+    ...PROVIDER_IDS.filter(provider => fs.existsSync(path.join(project, `.${provider}`)) || provider === 'devin' && fs.existsSync(path.join(project, '.windsurf')))])];
   const providers = requested ? requested.split(',') : knownProviders;
   const root = frameworkRoot ?? await getFrameworkRoot();
   const expected = new Map<string, Set<string>>();

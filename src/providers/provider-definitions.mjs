@@ -107,7 +107,7 @@ const MCP_INJECTION_DEFINITIONS = [
       configFormat: 'json',
       serverConfigFormat: 'standard',
       serversKey: 'mcpServers',
-      configPath: { scope: 'home', path: '.codeium/windsurf/mcp_config.json' },
+      configPath: { scope: 'project', path: '.devin/mcp_config.json' },
       supportsEphemeral: true,
     },
   },
@@ -191,6 +191,10 @@ export function resolveMcpConfigPath(provider, projectDir = '.', options = {}) {
   }
   if (normalizeRuntimeProviderId(provider) === 'omp' && options.scope === 'user') {
     return resolve(resolveOmpPaths(options).agentDir, 'mcp.json');
+  }
+  if (normalizeRuntimeProviderId(provider) === 'devin' && options.scope === 'user') {
+    const home = process.env.HOME || process.env.USERPROFILE || homedir();
+    return resolve(home, '.config/devin/mcp_config.json');
   }
   if (normalizeRuntimeProviderId(provider) === 'grok-build' && options.scope === 'user') {
     const userHome = process.env.HOME || process.env.USERPROFILE || homedir();

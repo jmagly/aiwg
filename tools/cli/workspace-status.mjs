@@ -235,6 +235,7 @@ async function collectProviderDeployments(projectRoot) {
     { name: 'cursor', path: '.cursor', artifactDirs: ['agents', 'commands', 'skills', 'rules'] },
     { name: 'opencode', path: '.opencode', artifactDirs: ['agent', 'command', 'skill', 'rule'] },
     { name: 'warp', path: '.warp', artifactDirs: ['agents', 'commands', 'skills', 'rules'] },
+    { name: 'devin', path: '.devin', artifactDirs: ['agents', 'skills', 'rules'] },
     { name: 'devin', path: '.windsurf', artifactDirs: ['agents', 'workflows', 'skills', 'rules'] },
     { name: 'universal', path: '.agents', artifactDirs: ['agents', 'commands', 'skills', 'rules'] }
   ];

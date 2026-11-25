@@ -49,10 +49,10 @@ describe('PlatformSkillResolver.getNamespacedSkillPath', () => {
     expect(p).toBe(path.join(PROJECT, '.cursor/skills/aiwg/aiwg-sync'));
   });
 
-  it('deploys FLAT on Devin Desktop (1-level discovery limit)', () => {
+  it('deploys flat under native Devin skills until recursive discovery is confirmed', () => {
     const p = PlatformSkillResolver.getNamespacedSkillPath('devin', PROJECT, 'sync', NS);
     // No namespace subdir — just slug under base
-    expect(p).toBe(path.join(PROJECT, '.windsurf/skills/aiwg-sync'));
+    expect(p).toBe(path.join(PROJECT, '.devin/skills/aiwg-sync'));
     expect(p).not.toContain('/aiwg/');
   });
 

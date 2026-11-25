@@ -153,7 +153,11 @@ export function deploymentEditWarnings(project, provider) {
       }
     }
   };
-  visit(path.join(project, `.${provider === 'devin' ? 'windsurf' : provider}`));
+  visit(path.join(project, `.${provider}`));
+  if (provider === 'devin' && fs.existsSync(path.join(project, '.devin/.aiwg/legacy-windsurf'))) {
+    warnings.add('Migrated managed .windsurf/ output to .devin/; originals retained in .devin/.aiwg/legacy-windsurf/.');
+    if (fs.existsSync(path.join(project, '.windsurf'))) warnings.add('Preserved operator files under .windsurf/ (not AIWG-managed).');
+  }
   visit(path.join(project, '.agents'));
   return [...warnings];
 }

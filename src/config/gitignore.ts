@@ -58,6 +58,7 @@ export const PROVIDER_CONVENTIONAL_PATTERNS = [
   '.factory/skills/',
   '.factory/rules/',
   '.warp/',
+  '.devin/',
   '.windsurf/agents/',
   '.windsurf/skills/',
   '.windsurf/rules/',

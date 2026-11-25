@@ -139,7 +139,7 @@ describe.each([
         .map(file => [relative(root, file), readFileSync(file, "utf-8")]),
     );
     const actual = { files, warnings: result.warnings };
-    const golden = join(fixtures, `${provider === "devin" ? "windsurf" : provider}.golden.json`);
+    const golden = join(fixtures, `${provider}.golden.json`);
     if (process.env.AIWG_UPDATE_GOLDEN === "1") writeFileSync(golden, JSON.stringify(actual, null, 2) + "\n");
     expect(actual).toEqual(JSON.parse(readFileSync(golden, "utf-8")));
   });

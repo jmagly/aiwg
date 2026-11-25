@@ -35,7 +35,6 @@ const PROVIDERS_NEEDING_COMMANDS = new Set([
   'factory',
   'opencode',  // OpenCode scans .opencode/command/**/*.md via ConfigCommand.load() (PUW-006 #1107)
   'warp',
-  'devin',
   'copilot',
   'codex',
   'openclaw',
@@ -48,6 +47,7 @@ const SKILLS_ONLY_PROVIDERS = new Set([
   'antigravity',
   'claude',
   'cursor',
+  'devin', // Devin 3.x loads .devin/skills/ natively; commands deploy as skills
   'grokbot',
   'hermes',
   'muse', // #236: skills deploy natively; no command translation (indexed-only agents/commands/rules)

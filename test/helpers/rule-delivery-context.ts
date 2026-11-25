@@ -74,7 +74,7 @@ export function readRuleDeliveryContext(report: { contributors: Array<{ path: st
 }
 
 /** Assert a compact startup reaches exactly one complete harness projection. */
-export function assertStartupRuleDelivery(root: string, provider: string, startup: string, rulesDir = `.${provider === 'devin' ? 'windsurf' : provider}/rules`): string {
+export function assertStartupRuleDelivery(root: string, provider: string, startup: string, rulesDir = `.${provider}/rules`): string {
   const directory = path.join(root, rulesDir);
   const manifest = JSON.parse(fs.readFileSync(path.join(directory, '.aiwg-manifest.json'), 'utf8'));
   expect(manifest.ruleSources.length, `${provider}: selected source rules`).toBeGreaterThan(0);

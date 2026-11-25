@@ -50,6 +50,7 @@ export const discoveryFiles = ['test/integration/artifacts/discover-fortemi-corp
 export const deploymentFiles = [
   'test/integration/flue-deployment.test.ts',
   'test/integration/use-all-deployment.test.ts',
+  'test/integration/devin-legacy-migration.test.ts',
   'test/integration/hermes-deployment.test.ts',
   'test/integration/guided-setup-walkthrough.test.ts',
   // Real sdlc and marketing deploys followed by `aiwg remove` (#3769).
@@ -62,19 +63,11 @@ export const deploymentFiles = [
   // Offline #3935 inventory: built CLI deploy/refresh across the 18 harnesses.
   'test/integration/harness-bootstrap-audit.test.ts',
 ];
-// CI splits the serial deployment lane into two hand-balanced shards so each
-// fits its time limit on slower shared runners. Each shard is still serial.
-// #4063: keep the provider reconciliation suites on different shards and move
-// Flue/use-all to shard 1 and managed-refresh to shard 2. Partition guards live in
-// test/unit/testing/deployment-lane.test.ts; do not raise the 18-minute tag budget.
-// Local cold-file wall times, 2026-11-10, nice -n 19 (seconds, before -> after):
-// reconciliation: 283.5 combined -> 149.4 Claude + 114.3 Codex (all 16 cases).
-// flue: 224.0 -> 216.6; use-all: 91.5 -> 82.4; hermes: 10.3 -> 9.9;
-// guided-setup: 63.2 -> 51.1; remove: 228.2 -> 175.4;
-// managed-refresh: 109.4 -> 112.3; harness-bootstrap: 103.2 -> 105.2.
-// Sum of cold-file walls: shard 1 ~509 s, shard 2 ~507 s, versus 1080 s.
+// CI keeps full-corpus deployments serial within each shard. The legacy
+// Devin upgrade regression (#4359) owns a third shard (~555 s locally), so
+// the original provider groups retain their existing 18-minute tag budget.
+// Partition guards live in test/unit/testing/deployment-lane.test.ts.
 // Reproduce each file alone: nice -n 19 npm run test:deployment -- <file>.
-// These are local measurements under contention, not shared-runner guarantees.
 export const deploymentShards = [
   [
     'test/integration/bundle-reconciliation-cli.test.ts',
@@ -89,6 +82,7 @@ export const deploymentShards = [
     'test/integration/refresh-managed-deployment.test.ts',
     'test/integration/harness-bootstrap-audit.test.ts',
   ],
+  ['test/integration/devin-legacy-migration.test.ts'],
 ];
 // Exhaustive provider deployment matrices run before releases, while focused
 // CLI contracts and a small provider smoke matrix remain in the default lane.

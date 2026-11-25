@@ -28,7 +28,6 @@ describe('Provider classification', () => {
       // opencode: PUW-006 (#1107) — OpenCode scans .opencode/command/**/*.md
       expect(providerNeedsCommands('opencode')).toBe(true);
       expect(providerNeedsCommands('warp')).toBe(true);
-      expect(providerNeedsCommands('devin')).toBe(true);
       expect(providerNeedsCommands('copilot')).toBe(true);
       expect(providerNeedsCommands('codex')).toBe(true);
       expect(providerNeedsCommands('openclaw')).toBe(true);
@@ -37,6 +36,7 @@ describe('Provider classification', () => {
     it('should return false for skills-native providers', () => {
       expect(providerNeedsCommands('claude')).toBe(false);
       expect(providerNeedsCommands('cursor')).toBe(false);
+      expect(providerNeedsCommands('devin')).toBe(false);
       expect(providerNeedsCommands('hermes')).toBe(false);
     });
 
@@ -49,6 +49,7 @@ describe('Provider classification', () => {
     it('should return true for skills-native providers', () => {
       expect(providerUsesSkillsNatively('claude')).toBe(true);
       expect(providerUsesSkillsNatively('cursor')).toBe(true);
+      expect(providerUsesSkillsNatively('devin')).toBe(true);
       expect(providerUsesSkillsNatively('hermes')).toBe(true);
     });
 
@@ -418,13 +419,14 @@ Does simple things.`,
     await expect(fs.access(path.join(projectRoot, '.github', 'prompts'))).rejects.toThrow();
   });
 
-  it('should skip translation for skills-native providers', async () => {
+  it.each(['claude', 'devin'])('should skip translation for skills-native %s', async (provider) => {
     const result = await translateSkillsToCommands(skillsDir, {
-      provider: 'claude',
+      provider,
       targetDir,
     });
     expect(result.totalProcessed).toBe(0);
     expect(result.translated).toHaveLength(0);
+    await expect(fs.access(targetDir)).rejects.toThrow();
   });
 
   it('should translate skills for command-needing providers', async () => {
@@ -478,7 +480,7 @@ Does simple things.`,
   });
 
   it('should work for all command-needing providers', async () => {
-    for (const provider of ['factory', 'opencode', 'warp', 'devin', 'copilot', 'codex', 'openclaw']) {
+    for (const provider of ['factory', 'opencode', 'warp', 'copilot', 'codex', 'openclaw']) {
       const providerTarget = provider === 'copilot'
         ? path.join(tmpDir, '.github', 'commands')
         : path.join(tmpDir, `commands-${provider}`);

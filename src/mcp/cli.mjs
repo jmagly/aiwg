@@ -368,9 +368,12 @@ enabled_tools = [
       alias: 'codex'
     },
     devin: {
-      // Devin Desktop stores MCP config at ~/.codeium/windsurf/mcp_config.json
-      path: path.join(homeDir, '.codeium/windsurf/mcp_config.json'),
-      userScope: true,
+      // Devin reads project MCP config at .devin/mcp_config.json (3.x native);
+      // the user-scope file lives at ~/.config/devin/mcp_config.json.
+      path: scope === 'user'
+        ? path.join(homeDir, '.config/devin/mcp_config.json')
+        : path.join(projectDir === '.' ? process.cwd() : projectDir, '.devin/mcp_config.json'),
+      userScope: scope === 'user',
       content: {
         mcpServers: {
           aiwg: {
@@ -1693,7 +1696,7 @@ export async function main(args = process.argv.slice(2)) {
           opencode: (projectDir === '.' || projectDir === 'global')
             ? 'opencode.json'
             : path.join(projectDir, 'opencode.json'),
-          devin: path.join(homeDir, '.codeium/windsurf/mcp_config.json'),
+          devin: path.join(projectDir === '.' ? process.cwd() : projectDir, '.devin/mcp_config.json'),
           warp: '(UI-based — Settings > AI > MCP Servers)'
         };
         console.log(`[DRY RUN] Config file: ${configPaths[target] || 'unknown'}`);

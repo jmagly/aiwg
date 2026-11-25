@@ -312,7 +312,9 @@ const installDestinations = [
   { target: "factory", file: ".factory/mcp.json", home: true },
   { target: "codex", file: ".codex/config.toml", home: true },
   { target: "openai", file: ".codex/config.toml", home: true },
-  { target: "devin", file: ".codeium/windsurf/mcp_config.json", home: true },
+  { target: "devin", file: ".devin/mcp_config.json" },
+  { target: "devin", file: ".config/devin/mcp_config.json", home: true, args: ["--scope", "user"] },
+  { target: "windsurf", file: ".devin/mcp_config.json", home: false },
   { target: "vscode", file: ".vscode/mcp.json" },
   { target: "copilot", file: ".vscode/mcp.json" },
   { target: "opencode", file: "opencode.json" },
@@ -458,8 +460,8 @@ describe("MCP config write safety", () => {
     expect(readdirSync(homeDir)).toEqual([".claude.json"]);
   });
 
-  it.each(installDestinations.filter(destination => destination.home && destination.target !== "claude-code"))("creates private install config for $target", ({ target, file }) => {
-    runCli(["install", target]);
+  it.each(installDestinations.filter(destination => destination.home && destination.target !== "claude-code"))("creates private install config for $target", ({ target, file, args = [] }) => {
+    runCli(["install", target, ...args]);
     expect(statSync(join(homeDir, file)).mode & 0o777).toBe(0o600);
   });
 });

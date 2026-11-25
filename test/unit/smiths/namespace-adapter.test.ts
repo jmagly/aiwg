@@ -185,7 +185,7 @@ describe('getAdapter', () => {
 
 describe('NAMESPACE_ADAPTERS group assignments', () => {
   // Per ADR source-confirmed matrix (#695 cycle #2):
-  // Only Devin Desktop has 1-level recursion; all others are deep-recursion.
+  // Devin keeps flat deployment until native recursive discovery is confirmed.
   const groupA = ['claude', 'cursor', 'codex', 'opencode', 'openclaw', 'factory', 'warp', 'copilot'];
   const groupB = ['devin'];
   const groupC: string[] = [];
@@ -330,11 +330,11 @@ describe('getDeploymentPlans — Group A (promoted platforms)', () => {
 // ============================================
 
 describe('getDeploymentPlans — Group B (one-level)', () => {
-  it('Devin Desktop: returns 1 plan (flat slug only — sole 1-level platform)', () => {
+  it('Devin Desktop: keeps one flat native plan until recursive discovery is confirmed', () => {
     const result = getDeploymentPlans('devin', PROJECT, 'sync', SAMPLE_SKILL_MD, NS);
     expect(result.skip).toBe(false);
     expect(result.plans).toHaveLength(1);
-    expect(result.plans[0].targetPath).toContain('.windsurf/skills/aiwg-sync/SKILL.md');
+    expect(result.plans[0].targetPath).toBe(path.join(PROJECT, '.devin/skills/aiwg-sync/SKILL.md'));
     // Must NOT contain namespace subdir
     expect(result.plans[0].targetPath).not.toContain('/aiwg/aiwg-sync/');
   });

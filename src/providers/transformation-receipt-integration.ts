@@ -234,7 +234,7 @@ export async function resolveProviderReceiptRuntimeEvidence(
     options.outputRoot ?? (options.scope === 'user' ? homedir() : options.projectRoot),
   );
   const ownedFiles = new Set<string>();
-  const receiptDirectories = new Set([outputRoot, path.join(outputRoot, '.aiwg'), path.join(outputRoot, `.${provider === 'devin' ? 'windsurf' : provider}`)]);
+  const receiptDirectories = new Set([outputRoot, path.join(outputRoot, '.aiwg'), path.join(outputRoot, `.${provider}`)]);
   if (paths) {
     for (const type of ['agents', 'commands', 'skills', 'rules', 'behaviors'] as const) {
       const configured = paths[type];

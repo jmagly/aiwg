@@ -9,7 +9,7 @@ export async function countDeployedBundleRules(bundlePath: string, target: strin
   if (!deployPath && !provider) return 0;
   // The shared rule projector uses this conventional directory even when a
   // provider has no native rule loader (for example Pi).
-  const destination = path.resolve(target, deployPath || `.${provider === 'devin' ? 'windsurf' : provider}/rules`);
+  const destination = path.resolve(target, deployPath || `.${provider}/rules`);
   let selected: string[] = [];
   let managed: Record<string, { hash?: string }> = {};
   try {
