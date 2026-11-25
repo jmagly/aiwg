@@ -1,0 +1,6 @@
+[
+  {},
+  { "delivery": { "mode": "direct" } },
+  { "delivery": { "pr_steward_guidance": false } },
+  { "delivery": { "pr_steward_guidance": true } }
+]

@@ -4,6 +4,9 @@ import type { AiwgConfig } from './aiwg-config.js';
 export function validateDeliverySettings(config: Pick<AiwgConfig, 'delivery' | 'remotes'>): string[] {
   const errors: string[] = [];
   const delivery = config.delivery;
+  if (delivery?.pr_steward_guidance !== undefined && typeof delivery.pr_steward_guidance !== 'boolean') {
+    errors.push('delivery.pr_steward_guidance must be a boolean');
+  }
   if (delivery?.merge !== undefined && !['local-signed', 'local', 'tracker'].includes(delivery.merge)) errors.push('delivery.merge must be local-signed, local, or tracker');
   for (const name of ['tracker_actor', 'customer_tracker_actor'] as const) {
     const credential = config.remotes?.[name]?.credential;

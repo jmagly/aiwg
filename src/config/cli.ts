@@ -224,6 +224,7 @@ const ENUM_RULES: Record<string, readonly string[]> = {
 };
 
 const BOOLEAN_FIELDS = new Set([
+  'delivery.pr_steward_guidance',
   'decision.enabled',
   'delivery.delete_branch_on_merge',
   'delivery.require_ci_green',

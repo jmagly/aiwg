@@ -680,6 +680,7 @@ async function deploySelected(opts) {
   }
 
   // Post-deployment (pass counts for hook file token substitution)
+  opts.replacedSkillCopies ||= new Set();
   await postDeploy(target, { ...opts, counts });
 
   if (verbose) {
