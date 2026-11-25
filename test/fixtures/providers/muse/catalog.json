@@ -1,0 +1,14 @@
+{
+  "rows": [
+    {
+      "model_id": "muse-spark-1.3",
+      "provider_id": "meta",
+      "visibility": "visible",
+      "is_current": true,
+      "is_default": true,
+      "reasoning_effort_variants": [{ "tier": "medium" }],
+      "context_limit": 128000,
+      "output_limit": 16000
+    }
+  ]
+}

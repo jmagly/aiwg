@@ -380,12 +380,29 @@ export async function qualifyProbedWorkers({ projectDir, packageRoot, config, re
             : 'Cursor native discovery did not list these selectors as accessible. ';
           warning += `Inspect \`${listCommand}\` (the configured executable), correct its login/list failure or the exact selectors in parallelism.groups, `
             + `then run \`aiwg doctor --probe-workers --qualify --cli ${row.cli} --yes\` to record fresh observations and approval.`;
+        } else if (adapter.provider === 'muse' && !cliConfig.localModels) {
+          const evidence = missing.map(model => {
+            const found = observed?.models?.find(entry => entry.id === model && entry.apiModelId === model && entry.llmProvider && entry.worker);
+            if (!found) return `${model}: missing exact model_id/provider_id catalog row`;
+            const gaps = [];
+            if (found.worker.availability !== 'accessible') gaps.push('accessibility (is_current: true)');
+            if (found.worker.runtimeVersion !== row.installedVersion) gaps.push('matching installed runtimeVersion');
+            if (found.worker.accountScope !== accountScope) gaps.push('matching accountScope');
+            return `${model}: missing ${gaps.join(', ')}`;
+          });
+          warning += `Muse catalog evidence: ${evidence.join('; ')}. `;
+          if (observed?.error) warning += `Muse catalog discovery failed: ${observed.error}. `;
+          warning += 'Open the configured Muse executable, sign in to the intended account and select the exact model '
+            + 'so Muse updates ~/.local/share/muse/model-catalog/*.json; inspect the matching model_id, provider_id and is_current row. '
+            + 'Catalog visibility alone does not establish accessibility. If Muse still omits is_current: true, '
+            + 'this catalog cannot supply accessibility evidence; use a Muse version that supplies it before approval. '
+            + `Then run \`aiwg doctor --probe-workers --qualify --cli ${row.cli} --yes\`; refreshing AIWG alone cannot supply missing native evidence.`;
         } else warning += 'Refresh model discovery before qualifying again.';
       } else if (!invocationChecks.length) {
         warning = `No model invocation checks ran for ${row.cli}. Configure an enabled model/role member in parallelism.groups, `
           + `then run \`aiwg doctor --probe-workers --qualify --cli ${row.cli} --yes\`.`;
       }
-      const partial = !invocationChecks.length || (adapter.provider === 'cursor' && missing.length > 0);
+      const partial = !invocationChecks.length || (['cursor', 'muse'].includes(adapter.provider) && missing.length > 0);
       results.push({ cli: row.cli, status: partial ? 'partial' : 'qualified', models: approvedModels.map(model => model.id), invocationChecks,
         ...(codexSandboxChecks.length ? { codexSandboxChecks } : {}),
         ...(warning ? { warning } : {}) });
