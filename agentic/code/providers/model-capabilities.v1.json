@@ -916,6 +916,9 @@
           "cwd": "${workspace}",
           "envAllowlist": [
             "CURSOR_API_KEY",
+            "DISPLAY",
+            "DBUS_SESSION_BUS_ADDRESS",
+            "XDG_RUNTIME_DIR",
             "HOME",
             "PATH"
           ],
@@ -1009,6 +1012,9 @@
             },
             "envAllowlist": [
               "CURSOR_API_KEY",
+              "DISPLAY",
+              "DBUS_SESSION_BUS_ADDRESS",
+              "XDG_RUNTIME_DIR",
               "HOME",
               "PATH"
             ],
@@ -1022,7 +1028,7 @@
               "This version's non-interactive path has no type:\"error\" terminal event: a thrown error writes plain text and exits non-zero with no JSON result line at all; a missing terminal plus a non-zero exit is the failure signal here. Defensively, ANY type:\"error\" event or non-null top-level error field fails the stream regardless of position, including after an earlier success.",
               "A type:\"interaction_query\" line means the CLI is waiting for an approval answer this profile cannot supply; treated as fatal regardless of position (before or after a success line), never as a pending success.",
               "The template placeholder ${mode} documents the conditional --mode ask that read-only additionally emits on top of --sandbox enabled; it is omitted entirely for workspace-write, never rendered as an empty token.",
-              "Auth may use CURSOR_API_KEY or an existing login (live smoke used login); HOME locates ~/.cursor for persistent settings.",
+              "Auth may use CURSOR_API_KEY on headless hosts or a desktop OS keyring login; DISPLAY, DBUS_SESSION_BUS_ADDRESS and XDG_RUNTIME_DIR pass through only when set. Qualification probes cursor-agent status in the allowlisted worker environment.",
               "SE4: date cores normalize decimal components; Cursor build hashes are retained for approval identity but ignored for supported-range comparison. Builds from 2026.11.13 onward are admitted; newer than tested builds warn with the manual smoke and approval refresh path."
             ],
             "health": {

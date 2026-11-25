@@ -8,6 +8,7 @@ import { homedir } from 'node:os';
 import { createHash } from 'node:crypto';
 import { createInterface } from 'node:readline/promises';
 import { importImpl } from '../_resolve-impl.mjs';
+import { checkCursorWorkerAuth } from './cursor-worker-auth.mjs';
 import { detectWorkerIsolation, probeWorkerNativeSandbox, workerNeedsNativeNamespaces, nativeSandboxProbeMessage } from '../ralph-external/lib/worker-isolation.mjs';
 
 const digest = bytes => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
@@ -336,6 +337,7 @@ export async function qualifyProbedWorkers({ projectDir, packageRoot, config, re
         ...(cliConfig.modelLimits ? { modelLimitsDigest: workerConfigDigest(cliConfig.modelLimits) } : {}),
         effectiveConfigDigest: workerConfigDigest(policy), accountScope, policy, permissions: {},
         boundary: { kind: 'native', identity: 'operator-approved-cli', digest: workerConfigDigest(adapter.invocation), controls: [] } };
+      if (adapter.provider === 'cursor') await checkCursorWorkerAuth({ executable, environment: installation.environment, cwd: projectDir });
       const codexSandboxChecks = [];
       if (adapter.provider === 'codex') {
         let nativeCheck;

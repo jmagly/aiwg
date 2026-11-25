@@ -78,6 +78,29 @@ in any position in the stream, including strictly after an earlier
 affirmative success, since a later clean-looking event must never repair
 an earlier failure and vice versa.
 
+## Authentication
+
+Desktop account login uses the OS keyring. On Linux, the worker needs the
+operator's `DISPLAY`, `DBUS_SESSION_BUS_ADDRESS` and `XDG_RUNTIME_DIR` to
+read that login. The Cursor profile passes through those three variables
+only when set, alongside the existing `HOME`, `PATH` and `CURSOR_API_KEY`
+allowlist. All other conductor variables stay outside the worker. Values
+are read at launch and are not printed in the rendered command or plan.
+
+For headless hosts without a desktop keyring session, use key-based login
+with `CURSOR_API_KEY` set in the conductor environment. Do not put the key
+in the brief, command arguments or project configuration.
+
+Qualification runs the configured executable's `status` command with the
+same allowlisted environment and working directory as the rendered worker.
+It requires an affirmative login/API-key status; an unavailable login,
+failed probe or unrecognized response fails qualification without recording
+approval. Probe output is never included in the report. If it fails, restore
+the desktop session variables and unlock/sign into the keyring, or configure
+`CURSOR_API_KEY` on the headless host, then qualify again. This model-free
+check confirms authentication visibility at qualification time; it does not
+establish model entitlement or guarantee that a later login remains valid.
+
 ## Live observations (2026-11-17)
 
 ### Model discovery and approval
@@ -202,7 +225,8 @@ After a self-update, doctor warns when the build is newer than tested while
 keeping installation readiness. Run the smoke below; after a pass, return
 to the project and run `aiwg doctor --probe-workers --qualify --cli cursor --yes`
 to refresh approval for the exact installed build. Qualification checks the
-version, catalog and invocation; it does not perform the live smoke. The
+version, worker authentication, catalog and invocation; it does not perform
+the live smoke. The
 range already admits newer builds, so each update needs no catalog edit.
 If a smoke fails, report the version and failure so the supported range can
 be narrowed.
