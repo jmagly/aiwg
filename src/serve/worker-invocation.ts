@@ -2,6 +2,7 @@ import { WorkerRequestArgumentError, type WorkerCommandRequest } from './worker-
 export { parseWorkerCommandArgs, type WorkerCommandRequest } from './worker-command-request.js';
 /** One nonlaunching typed renderer shared by models resolve and Ralph. */
 import path from 'node:path';
+import { loadWorkerQuotaObservations } from '../models/worker-quota-observations.mjs';
 import { inspectWorkerPath as inspectPath, workerOutputPaths, readBrief, assertConductorWorkerPlan } from './worker-invocation-paths.js';
 export { inspectWorkerPath } from './worker-invocation-paths.js';
 import { createHash, randomUUID } from 'node:crypto';
@@ -218,6 +219,7 @@ export async function resolveWorkerInvocation(snapshot: WorkerPlanSnapshot, requ
     const intent = managedIntent ?? brief?.intent;
     if (intent) snapshot.constraints = { ...snapshot.constraints, ceilings: intersectWorkerCeilings(
       snapshot.constraints?.ceilings, { ...intent.limits, costUsd: intent.limits.costUsd ?? undefined }) };
+    snapshot.quotaObservations = await loadWorkerQuotaObservations(request.workdir);
     plan = resolveWorkerPlan(snapshot, { role: request.role, taskClass: request.task, group: request.group,
       transport: request.transport, authority: request.authority, now, expectedDigests: expected?.digests,
       ceilings: request.ceilings,
@@ -352,7 +354,7 @@ export async function resolveWorkerInvocation(snapshot: WorkerPlanSnapshot, requ
       health: effectiveHealth,
     };
     const invocationQualification: WorkerInvocationQualification = { ...qualification, now: Date.parse(now),
-      ceilings: request.ceilings, task: request.task,
+      ceilings: request.ceilings, task: request.task, quotaScope: snapshot.config.parallelism?.clis?.[tuple.cli]?.quotaScope,
       policy: plan.policy, permissions: tuple.permissions, role: request.role, modelObservation: observation,
       expectedDigests: { policyDigest, catalogDigest: plan.digests.catalogDigest, profileDigest: plan.digests.profileDigest, briefDigest },
       requiredControls: controls };

@@ -4,6 +4,7 @@ import { mkdir, open, readdir, lstat } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { join, dirname, basename } from 'node:path';
 import { withWorkerPath } from './worker-inputs.mjs';
+import { observeWorkerQuotaCapture } from './worker-quota-capture.mjs';
 import { importImpl } from '../../_resolve-impl.mjs';
 
 const hash = bytes => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
@@ -118,6 +119,8 @@ export class WorkerCaptureOwner {
     record.captureSeal = { directory: this.directory, sealedAt: new Date().toISOString(), files,
       digest: hash(JSON.stringify(files)) };
     await this.publishSeal(this.runDir, this.result ? 'exit.json' : 'invocation.json', record, this.inspect);
+    await observeWorkerQuotaCapture({ invocation: this.invocationRecord, paths: this.paths,
+      exitCode: this.result?.exitCode ?? 1, inspect: this.inspect });
   }
 }
 
