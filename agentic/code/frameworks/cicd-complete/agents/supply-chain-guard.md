@@ -1,7 +1,7 @@
 ---
 name: supply-chain-guard
 description: Review user-project CI action pins, SBOM, signing and provenance; read-only reviews return findings without applying changes.
-model: claude-sonnet-5
+model: sonnet
 memory: project
 tools: Read, Glob, Grep, Write, MultiEdit, Bash
 category: cicd-complete

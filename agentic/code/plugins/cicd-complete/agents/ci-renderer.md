@@ -1,7 +1,7 @@
 ---
 name: ci-renderer
 description: Render reviewed CI specs with provider-extension templates and detect drift against existing user-project workflows.
-model: claude-sonnet-5
+model: sonnet
 memory: project
 tools: Read, Glob, Grep, Write, MultiEdit, Bash
 category: cicd-complete
