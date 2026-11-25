@@ -151,6 +151,51 @@ aiwg version
 
 ---
 
+## PR Steward repository guidance
+
+Claude Code's built-in `/steward` watches an open PR, fixes CI failures, conflicts
+and review feedback, and can commit and push as the user. It never merges; only
+a user-typed command starts it. AIWG does not start or drive it.
+
+To supply repository policy on each watch pass, explicitly set this boolean in
+the existing `.aiwg/aiwg.config` delivery block:
+
+```json
+{ "delivery": { "pr_steward_guidance": true } }
+```
+
+Claude deployment and refresh then manage `.claude/skills/steward/SKILL.md`,
+with an `.aiwg-managed` stamp and ownership receipt. The default is false;
+`aiwg use all --provider claude` never enables it. No `babysit` file or user HOME
+guidance is generated. Existing unmanaged or edited guidance is preserved with
+a notice. Set the option to false (or remove it) and refresh to remove unedited
+managed guidance; unrelated files remain.
+
+Identity, signing, delivery mode, force-push and CI policy come from `delivery`.
+For checks and protected paths, declare bullet lists under the exact headings
+`## PR Steward verification commands` and `## PR Steward off-limits paths` in
+`WORKSPACE.md`. For example:
+
+```markdown
+## PR Steward verification commands
+- `npm run typecheck`
+
+## PR Steward off-limits paths
+- `.github/workflows/`
+```
+
+Commands are copied as instructions, never executed by deployment. Missing lists or signing metadata
+produce a note and omit the corresponding section; commands are never inferred.
+Commit and reply instructions prohibit AI attribution.
+
+The forge note uses `remotes.issue_provider`. GitHub PR checks, review threads
+and mergeability are GitHub-oriented; Gitea permits only git-state watching here.
+An undeclared forge never implies GitHub tooling is available.
+
+This input file is unrelated to AIWG's `aiwg-steward-routing` skill, which routes
+AIWG capabilities. Other skills and commands still cannot use Claude's reserved
+`steward` or `babysit` names.
+
 ## Context Window Defaults
 
 AIWG-launched Claude sessions default `CLAUDE_CODE_DISABLE_1M_CONTEXT=1` when the variable is unset. This removes Claude Code's 1M-context model variants from `/model` for AIWG-launched sessions.

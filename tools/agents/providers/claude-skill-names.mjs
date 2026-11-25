@@ -5,6 +5,7 @@ import yaml from 'js-yaml';
 import { contentHash, readSidecarManifest, writeSidecarManifest } from './base-files.mjs';
 import { parseFrontmatter } from './base-frontmatter.mjs';
 import { skillMatchesProvider } from './base-models-platforms.mjs';
+import { isPrStewardGuidance } from './claude-pr-steward.mjs';
 
 const inventory = JSON.parse(fs.readFileSync(new URL('./claude-builtins.json', import.meta.url), 'utf8'));
 export const CLAUDE_BUILTINS = new Set(inventory.names);
@@ -152,6 +153,7 @@ export function migrateClaudeReservedSkills(skills, opts = {}) {
   for (const name of CLAUDE_RESERVED_FOLDERS) {
     const old = path.join(skills, name);
     if (!fs.existsSync(old)) continue;
+    if (name === 'steward' && isPrStewardGuidance(old)) continue;
     if (!isManagedFolder(old)) {
       opts.claudeReservedNotices ||= new Set();
       if (!opts.claudeReservedNotices.has(old)) {

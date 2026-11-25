@@ -838,6 +838,7 @@ export interface SigningConfig {
  * @implements #995
  */
 export interface DeliveryConfig {
+  pr_steward_guidance?: boolean; // Opt-in Claude PR Steward guidance; absent means false.
   mode?: DeliveryMode;
   /** Canonical issue storage mode (for example gitea-only, github-only, or local-only). */
   issue_storage?: string;

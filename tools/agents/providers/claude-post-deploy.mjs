@@ -6,6 +6,7 @@ import { importImpl } from '../../_resolve-impl.mjs';
 import { initializeFrameworkWorkspace, ensureDir } from './base.mjs';
 import { deployHookFile } from './claude.mjs';
 import { deployConductorDataGuard } from './conductor-data-guard.mjs';
+import { deployPrStewardGuidance } from './claude-pr-steward.mjs';
 
 export async function postDeploy(targetDir, opts) {
   initializeFrameworkWorkspace(targetDir, opts.mode, opts.dryRun, opts.srcRoot);
@@ -50,6 +51,7 @@ export async function postDeploy(targetDir, opts) {
     for (const warning of result?.warnings || []) console.warn(`Claude settings: ${warning}`);
   }
   await deployConductorDataGuard(targetDir, 'claude', opts);
+  await deployPrStewardGuidance(targetDir, opts);
 
   // Hook file architecture: write AIWG.md and wire @AIWG.md into CLAUDE.md
   if (opts.srcRoot && opts.contextFiles !== false) {

@@ -508,6 +508,11 @@
       "description": "Repo control / delivery policy \u2014 how AIWG agents are expected to ship code (#995)",
       "additionalProperties": false,
       "properties": {
+        "pr_steward_guidance": {
+          "type": "boolean",
+          "default": false,
+          "description": "Opt in to managed Claude PR Steward repository guidance. Never enabled by deployment defaults."
+        },
         "mode": {
           "type": "string",
           "enum": [

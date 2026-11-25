@@ -1,0 +1,6 @@
+[
+  { "delivery": { "pr_steward_guidance": "true" } },
+  { "delivery": { "pr_steward_guidance": 1 } },
+  { "delivery": { "pr_steward_guidance": null } },
+  { "delivery": { "pr_steward_guidance": { "enabled": true } } }
+]
