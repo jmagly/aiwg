@@ -1,0 +1,25 @@
+{"ts": "2026-11-23T20:25:13.286Z", "type": "mcp_config_resolved", "sanitized": true}
+{"ts": "2026-11-23T20:25:13.299Z", "type": "mcp_server_starting", "sanitized": true}
+{"ts": "2026-11-23T20:25:13.305Z", "type": "mcp_server_starting", "sanitized": true}
+{"ts": "2026-11-23T20:25:13.310Z", "type": "mcp_server_starting", "sanitized": true}
+{"ts": "2026-11-23T20:25:13.315Z", "type": "mcp_server_starting", "sanitized": true}
+{"ts": "2026-11-23T20:25:13.321Z", "type": "mcp_server_starting", "sanitized": true}
+{"ts": "2026-11-23T20:25:13.326Z", "type": "mcp_server_starting", "sanitized": true}
+{"ts": "2026-11-23T20:25:13.331Z", "type": "mcp_server_starting", "sanitized": true}
+{"ts": "2026-11-23T20:25:13.374Z", "type": "turn_started", "session_id": "01a20a15-88f5-7f43-94c1-ce69b0d6a1ff", "turn_number": 2, "model_id": "grok-4.7-build-fast", "yolo_mode": false, "conversation_message_count": 11, "session_relationship": "primary", "schema_version": "1.0"}
+{"ts": "2026-11-23T20:25:13.384Z", "type": "mcp_server_failed", "sanitized": true}
+{"ts": "2026-11-23T20:25:13.384Z", "type": "mcp_server_failed", "sanitized": true}
+{"ts": "2026-11-23T20:25:13.409Z", "type": "mcp_server_failed", "sanitized": true}
+{"ts": "2026-11-23T20:25:13.432Z", "type": "mcp_server_failed", "sanitized": true}
+{"ts": "2026-11-23T20:25:13.446Z", "type": "mcp_server_failed", "sanitized": true}
+{"ts": "2026-11-23T20:25:13.500Z", "type": "mcp_server_failed", "sanitized": true}
+{"ts": "2026-11-23T20:25:13.556Z", "type": "mcp_server_failed", "sanitized": true}
+{"ts": "2026-11-23T20:25:13.556Z", "type": "mcp_init_completed", "sanitized": true}
+{"ts": "2026-11-23T20:25:13.715Z", "type": "loop_started", "loop_index": 0}
+{"ts": "2026-11-23T20:25:13.717Z", "type": "phase_changed", "phase": "waiting_for_model"}
+{"ts": "2026-11-23T20:25:15.283Z", "type": "first_token"}
+{"ts": "2026-11-23T20:25:15.284Z", "type": "phase_changed", "phase": "streaming_text"}
+{"ts": "2026-11-23T20:25:15.284Z", "type": "phase_changed", "phase": "streaming_text"}
+{"ts": "2026-11-23T20:25:15.284Z", "type": "phase_changed", "phase": "streaming_text"}
+{"ts": "2026-11-23T20:25:15.284Z", "type": "phase_changed", "phase": "streaming_text"}
+{"ts": "2026-11-23T20:25:15.307Z", "type": "turn_ended", "outcome": "completed"}

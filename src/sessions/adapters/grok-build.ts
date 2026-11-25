@@ -28,7 +28,7 @@ import {
   toGrokBuildNativeRecord,
 } from './grok-build-native.js';
 
-export const GROK_BUILD_ADAPTER_VERSION = '1.3.0';
+export const GROK_BUILD_ADAPTER_VERSION = '1.4.0';
 export const GROK_BUILD_CLI_EXPORT_SCHEMA_VERSION = '1.0.0';
 export const GROK_BUILD_CLI_EXPORT_LOCATOR_CLASS = 'grok-build-cli-markdown-export';
 
@@ -43,7 +43,7 @@ interface ExportBlock {
  * opt-in and an explicitly authorized sessions root (`--grok-root`).
  *
  * The public export contract is intentionally lossy. Native reads use the
- * captured 1.0.77 projection in grok-build-native.ts; anything outside
+ * captured 1.0.77/1.0.92 projection in grok-build-native.ts; anything outside
  * the observed schema fails closed. Explicit CLI imports supply bounded CLI
  * options to fall back to export; direct API callers may supply the same options.
  */

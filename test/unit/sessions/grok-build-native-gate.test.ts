@@ -83,12 +83,17 @@ it('reports why workspace discovery needs CLI export even with an authorized nat
   })]);
 });
 
-it('enables the existing synthetic fixture only with opt-in and blocks reads after revocation', async () => {
+it.each(['1.0.77', '1.0.92'])('enables native version %s only with opt-in and blocks reads after revocation', async version => {
   const adapter = new GrokBuildSessionAdapter();
-  vi.stubEnv(optIn, '1'); vi.stubEnv('AIWG_GROK_BUILD_NATIVE_VERSION', '1.0.77');
+  vi.stubEnv('AIWG_GROK_BUILD_NATIVE_VERSION', version);
+  await expect(adapter.inspect(source)).rejects.toMatchObject(denied);
+  vi.stubEnv(optIn, '1');
   expect(adapter.supportedOperations).toEqual(['discover', 'inspect', 'stream']);
   expect(adapter.acquisitionModes).toEqual(['manual-export', 'jsonl']);
-  expect(await collect(adapter.stream(source))).toHaveLength(4);
+  const records = await collect(adapter.stream(source));
+  expect(records).toHaveLength(4);
+  for (const record of records) expect(record.extensions?.provenance).toMatchObject({ grokVersion: version });
+  expect(await collect(adapter.discover(source.authorizedScope))).toHaveLength(3);
   vi.stubEnv(optIn, undefined);
   await expect(adapter.inspect(source)).rejects.toMatchObject(denied);
 });

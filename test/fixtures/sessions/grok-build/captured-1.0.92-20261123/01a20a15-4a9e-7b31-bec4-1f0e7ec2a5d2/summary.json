@@ -1,0 +1,28 @@
+{
+  "info": {
+    "id": "01a20a15-4a9e-7b31-bec4-1f0e7ec2a5d2",
+    "cwd": "/absolute/temp/project"
+  },
+  "agent_id": "ag1.97a6f56a328e4cfd8ee27f044039e499",
+  "attempt_id": "at1.ee50036fa3343c99dae20cb2c850db4",
+  "session_summary": "Summarize notes.txt in one sentence",
+  "created_at": "2026-11-23T20:24:57.301819503Z",
+  "updated_at": "2026-11-23T20:25:02.255044629Z",
+  "num_messages": 6,
+  "num_chat_messages": 7,
+  "current_model_id": "grok-4.7-build-fast",
+  "next_trace_turn": 1,
+  "chat_format_version": 1,
+  "session_kind": "headless",
+  "git_root_dir": "/absolute/temp/project/",
+  "request_id": "da0953bf-60a5-4a4f-8598-4ae6126cb6ab",
+  "grok_home": "$HOME/.grok",
+  "last_active_at": "2026-11-23T20:25:02.255044629Z",
+  "generated_title": "Summarize notes.txt in one sentence",
+  "agent_name": "grok-build-plan",
+  "sandbox_profile": "read-only",
+  "sandbox_outcome": {
+    "enforced": true
+  },
+  "reasoning_effort": "low"
+}

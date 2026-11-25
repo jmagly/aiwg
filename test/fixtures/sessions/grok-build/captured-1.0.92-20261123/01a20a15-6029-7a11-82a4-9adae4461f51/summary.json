@@ -1,0 +1,28 @@
+{
+  "info": {
+    "id": "01a20a15-6029-7a11-82a4-9adae4461f51",
+    "cwd": "/absolute/temp/project"
+  },
+  "agent_id": "ag1.6ffcb3d92e84456bae8fcfba5cdf0a2a",
+  "attempt_id": "at1.b245e2cbad784a89b9e029c53dac620a",
+  "session_summary": "Read big.txt last line exactly",
+  "created_at": "2026-11-23T20:25:02.763741881Z",
+  "updated_at": "2026-11-23T20:25:12.841606744Z",
+  "num_messages": 16,
+  "num_chat_messages": 11,
+  "current_model_id": "grok-4.7-build-fast",
+  "next_trace_turn": 2,
+  "chat_format_version": 1,
+  "session_kind": "headless",
+  "git_root_dir": "/absolute/temp/project/",
+  "request_id": "30c3f6ce-828b-414a-9711-0ed1e9d1eeac",
+  "grok_home": "$HOME/.grok",
+  "last_active_at": "2026-11-23T20:25:12.841606744Z",
+  "generated_title": "Read big.txt last line exactly",
+  "agent_name": "grok-build-plan",
+  "sandbox_profile": "read-only",
+  "sandbox_outcome": {
+    "enforced": true
+  },
+  "reasoning_effort": "low"
+}

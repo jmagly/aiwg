@@ -1,0 +1,15 @@
+{"type": "system", "content": "Synthetic omitted system context."}
+{"type": "user", "content": [{"type": "text", "text": "Synthetic omitted user context."}]}
+{"type": "user", "content": [{"type": "text", "text": "Synthetic omitted system reminder."}], "synthetic_reason": "system_reminder"}
+{"type": "user", "content": [{"type": "text", "text": "<user_query>\nRead the whole file big.txt with your file tool, then tell me its last line exactly.\n</user_query>"}], "prompt_index": 0}
+{"type": "user", "content": [{"type": "text", "text": "Synthetic omitted system reminder."}], "synthetic_reason": "system_reminder"}
+{"type": "reasoning", "id": "rs_6a48b68c-79fb-4996-a6e0-69ce5fee0890", "summary": [], "encrypted_content": "synthetic-omitted-reasoning", "status": "completed"}
+{"type": "assistant", "content": "I'll locate `big.txt` and read it with the file tool so I can quote the last line exactly.", "tool_calls": [{"id": "call-d200d229-06f6-47d3-b80d-f5f5f090968e-0", "name": "run_terminal_command", "arguments": "{\"command\":\"find /absolute/temp/project -name 'big.txt' -o -name 'big.txt' 2>/dev/null | head -50; ls -la /absolute/temp/project 2>/dev/null | head -40\",\"description\":\"Locate big.txt in the workspace\"}"}], "model_id": "grok-4.7-build-fast", "reasoning_effort": "low"}
+{"type": "tool_result", "tool_call_id": "call-d200d229-06f6-47d3-b80d-f5f5f090968e-0", "content": "User cancelled the execution for tool `run_terminal_command`"}
+{"type": "user", "content": [{"type": "text", "text": "<user_query>\nReply with exactly: continued-ok\n</user_query>"}], "prompt_index": 1}
+{"type": "reasoning", "id": "rs_701f5a31-9f75-44ab-8f0d-f6c7ea73c2ab", "summary": [], "encrypted_content": "synthetic-omitted-reasoning", "status": "completed"}
+{"type": "assistant", "content": "continued-ok", "model_id": "grok-4.7-build-fast", "reasoning_effort": "low"}
+{"type": "user", "content": [{"type": "text", "text": "Synthetic omitted system reminder."}], "synthetic_reason": "system_reminder"}
+{"type": "user", "content": [{"type": "text", "text": "<user_query>\nReply with exactly: forked-ok\n</user_query>"}], "prompt_index": 2}
+{"type": "reasoning", "id": "rs_7b8f8d14-d754-9108-b0f1-fc4bbe72e792", "summary": [], "encrypted_content": "synthetic-omitted-reasoning", "status": "completed"}
+{"type": "assistant", "content": "forked-ok", "model_id": "grok-4.7-build-fast", "reasoning_effort": "low"}
