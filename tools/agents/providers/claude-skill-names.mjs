@@ -8,8 +8,11 @@ import { skillMatchesProvider } from './base-models-platforms.mjs';
 import { isPrStewardGuidance } from './claude-pr-steward.mjs';
 
 const inventory = JSON.parse(fs.readFileSync(new URL('./claude-builtins.json', import.meta.url), 'utf8'));
-export const CLAUDE_BUILTINS = new Set(inventory.names);
+export const CLAUDE_BUILTINS = new Set([...inventory.bundledSkills, ...inventory.unshadowableCommands, ...inventory.reservedFolders]);
+export const CLAUDE_UNSHADOWABLE_COMMANDS = new Set(inventory.unshadowableCommands);
+export const CLAUDE_UNVERIFIED_LOCAL_COMMANDS = new Set(inventory.unverifiedLocalCommands);
 export const CLAUDE_RESERVED_FOLDERS = new Set(inventory.reservedFolders);
+const SKILL_DEPLOY_NAMES = new Map(Object.entries(inventory.skillDeployNames));
 const STEWARD = 'aiwg-steward-routing';
 function metadata(content) {
   return yaml.load(parseFrontmatter(content).frontmatter || '') || {};
@@ -25,7 +28,7 @@ export function validateClaudeCommands(files) {
     assertAvailable(metadata(fs.readFileSync(file, 'utf8')).name, file);
   }
 }
-function skillName(dir) {
+export function resolveClaudeSkillName(dir) {
   const content = fs.readFileSync(path.join(dir, 'SKILL.md'), 'utf8');
   const slug = path.basename(dir);
   if (!skillMatchesProvider(content, 'claude')) return slug;
@@ -34,17 +37,21 @@ function skillName(dir) {
   const alias = [data.name, ...(Array.isArray(data.aliases) ? data.aliases : [])].find(name =>
     typeof name === 'string' && /^[a-z0-9][a-z0-9-]*$/.test(name) && !CLAUDE_BUILTINS.has(name));
   if (alias) return alias;
+  const mapped = SKILL_DEPLOY_NAMES.get(slug.toLowerCase());
+  if (mapped) { assertAvailable(mapped, dir); return mapped; }
   assertAvailable(slug, dir);
   assertAvailable(data.name, dir);
   return slug;
 }
 export function claudeKernelNames(names) {
   // Keep the source slug too: namespace-only, unmarked operator copies are not migrations.
-  return names == null ? names : [...new Set([...names, STEWARD, ...CLAUDE_RESERVED_FOLDERS])];
+  if (names == null) return names;
+  const aliases = [...names].flatMap(name => SKILL_DEPLOY_NAMES.get(name) || []);
+  return [...new Set([...names, ...aliases, STEWARD, ...CLAUDE_RESERVED_FOLDERS])];
 }
 export function prepareClaudeSkills(dirs, standard, kernel, opts, transform) {
   // Validate the entire batch before any writes, including index-only skills.
-  const names = new Map(dirs.map(dir => [dir, skillName(dir)]));
+  const names = new Map(dirs.map(dir => [dir, resolveClaudeSkillName(dir)]));
   const renamed = new Set([...names].filter(([dir, name]) => name !== path.basename(dir)).map(([, name]) => name));
   migrateClaudeReservedSkills(kernel, opts);
   migrateClaudeReservedSkills(standard, opts);
