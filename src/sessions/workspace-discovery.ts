@@ -1,3 +1,5 @@
+import { assertClaudeRootSelection, containsSource, selectedClaudeRoots } from './source-boundary.js';
+import { recordDiscoveryProblem, unsupportedSource } from './discovery-problems.js';
 import {
   access, mkdir, readFile, readdir, realpath, rename, stat, writeFile,
 } from 'node:fs/promises';
@@ -58,7 +60,7 @@ export interface DiscoveryManifestSource {
   sizeBytes: number;
   digest: string;
   nativeSessionId?: string;
-  status?: 'excluded';
+  status?: 'excluded' | 'unsupported' | 'unreadable';
   exclusion?: SourceExclusion;
   /** Advisory provider-reported activity; excluded from the manifest identity hash. */
   liveEvidence?: GrokBuildSourceLiveEvidence;
@@ -115,6 +117,7 @@ export interface DiscoverWorkspaceOptions {
   runtime?: SessionRuntimeIdentity;
   providerHome?: string;
   operatorHome?: string;
+  claudeProjectDirs?: readonly string[];
   codexRoot?: string;
   codexRoots?: readonly string[];
   ompRoot?: string;
@@ -148,7 +151,9 @@ export async function discoverWorkspaceHistories(
   const workspacePath = await canonicalPath(options.workspace);
   const config = await readAiwgConfig(workspacePath);
   const configuredProviders = config?.providers ?? [];
+  const claudeRoots = await selectedClaudeRoots(options.claudeProjectDirs);
   const explicitlyRootedProviders = [
+    ...(claudeRoots ? ['claude'] : []),
     ...(options.codexRoot || options.codexRoots?.length || config?.sessions?.codex_roots?.length ? ['codex'] : []),
     ...(options.ompRoot ? ['omp'] : []),
     ...(options.museRoot ? ['muse'] : []),
@@ -158,6 +163,7 @@ export async function discoverWorkspaceHistories(
     ...(options.hermesRoot ? ['hermes'] : []),
   ];
   const savedRoots = options.authorizedRoots ?? options.refreshFrom?.authorizedRoots;
+  if (claudeRoots && savedRoots) assertClaudeRootSelection(claudeRoots, savedRoots.claude ?? []);
   const authorizedProviders = options.refreshFrom
     ? Object.keys(savedRoots ?? {}).filter(provider => savedRoots?.[provider as SessionProviderId]?.length)
     : configuredProviders.length ? explicitlyRootedProviders : undefined;
@@ -207,7 +213,7 @@ export async function discoverWorkspaceHistories(
       // Same scope rule as codex: configured providers keep their root grant
       // even when a narrow discovery does not scan them (#3402).
       roots: savedRoots || (!expectedProviders.includes('claude') && !providerScope.configuredProviders?.includes('claude'))
-        ? [] : await claudeDiscoveryRoots(providerHomes, workspacePaths, workspacePath, registry, exclusions),
+        ? [] : claudeRoots ?? await claudeDiscoveryRoots(providerHomes, workspacePaths, workspacePath, registry, exclusions),
     },
     {
       provider: 'codex',
@@ -364,7 +370,7 @@ export async function discoverWorkspaceHistories(
       const exclusion = matchImportExclusion({ ...descriptor, nativeSessionId }, exclusions);
       if (exclusion) {
         const locator = resolve(descriptor.locator);
-        const authorizedRoot = scope.allowedRoots.find(root => locator === root || locator.startsWith(`${root}/`));
+        const authorizedRoot = scope.allowedRoots.find(root => containsSource(root, locator));
         if (!authorizedRoot) continue;
         const key = `excluded\0${entry.provider}\0${locator}`;
         if (seen.has(key)) continue;
@@ -380,6 +386,10 @@ export async function discoverWorkspaceHistories(
         candidates.push(source);
         continue;
       }
+      if (unsupportedSource(descriptor)) {
+        recordDiscoveryProblem(descriptor, scope.allowedRoots, 'unsupported', providerSources, candidates); continue;
+      }
+      try {
       let workspaceMatch: WorkspaceMatchKind | null = null;
       if (entry.provider === 'muse') {
         const inspection = await inspectMuseNativeWorkspace({
@@ -414,11 +424,11 @@ export async function discoverWorkspaceHistories(
       }
       const details = await stat(locator);
       const authorizedRoot = scope.allowedRoots.find(
-        (root) => locator === root || locator.startsWith(`${root}/`),
+        (root) => containsSource(root, locator),
       );
       if (!authorizedRoot) continue;
       if (entry.provider === 'claude') {
-        const exactProject = workspacePaths.some(path => basename(authorizedRoot) === claudeProjectKey(path));
+        const exactProject = Boolean(claudeRoots || savedRoots?.claude) || workspacePaths.some(path => basename(authorizedRoot) === claudeProjectKey(path));
         workspaceMatch = await claudeSourceWorkspaceMatch(locator, workspacePath, exactProject);
         if (!workspaceMatch) continue;
       }
@@ -483,13 +493,16 @@ export async function discoverWorkspaceHistories(
       }
       providerSources.push(source);
       candidates.push(source);
+      } catch (error) {
+        recordDiscoveryProblem(descriptor, scope.allowedRoots, 'unreadable', providerSources, candidates, error);
+      }
     }
     const incompleteMuseInspection = museSourceInspections.some(
       (inspection) => inspection.outcome === 'inconclusive',
     );
     const report = providerReport(
       entry.provider,
-      incompleteMuseInspection ? 'not-checked' : 'checked',
+      incompleteMuseInspection || providerSources.some(source => source.status === 'unreadable' || source.status === 'unsupported') ? 'not-checked' : 'checked',
       'discoverable',
       providerSources,
       incompleteMuseInspection ? 'MUSE_SOURCE_INSPECTION_INCOMPLETE'
@@ -628,6 +641,8 @@ export function publicDiscoveryManifest(manifest: SessionDiscoveryManifest): Rec
       providers: manifest.providers.length,
       sources: manifest.sources.length,
       excluded: manifest.sources.filter(source => source.status === 'excluded').length,
+      unsupported: manifest.sources.filter(source => source.status === 'unsupported').length,
+      unreadable: manifest.sources.filter(source => source.status === 'unreadable').length,
       matchedBySubfolder: manifest.providers.reduce((sum, provider) => sum + (provider.matchedBySubfolder ?? 0), 0),
       matchedByWorktree: manifest.providers.reduce((sum, provider) => sum + (provider.matchedByWorktree ?? 0), 0),
     },

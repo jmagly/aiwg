@@ -1,3 +1,4 @@
+import { assertClaudeManifestBoundary } from './source-boundary.js';
 import { mkdtemp, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -46,6 +47,7 @@ import type {
 
 export interface BatchImportOptions {
   manifest: SessionDiscoveryManifest;
+  claudeProjectDirs?: readonly string[];
   /** Open the previous catalog read-only; never copy its derived indexes. */
   carryForward?: SessionRepository;
   exclude?: string[];
@@ -76,6 +78,9 @@ export interface BatchImportReceipt {
   coverage: SessionCoverageReport;
   interruptedRuns: Array<{ runId: string; interruptedAt: string }>;
   totals: {
+    unsupported: number;
+    unreadable: number;
+    imported: number;
     discovered: number;
     accepted: number;
     rejected: number;
@@ -92,6 +97,7 @@ export interface BatchImportReceipt {
 export async function importDiscoveryManifest(
   options: BatchImportOptions,
 ): Promise<BatchImportReceipt> {
+  await assertClaudeManifestBoundary(options.manifest, options.claudeProjectDirs);
   if (options.carryForward) return rebuildFromCatalog(options);
   const exclusions = resolveImportExclusions(undefined, options.exclude);
   const limits = { ...resolveImportLimits(undefined, {
@@ -145,6 +151,7 @@ export async function importDiscoveryManifest(
       excludeSource(disposition, exclusion, now());
       continue;
     }
+    if (manifestSource.status === 'unsupported' || manifestSource.status === 'unreadable') continue;
     delete disposition.exclusion;
     if (isAccepted(disposition.status)) {
       disposition.status = 'previously-committed';
@@ -232,7 +239,7 @@ export async function importDiscoveryManifest(
     injectFault(options, run, 'source-staged', manifestSource.sourceId);
   }
 
-  const rejected = run.sources.some((source) => source.status === 'rejected');
+  const rejected = run.sources.some((source) => ['rejected', 'unsupported', 'unreadable'].includes(source.status));
   const pending = run.sources.some(
     (source) => source.status === 'pending' || source.status === 'running',
   );
@@ -355,6 +362,7 @@ function receiptFor(run: BatchImportRun, now: Date): BatchImportReceipt {
     interruptedRuns: [],
     ...(run.carryForward ? { carryForward: run.carryForward } : {}),
     totals: {
+      unsupported: coverage.sources.unsupported, unreadable: coverage.sources.unreadable, imported: coverage.sources.imported,
       discovered: coverage.sources.discovered,
       accepted: coverage.sources.accepted,
       rejected: coverage.sources.rejected,

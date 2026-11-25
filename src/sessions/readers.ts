@@ -1,3 +1,4 @@
+import { streamZstdLines } from './zstd-lines.js';
 import { createHash } from 'node:crypto';
 import { open, readFile } from 'node:fs/promises';
 import { assertSessionResourceLimit, schemaIssueDetail, SessionContractError, type ConsistencyStateSchema } from './contracts.js';
@@ -54,6 +55,10 @@ export async function* streamJsonLines(
   if (options.end !== undefined && options.end !== Infinity
     && (!Number.isSafeInteger(options.end) || options.end < 0)) throw new RangeError('end must be a nonnegative safe integer or Infinity');
   if (options.end !== undefined && options.end < startOffset) throw new RangeError('end must not precede start');
+  if (/\.jsonl\.zst$/i.test(path)) {
+    yield* streamZstdLines(path, options);
+    return;
+  }
   // Reuse raw storage across the full source instead of allocating a new MiB
   // buffer per read. Only incomplete line fragments outlive the current read.
   const storage = Buffer.allocUnsafe(JSONL_READ_CHUNK_BYTES);
@@ -166,6 +171,9 @@ export async function streamBoundedJsonLines(
       try {
         value = JSON.parse(line);
       } catch {
+        if (/\.jsonl\.zst$/i.test(allowed.canonicalPath)) {
+          throw new SessionContractError('MALFORMED_SOURCE', 'compressed JSONL record is incomplete; coverage is incomplete');
+        }
         if (options.consistency === 'provisional') {
           incompleteTail = true;
           break;
