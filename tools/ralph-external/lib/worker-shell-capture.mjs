@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { importImpl } from '../../_resolve-impl.mjs';
 import { boundedPrivateRead, withWorkerPath } from './worker-inputs.mjs';
 import { assertWorkerCapturePathsAvailable, WorkerCaptureOwner } from './worker-capture.mjs';
+import { observeWorkerQuotaCapture } from './worker-quota-capture.mjs';
 import { prepareWorkerRetry } from './worker-retry-evidence.mjs';
 import { publishWorkerRecord, stableTaskChainDigest } from '../session-launcher.mjs';
 
@@ -38,7 +39,17 @@ export async function reserveShellWorkerCapture({ request, invocation, paths }) 
   for (const filename of Object.values(paths)) await owner.reserveOutput(filename);
 }
 
+export async function completeShellWorkerCapture({ invocation, paths, quotaScope }, exitCode) {
+  const { inspectWorkerPath: inspect } = await importImpl(import.meta.url, 'serve/worker-invocation-paths.js');
+  const observed = await observeWorkerQuotaCapture({ invocation, paths, quotaScope, exitCode, inspect });
+  return observed ? exitCode || 1 : exitCode;
+}
+
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  try { await reserveShellWorkerCapture(JSON.parse(process.argv[2])); }
+  try {
+    const binding = JSON.parse(process.argv[2]);
+    if (process.argv[3] === '--complete') process.exitCode = await completeShellWorkerCapture(binding, Number(process.argv[4]));
+    else await reserveShellWorkerCapture(binding);
+  }
   catch (error) { process.stderr.write(`Worker shell handoff refused: ${error.message}\n`); process.exitCode = 1; }
 }

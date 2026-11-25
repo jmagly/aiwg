@@ -76,6 +76,7 @@
     "tools/ralph-external/lib/worker-delivery-record.mjs",
     "tools/ralph-external/lib/mcp-worker-launch.mjs",
     "tools/ralph-external/lib/worker-capture.mjs",
+    "tools/ralph-external/lib/worker-quota-capture.mjs",
     "tools/ralph-external/lib/worker-launch-cli.mjs",
     "tools/ralph-external/lib/worker-run-directory-refusal.mjs",
     "tools/ralph-external/lib/worker-run-directory.mjs",

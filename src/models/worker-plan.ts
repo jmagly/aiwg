@@ -1,3 +1,4 @@
+import { workerQuotaExhaustion, type WorkerQuotaObservation } from './worker-quota-observations.mjs';
 import { hostResourceReport, type HostResourceReport } from '../config/host-resource-report.mjs';
 import type { HostResourceSample } from '../config/host-resource-runtime.mjs';
 import { workerReviewLineageDiagnostics } from './worker-review-lineage.js';
@@ -50,6 +51,7 @@ export interface WorkerPlanSnapshot {
   catalog: DynamicModelCatalog;
   registry: ProviderModelCapabilityRegistry;
   installations: Record<string, WorkerResolutionBinding>;
+  quotaObservations?: WorkerQuotaObservation[];
   /** Current trusted restrictions; these can only remove candidates. */
   constraints?: { revokedModels?: string[]; unavailableMembers?: string[]; maxParallel?: number; ceilings?: WorkerResolutionCeilings };
 }
@@ -358,12 +360,15 @@ export function resolveWorkerPlan(snapshot: WorkerPlanSnapshot, request: WorkerP
           if (authority.requiresConfirmation) deny('OG_MODEL_UNAPPROVED', '/request/authority', `${authority.rationale.join('; ')}; agents may pass --authorize-premium only after the human explicitly confirmed the premium escalation (escalation-discipline rule)`);
           const installation = parallelism.clis?.[member.cli];
           const admission = parallelism.admission;
+          const quota = workerQuotaExhaustion(snapshot.quotaObservations, installation?.quotaScope, now.getTime());
+          if (quota) deny('OG_HOST_CAPACITY', '/parallelism/admission/quotaCaps',
+            `Quota ${quota.quotaScope} is exhausted; reset ${quota.resetAt ?? 'unknown (provider supplied no reset time)'}`);
           const capEntries = [
             ['max_parallel_subagents', parallelism.max_parallel_subagents], ['group.maxParallel', group.maxParallel],
             ['admission.groupCaps', admission?.groupCaps?.[groupId]],
             ['admission.memberCaps', admission?.memberCaps?.[`${groupId}/${member.id}`]],
             ['admission.cliCaps', admission?.cliCaps?.[member.cli]], ['admission.modelCaps', admission?.modelCaps?.[key]],
-            ['admission.quotaCaps', installation && admission?.quotaCaps?.[installation.quotaScope]],
+            ['admission.quotaCaps', quota ? 0 : installation && admission?.quotaCaps?.[installation.quotaScope]],
           ] as const;
           const caps = [...capEntries.map(([, value]) => value), snapshot.constraints?.maxParallel, request.maxParallel]
             .filter((value): value is number => value !== undefined);
