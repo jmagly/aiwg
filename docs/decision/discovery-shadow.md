@@ -41,6 +41,9 @@ The host receives a metadata-only route receipt: ambiguity reason, policy/candid
 digests, alternate ordinal or `none`, durable result digest, allowed served model,
 latency and usage. It receives no raw query, names, capability summaries, paths or
 response bodies. Use the protected source receipt to inspect full lineage.
+An allowed served model remains in the receipt when token or cost accounting
+rejects the observation. An unavailable or throwing host clock disables the
+route and records a failure receipt; it never permits an unmeasured selection.
 Request-shared batch usage is not allocated to each observation. This initial
 single-request observer treats batch or unknown usage as unqualified and opens
 the circuit. It does not invent a cost estimate or advertise savings.

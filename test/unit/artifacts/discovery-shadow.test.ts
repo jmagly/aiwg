@@ -106,13 +106,15 @@ describe('D27 governed shadow observer', () => {
     const s = setup(policy(), r); await s.route.observe('query', candidates());
     expect(s.records[0]).toMatchObject({ reason: 'rejected-evidence', selection: null });
   });
-  it.each(['tokens', 'cost', 'unknown-cost'] as const)('opens circuit on %s breach and blocks subsequent calls', async kind => {
+  it.each(['tokens', 'cost', 'unknown-cost', 'empty-attempts'] as const)('opens circuit on %s breach and blocks subsequent calls', async kind => {
     const r = result(); const u = r.spec.attempts[0]!.usage;
     if (kind === 'tokens') u.inputTokens = 1001;
     if (kind === 'cost') u.costUsd = 1.1;
     if (kind === 'unknown-cost') u.costUsd = null;
+    if (kind === 'empty-attempts') r.spec.attempts = [];
     const s = setup(policy(), r); await s.route.observe('query', candidates()); await s.route.observe('query', candidates());
-    expect(s.records[0]!.reason).toBe('budget-breach'); expect(s.route.disabled).toBe(true); expect(s.host.evaluate).toHaveBeenCalledTimes(1);
+    expect(s.records[0]).toMatchObject({ reason: 'budget-breach', servedModel: kind === 'empty-attempts' ? null : 'jev-fixture', resultDigest: hash });
+    expect(s.route.disabled).toBe(true); expect(s.host.evaluate).toHaveBeenCalledTimes(1);
   });
   it('bounds stalled evaluation, aborts, opens circuit and handles late rejection', async () => {
     vi.useFakeTimers(); const s = setup(); let signal: AbortSignal | undefined;
@@ -135,6 +137,25 @@ describe('D27 governed shadow observer', () => {
 });
 
 describe('shadow shutdown races', () => {
+  it.each(['nonfinite', 'throwing'] as const)('records and disables a %s initial clock without dispatch', async kind => {
+    const s = setup();
+    s.host.clock = () => { if (kind === 'throwing') throw new Error('CLOCK_SECRET'); return NaN; };
+    await expect(s.route.observe('query', candidates())).resolves.toBeUndefined();
+    expect(s.route.disabled).toBe(true);
+    expect(s.host.evaluate).not.toHaveBeenCalled();
+    expect(s.records).toHaveLength(1);
+    expect(s.records[0]).toMatchObject({ route: 'deterministic-only', reason: 'evaluation-failed', selection: null, latencyMs: 0 });
+    expect(JSON.stringify(s.records)).not.toContain('CLOCK_SECRET');
+  });
+  it('contains a clock failure after dispatch and records the deadline bound', async () => {
+    const s = setup(); let reads = 0;
+    s.host.clock = () => { if (reads++ > 0) throw new Error('CLOCK_SECRET'); return 0; };
+    await expect(s.route.observe('query', candidates())).resolves.toBeUndefined();
+    expect(s.route.disabled).toBe(true);
+    expect(s.records).toHaveLength(1);
+    expect(s.records[0]).toMatchObject({ route: 'shadow', reason: 'budget-breach', selection: null, latencyMs: 100 });
+    expect(JSON.stringify(s.records)).not.toContain('CLOCK_SECRET');
+  });
   it('opens circuit and records elapsed time for a clock-detected deadline breach', async () => {
     const s = setup(); let time = 0; s.host.clock = () => time++ === 0 ? 0 : 101;
     await s.route.observe('query', candidates());

@@ -148,9 +148,10 @@ export class DiscoveryShadowRoute {
     let authorized = false;
     try { authorized = this.host.authorize(structuredClone(projection)) === true; } catch { /* fail closed */ }
     if (!authorized) { record(); return; }
-    const clock = this.host.clock ?? Date.now;
+    // A failed host clock is unavailable evidence, never a reason to lose the receipt.
+    const clock = () => { try { return (this.host.clock ?? Date.now)(); } catch { return NaN; } };
     const start = clock();
-    if (!Number.isFinite(start)) { this.disable(); return; }
+    if (!Number.isFinite(start)) { receipt.reason = 'evaluation-failed'; this.disable(); record(); return; }
     const controller = new AbortController();
     this.active.add(controller);
     let timedOut = false;
@@ -173,6 +174,9 @@ export class DiscoveryShadowRoute {
       const r = response.result.spec;
       receipt.resultDigest = /^sha256:[0-9a-f]{64}$/.test(response.receiptDigest) ? response.receiptDigest : null;
       const attempts = r.attempts;
+      const last = attempts.at(-1);
+      const knownModel = last?.actualModel != null && p.allowedModels.includes(last.actualModel);
+      receipt.servedModel = knownModel ? last.actualModel : null;
       // Shared request accounting must remain at its owner; a per-item route cannot charge it again.
       const ordinary = attempts.length > 0 && attempts.every(a => !a.batch);
       const tokenKnown = ordinary && attempts.every(a => Number.isSafeInteger(a.usage.inputTokens) && a.usage.inputTokens! >= 0
@@ -184,19 +188,16 @@ export class DiscoveryShadowRoute {
         || receipt.usage.tokens > p.maximumTokens || receipt.usage.costUsd > p.maximumCostUsd) {
         receipt.reason = 'budget-breach'; this.disable(); record(); return;
       }
-      const last = attempts.at(-1)!;
       const uncertainty = r.uncertainty;
       const distribution = uncertainty?.distribution;
       const probabilities = distribution && projection.options.every(option => Object.hasOwn(distribution, option))
         && Object.keys(distribution).length === projection.options.length ? Object.values(distribution) : [];
-      const knownModel = last.actualModel !== null && p.allowedModels.includes(last.actualModel);
-      receipt.servedModel = knownModel ? last.actualModel : null;
       const option = r.value;
       let accept = r.status === 'success' && samePin(r.decision, p.definition) && samePin(r.binding, p.binding)
         && knownModel && receipt.resultDigest !== null && r.acceptance?.disposition === 'act'
         && r.calibrationCompatibility?.action === 'allow' && ['exact', 'approved-compatible'].includes(r.calibrationCompatibility.state)
         && r.calibrationCompatibility.artifactDigest === p.calibrationDigest
-        && r.calibrationCompatibility.actualModel === last.actualModel
+        && r.calibrationCompatibility.actualModel === last!.actualModel
         && r.calibrationCompatibility.runId === `${r.runId}:${r.invocationId}:${r.alias}`
         && uncertainty?.source === 'provider' && uncertainty.profile === p.uncertaintyProfile
         && probabilities.length > 0 && probabilities.every(v => finite(v) && v <= 1)
