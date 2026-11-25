@@ -253,6 +253,8 @@ export const FRAMEWORK_INDEX_EXTENSIONS = [
  * The master artifact index stored at .aiwg/.index/metadata.json
  */
 export interface ArtifactIndex {
+  /** Optional offline experiment observations; never populated from inferred usage. */
+  experimentalGraph?: import('./discovery-graph.js').OfflineGraphInput;
   /** Index format version */
   version: string;
 

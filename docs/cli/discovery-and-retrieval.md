@@ -36,6 +36,66 @@ aiwg discover "<user need>" --type skill --limit 3 --format json --compact
 aiwg show skill <stable-id-or-name> --json
 ```
 
+## Experimental offline graph
+
+`aiwg discover "<need>" --experimental-graph` enables an **experimental**
+ranking prototype. `DiscoverParams.experimentalGraph` defaults to false;
+omitting the flag preserves lexical discovery. The experiment reads cached
+local metadata only, performs no builds or network calls, and rejects web/auto
+resource sources. `--graph` still selects the existing index.
+
+Skills, rules and active memories form nodes. Optional `experimentalGraph`
+input in that index's existing `metadata.json` supplies offline observations,
+keyed by exact entry paths. No usage counts or embeddings are inferred:
+
+```json
+{
+  "experimentalGraph": {
+    "coUse": {
+      "windows": 100,
+      "occurrences": {"skills/example/SKILL.md": 20, "rules/example.md": 20},
+      "pairs": [{"source": "skills/example/SKILL.md", "target": "rules/example.md", "count": 10}]
+    },
+    "similarities": [],
+    "nearestNeighbours": 10,
+    "minSharedNeighbours": 1,
+    "nowSeconds": 1000,
+    "uses": {"skills/example/SKILL.md": [900, 990]}
+  }
+}
+```
+
+These example counts are synthetic, not observed usage. `coUse` counts denote
+windows containing each node/pair; only positive PMI adds weight. Supplied
+embedding cosine similarities in `[-1,1]` are pruned by shared top-k neighbours;
+nonpositive similarities add no edge. No embedding service is called.
+The prototype uses deterministic Leiden modularity/refinement/aggregation and
+extractive community summaries, personalized PageRank seeded by lexical
+results, and ACT-R activation from supplied timestamps (seconds, fixed clock).
+It projects results back through the requested type filter. Without supplied
+edges it returns the exact lexical ranking. Rebuilding metadata does not
+manufacture or preserve experiment observations; fixtures must be supplied
+again. The in-house community implementation has no reference-library parity
+claim.
+
+Run the existing evaluator with `--strategy graph` to include lexical, graph,
+degree-matched random (double-edge swaps) and shuffled graph (label permutation)
+controls with seeds 3319, 4239 and 1819:
+
+```bash
+aiwg index eval-discovery --queries test/fixtures/artifacts/discovery-relevance.jsonl --backend local --strategy graph --json
+```
+
+The report covers the current 145 rows; the historical 80-query partition is
+**not identified**. It measures warm p95 against 250 ms, serialized graph plus
+lexical storage against 2× lexical, and sampled incremental RSS after lexical
+warm-up against 64 MiB. Construction time is separate. Missed budgets and
+unchanged controls are explicit. UTF-8 context bytes measure retrieval JSON;
+they do not establish downstream task completion. No current-corpus co-use
+counts, embedding similarities or reviewed downstream task fixtures ship with
+this prototype, so the default matrix has empty edges and cannot demonstrate
+a graph quality improvement.
+
 ## Error handling
 
 - No matches: run `aiwg status --probe --json`, confirm the configured corpus,

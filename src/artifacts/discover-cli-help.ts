@@ -14,6 +14,7 @@ export function printDiscoverUsage(): void {
   --aiwg-version <version|range|digest|channel>
   --offline                Require cached web resources
   --no-build               Read cached local metadata only
+  --experimental-graph     Offline graph prototype over supplied fixtures (experimental)
   --verbose, --debug       Show cache fallback diagnostics
   --help, -h               Show this help
 

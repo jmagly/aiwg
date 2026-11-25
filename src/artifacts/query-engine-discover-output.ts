@@ -50,7 +50,7 @@ export interface DiscoverOutputContext {
 export async function emitDiscoverResults(context: DiscoverOutputContext): Promise<void> {
   const { cwd, params, types, limit, aiwgRoot, entries, backend, resourceSource,
     resolvedWebRelease, prebuiltRelations, prebuiltSelection, frameworkReconciled, indexStale, scored, relaxed, queryTimeMs, lexicalDiagnostics } = context;
-  const readOnly = Boolean(params.noBuild || indexStale);
+  const readOnly = Boolean(params.noBuild || params.experimentalGraph || indexStale);
   /**
    * Resolve a stored framework-graph path to an absolute AIWG_ROOT
    * path (#1217). Framework-graph entries are stored as paths relative
