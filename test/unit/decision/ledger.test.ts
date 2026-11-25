@@ -4,7 +4,7 @@ import { once } from 'node:events';
 import { chmod, link, mkdir, readdir, readFile, rm, stat, symlink, writeFile, type FileHandle } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   appendDecisionLedgerRecord,
   ATTRIBUTION_FIELD_PATTERN,
@@ -64,6 +64,7 @@ describe('decision ledger', () => {
   });
 
   afterEach(async () => {
+    vi.useRealTimers();
     for (const [key, value] of Object.entries(savedEnv)) {
       if (value === undefined) delete process.env[key];
       else process.env[key] = value;
@@ -317,6 +318,8 @@ describe('decision ledger', () => {
   });
 
   it('separates frontier avoidance from all Jev usage, preserving weights across config changes', async () => {
+    // Economics requires completed records; keep the best-effort deadline independent of host load.
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     const projectRoot = await tempRoot();
     await mkdir(path.join(projectRoot, '.aiwg'));
     await writeFile(path.join(projectRoot, '.aiwg', 'aiwg.config'), JSON.stringify({ decision: { ask: {
