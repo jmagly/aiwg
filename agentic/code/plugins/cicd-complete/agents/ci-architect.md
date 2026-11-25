@@ -1,7 +1,7 @@
 ---
 name: ci-architect
 description: Design user-project CIPipeline and CIEnvironment specs, stage dependencies, provider targets and delivery gates.
-model: claude-sonnet-5
+model: sonnet
 memory: project
 tools: Read, Glob, Grep, Write, MultiEdit, Bash
 category: cicd-complete

@@ -1,7 +1,7 @@
 ---
 name: ci-doctor
 description: Diagnose user-project CI failures and flaky tests with evidence, root-cause fixes and regression tests; never rerun to green.
-model: claude-sonnet-5
+model: sonnet
 memory: project
 tools: Read, Glob, Grep, Write, MultiEdit, Bash
 category: cicd-complete

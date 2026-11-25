@@ -1,7 +1,7 @@
 ---
 name: ci-release-engineer
 description: Coordinate user-project release, tag and publish approvals and progressive-rollout execution with health and rollback gates.
-model: claude-sonnet-5
+model: sonnet
 memory: project
 tools: Read, Glob, Grep, Write, MultiEdit, Bash
 category: cicd-complete
