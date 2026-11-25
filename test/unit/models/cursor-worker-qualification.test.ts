@@ -1,18 +1,26 @@
 // Public offline qualification and refresh exercise only a fake Cursor executable.
 import { mkdir, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { afterEach, expect, it } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { doctorWorkerCliFixture } from '../../helpers/doctor-worker-cli.js';
 import { writeExecutable } from '../../helpers/write-executable.js';
 
 const roots: string[] = [];
-afterEach(async () => { for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true }); });
+beforeEach(() => {
+  for (const name of ['CURSOR_API_KEY', 'DISPLAY', 'DBUS_SESSION_BUS_ADDRESS', 'XDG_RUNTIME_DIR']) vi.stubEnv(name, undefined);
+});
+afterEach(async () => { vi.unstubAllEnvs(); for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true }); });
 
 async function fixture(model = 'gpt-5.3-codex-high', failed = false, limits = true, version = '2026.11.13-eacade1') {
   const f = await doctorWorkerCliFixture();
   roots.push(f.root);
   const binary = path.join(f.root, 'fake-bin/cursor-agent');
   const calls = path.join(f.root, 'cursor-calls.jsonl');
+  const auth = path.join(f.root, 'cursor-auth.json');
+  const environments = path.join(f.root, 'cursor-environments.jsonl');
+  await writeFile(auth, JSON.stringify({ mode: 'logged-in' }));
   // The parser suite covers the entire capture; these exact first rows cover dispatch.
   const capture = (await readFile(new URL('../../fixtures/providers/cursor/list-models.txt', import.meta.url), 'utf8'))
     .split('\n').slice(0, 14).join('\n');
@@ -25,6 +33,18 @@ if (process.argv.slice(2).join(' ') === '--version') console.log(${JSON.stringif
 else if (process.argv.slice(2).join(' ') === '--list-models') {
   if (${failed}) { console.error('Not logged in; token=synthetic-secret'); process.exit(1); }
   console.log(readFileSync(${JSON.stringify(listing)}, 'utf8'));
+} else if (process.argv[2] === 'status' || process.argv[2] === '-p') {
+  appendFileSync(${JSON.stringify(environments)}, JSON.stringify({ operation: process.argv[2], env: process.env, cwd: process.cwd() }) + '\\n');
+  const { mode } = JSON.parse(readFileSync(${JSON.stringify(auth)}, 'utf8'));
+  if (mode === 'failed') { console.error('token=synthetic-private-status'); process.exit(1); }
+  if (mode === 'unknown') { console.log('synthetic-private-status'); process.exit(0); }
+  const desktop = ['DISPLAY', 'DBUS_SESSION_BUS_ADDRESS', 'XDG_RUNTIME_DIR'].every(name => process.env[name]);
+  if (mode === 'desktop' && !desktop || mode === 'logged-out') {
+    console.log('Not logged in; synthetic-private-status');
+    if (process.argv[2] === '-p') process.exit(1);
+  }
+  else if (process.env.CURSOR_API_KEY) console.log('Authenticated via API key');
+  else console.log('✓ Logged in as synthetic-account');
 } else process.exit(90);
 `);
   await symlink(binary, path.join(f.root, 'fake-bin/cursor'));
@@ -40,7 +60,7 @@ else if (process.argv.slice(2).join(' ') === '--list-models') {
     roleGuidance: { coding: { groups: ['workers'], tier: 'standard', initialEffort: 'high', effortLadder: ['high'] } },
     guards: { denySelfDelegation: false }, dataPolicy: { allowUnknown: true },
   } } }));
-  return { ...f, calls, listing };
+  return { ...f, calls, listing, auth, environments };
 }
 
 it('caches listed Cursor observations, approves the exact configured model, and resolves a launchable route', async () => {
@@ -69,7 +89,7 @@ it('caches listed Cursor observations, approves the exact configured model, and 
   expect(invocation).toMatchObject({ readiness: 'launchable', selected: { model: 'gpt-5.3-codex-high' } });
   expect(invocation.argv[invocation.argv.indexOf('--model') + 1]).toBe('gpt-5.3-codex-high');
   const calls = (await readFile(f.calls, 'utf8')).trim().split('\n').map(line => JSON.parse(line));
-  expect(calls.every(args => ['--version', '--list-models'].includes(args.join(' ')))).toBe(true);
+  expect(calls.every(args => ['--version', '--list-models', 'status'].includes(args.join(' ')))).toBe(true);
   expect(calls.filter(args => args[0] === '--list-models')).toHaveLength(2);
   const configFile = path.join(f.project, '.aiwg/aiwg.config');
   const config = JSON.parse(await readFile(configFile, 'utf8'));
@@ -179,3 +199,62 @@ it('refuses resolution when a listed and approved selector lacks context limits 
   expect(resolved.stdout + resolved.stderr).toContain('gpt-5.3-codex-high');
   expect(resolved.stdout + resolved.stderr).toContain('contextTokens');
 });
+
+
+it.each(['desktop', 'headless'] as const)('#4416 probes and launches with only the allowed %s environment', async mode => {
+  const desktop = { DISPLAY: ':4416', DBUS_SESSION_BUS_ADDRESS: 'unix:path=/synthetic/bus', XDG_RUNTIME_DIR: '/synthetic/runtime' };
+  for (const [name, value] of Object.entries(desktop)) vi.stubEnv(name, mode === 'desktop' ? value : undefined);
+  vi.stubEnv('CURSOR_API_KEY', mode === 'headless' ? 'synthetic-headless-key' : undefined);
+  vi.stubEnv('CONDUCTOR_PRIVATE', 'synthetic-private-status');
+  vi.stubEnv('USER', 'synthetic-user');
+  vi.stubEnv('LANG', 'synthetic-lang');
+  const f = await fixture();
+  await writeFile(f.auth, JSON.stringify({ mode: mode === 'desktop' ? 'desktop' : 'logged-in' }));
+  const result = await f.run(['doctor', '--probe-workers', '--qualify', '--cli', 'cursor', '--yes', '--json']);
+  expect(result.code, result.stdout + result.stderr).toBe(0);
+  const resolved = await f.resolve();
+  expect(resolved.code, resolved.stdout + resolved.stderr).toBe(0);
+  const invocation = JSON.parse(resolved.stdout).invocation;
+  const expected = ['HOME', 'PATH', ...(mode === 'desktop' ? Object.keys(desktop) : ['CURSOR_API_KEY'])].sort();
+  expect([...invocation.envNames].sort()).toEqual(expected);
+  for (const value of [...Object.values(desktop), 'synthetic-headless-key', 'synthetic-private-status']) {
+    expect(resolved.stdout).not.toContain(value);
+    expect(result.stdout).not.toContain(value);
+  }
+  await symlink('/usr/bin/env', path.join(f.root, 'fake-bin/env'));
+  await symlink('/usr/bin/timeout', path.join(f.root, 'fake-bin/timeout'));
+  await promisify(execFile)('/bin/sh', ['-c', invocation.shellCommand], { cwd: f.project,
+    env: { ...process.env, HOME: f.root, PATH: path.join(f.root, 'fake-bin') } });
+  expect(await readFile(invocation.stdoutPath, 'utf8')).toContain(mode === 'desktop' ? 'Logged in as' : 'Authenticated via API key');
+  const records = (await readFile(f.environments, 'utf8')).trim().split('\n').map(line => JSON.parse(line));
+  const probe = records.find(record => record.operation === 'status');
+  const worker = records.find(record => record.operation === '-p');
+  expect(Object.keys(probe.env).sort()).toEqual(expected);
+  expect(probe.cwd).toBe(f.project);
+  expect(worker.cwd).toBe(probe.cwd);
+  // Direct workers also receive AIWG-owned tracking markers, never ambient conductor values.
+  for (const name of expected) expect(worker.env[name]).toBe(probe.env[name]);
+  expect(Object.keys(worker.env).filter(name => !name.startsWith('AIWG_')).sort()).toEqual(expected);
+  for (const name of ['CONDUCTOR_PRIVATE', 'USER', 'LANG', 'XDG_CONFIG_HOME', 'AIWG_CONFIG']) {
+    expect(probe.env).not.toHaveProperty(name);
+    expect(worker.env).not.toHaveProperty(name);
+  }
+});
+
+it.each(['desktop', 'logged-out', 'unknown', 'failed'])(
+  '#4416 fails qualification when status cannot confirm worker login: %s', async mode => {
+    for (const name of ['DISPLAY', 'DBUS_SESSION_BUS_ADDRESS', 'XDG_RUNTIME_DIR', 'CURSOR_API_KEY']) vi.stubEnv(name, undefined);
+    const f = await fixture();
+    await writeFile(f.auth, JSON.stringify({ mode }));
+    const result = await f.run(['doctor', '--probe-workers', '--qualify', '--cli', 'cursor', '--yes', '--json']);
+    expect(result.code).toBe(1);
+    const report = JSON.parse(result.stdout).qualification;
+    expect(report).toMatchObject({ status: 'failed', results: [{ cli: 'cursor', status: 'failed',
+      message: expect.stringContaining('rendered worker environment') }] });
+    expect(report.results[0].message).toContain('cursor-agent status');
+    expect(report.results[0].message).toContain('CURSOR_API_KEY');
+    expect(report.results[0].message).toContain('DISPLAY, DBUS_SESSION_BUS_ADDRESS and XDG_RUNTIME_DIR');
+    expect(result.stdout + result.stderr).not.toContain('synthetic-private-status');
+    await expect(readFile(path.join(f.config, 'worker-installations.json'), 'utf8')).rejects.toMatchObject({ code: 'ENOENT' });
+    expect((await f.resolve()).code).not.toBe(0);
+  });
