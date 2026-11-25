@@ -1,7 +1,7 @@
 /**
  * FROZEN REFERENCE FIXTURE -- NOT PRODUCTION CODE.
  * Source: src/models/provider-policy.ts at 8c812250d6e8e139eb52f798b92934bab9350021.
- * Only import routing and this pin header differ from the baseline body.
+ * Import routing, this pin header and #2642 optional policy fields differ from the baseline body.
  * Refresh with: node test/fixtures/ralph-recovery-baseline/refresh.mjs --ref=8c812250d6e8e139eb52f798b92934bab9350021
  * Installation ownership and default input loading stay in this fixture graph.
  * Other dependencies use repository source. Never import from production.
@@ -270,6 +270,8 @@ const WorkerRoleSchema = z.object({
   allowNotApplicableEffort: z.boolean().optional(),
 }).strict();
 export const WorkerSelectionPolicySchema = z.object({
+  strategy: z.enum(['cost-effective', 'balanced', 'quality']).optional(),
+  maxAutoTier: z.enum(['economy', 'standard', 'premium', 'flagship', 'max-quality']).optional(),
   roleGuidance: z.record(z.string().regex(/^[a-z][a-z0-9-]{0,62}$/), WorkerRoleSchema).optional(),
   guards: z.object({
     deniedEfforts: uniqueStrings.optional(),

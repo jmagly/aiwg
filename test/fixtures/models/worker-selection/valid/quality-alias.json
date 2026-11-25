@@ -1,0 +1,8 @@
+{
+  "defaults": {
+    "workerSelection": {
+      "strategy": "quality",
+      "maxAutoTier": "max-quality"
+    }
+  }
+}

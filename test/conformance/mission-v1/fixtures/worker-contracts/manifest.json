@@ -22,7 +22,7 @@
       "source": "05-configuration-spec.md ### 4.2 Existing",
       "owner": "schemas/models/model-config-compatibility.v1.schema.json",
       "target": "properties.defaults.properties.workerSelection",
-      "sha256": "5be505c0f48d58aef94fe40394232d27de3f813fb77205f6334df54ef4a58208"
+      "sha256": "e9a8e3c78e3825903bf44a200d5085900dd00b81e06a4e50253e5c8a53c7b272"
     },
     {
       "file": "worker-adapter.fragment.json",

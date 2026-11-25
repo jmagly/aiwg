@@ -14,6 +14,14 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
+            "strategy": {
+              "enum": ["cost-effective", "balanced", "quality"],
+              "description": "Rank eligible tuples by observed cost class ascending, configured order, or observed cost class descending. Ties retain configured order. When omitted, preserve legacy configured order."
+            },
+            "maxAutoTier": {
+              "enum": ["economy", "standard", "premium", "flagship", "max-quality"],
+              "description": "Highest automatic worker tier across roles when explicitly configured; omission adds no ceiling. Explicit user ceilings may only be narrowed by project configuration; premium confirmation and flagship election remain required."
+            },
             "roleGuidance": {
               "type": "object",
               "additionalProperties": {

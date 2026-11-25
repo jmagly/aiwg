@@ -1,0 +1,8 @@
+{
+  "T-OG-01": {
+    "testFiles": [
+      "test/unit/models/worker-selection-foundation.test.ts",
+      "test/unit/models/worker-selection-resolve.test.ts"
+    ]
+  }
+}

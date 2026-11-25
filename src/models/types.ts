@@ -261,6 +261,10 @@ export interface WorkerRoleGuidance {
   allowNotApplicableEffort?: boolean;
 }
 export interface WorkerSelectionPolicy {
+  /** Ranking among eligible tuples; ties retain configured order. */
+  strategy?: 'cost-effective' | 'balanced' | 'quality';
+  /** Automatic selection ceiling across roles; max-quality aliases flagship. */
+  maxAutoTier?: ModelTier;
   roleGuidance?: Record<string, WorkerRoleGuidance>;
   guards?: {
     deniedEfforts?: string[];
