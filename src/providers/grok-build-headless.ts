@@ -10,7 +10,7 @@ export interface GrokHeadlessOptions {
   command?: string;
   /** Test-only launcher prefix; production always invokes grok directly. */
   prefixArgs?: string[];
-  /** Use the released CLI's explicit switch for AIWG-controlled leaf workers. */
+  /** @deprecated Accepted for compatibility; AIWG always prohibits native fan-out. */
   disableSubagents?: boolean;
   timeoutMs?: number;
   maxOutputBytes?: number;
@@ -105,8 +105,8 @@ export async function runGrokHeadless(options: GrokHeadlessOptions): Promise<Gro
   const timeoutMs = Math.min(options.timeoutMs ?? DEFAULT_TIMEOUT_MS, MAX_TIMEOUT_MS);
   const maxBytes = Math.min(Math.max(options.maxOutputBytes ?? DEFAULT_MAX_OUTPUT, 1024), DEFAULT_MAX_OUTPUT);
   const env = options.env ?? process.env;
-  // 1.0.77: workflow can spawn children even when spawn_subagent is disabled.
-  const args = [...(options.prefixArgs ?? []), '--no-auto-update', '--allow', 'Bash(aiwg discover *)', ...(options.disableSubagents ? ['--no-subagents', '--disallowed-tools', 'workflow'] : []), '-p', options.prompt, '--output-format', format];
+  // 1.0.77: workflow and scheduler can spawn children despite --no-subagents.
+  const args = [...(options.prefixArgs ?? []), '--no-auto-update', '--allow', 'Bash(aiwg discover *)', '--no-subagents', '--disallowed-tools', 'workflow,scheduler_create,scheduler_list,scheduler_delete', '-p', options.prompt, '--output-format', format];
   const streaming = format === 'streaming-json' || format === 'streaming-messages-json';
   return new Promise((resolve, reject) => {
     const child = spawn(options.command ?? 'grok', args, {

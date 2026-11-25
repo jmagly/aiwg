@@ -1,7 +1,7 @@
 /**
  * Grok Build CLI direct-worker driver (B-OG-41, roctinam/aiwg#2906).
  *
- * Version-bound to `grok` 1.0.77; offline contracts replay the supplied captures.
+ * Version-bound to `grok` 1.0.77 and 1.0.92; offline contracts replay the supplied captures.
  * Historical 1.0.50 root `--help` (captured on host 'noodle'
  * 2026-10-10, see .aiwg/working/s1-scratch/cli-help/grok-1.0.50.txt; never a
  * live prompted run) plus the CLI's own bundled docs/strings (read via
@@ -9,7 +9,7 @@
  *
  *   grok --prompt-file ${briefPath} -m ${model} --reasoning-effort ${effort} \
  *     --permission-mode dontAsk --sandbox ${sandbox} --cwd ${workspace} \
- *     --output-format streaming-json --no-subagents --disallowed-tools workflow --no-plan \
+ *     --output-format streaming-json --no-subagents --disallowed-tools workflow,scheduler_create,scheduler_list,scheduler_delete --no-plan \
  *     --no-alt-screen --disable-web-search \
  *     [--allow <rule> ...] [--deny <rule> ...]
  *
@@ -62,8 +62,8 @@
  * Untrusted-surface denial: `--disable-web-search` ("Disable web search and
  * web fetch tools") removes the one evidenced built-in external-network
  * tool so the AIWG `worker-invoke` bridge remains the one MCP/tool route
- * this profile authorizes; `--no-subagents --disallowed-tools workflow`
- * closes the captured 1.0.77 workflow bypass of --no-subagents (ADR-OG-09).
+ * this profile authorizes; `--no-subagents --disallowed-tools workflow,scheduler_create,scheduler_list,scheduler_delete`
+ * closes the captured 1.0.77/1.0.92 workflow/scheduler bypasses (ADR-OG-09, #2577).
  * Combined live enforcement remains unverified; `--no-plan` keeps the run in direct
  * execution rather than plan-only mode. `--no-alt-screen` is also emitted
  * per the conductor's headless invariant list even though single-turn
@@ -114,7 +114,7 @@ import { ProviderAdapter } from './provider-adapter.mjs';
 
 export const interfaceVersion = 1;
 
-export const GROK_BUILD_SUPPORTED_VERSIONS = Object.freeze(['1.0.77']);
+export const GROK_BUILD_SUPPORTED_VERSIONS = Object.freeze(['1.0.77', '1.0.92']);
 export const GROK_BUILD_DIRECT_EFFORT_VALUES = Object.freeze(['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max']);
 /** Brief transport: a prompt file, never argv text and never stdin. */
 export const GROK_BUILD_DIRECT_STDIN = 'closed';
@@ -242,7 +242,7 @@ export class GrokBuildAdapter extends ProviderAdapter {
       '--cwd', cwd,
       '--output-format', 'streaming-json',
       '--no-subagents',
-      '--disallowed-tools', 'workflow',
+      '--disallowed-tools', 'workflow,scheduler_create,scheduler_list,scheduler_delete',
       '--no-plan',
       '--no-alt-screen',
       '--disable-web-search',

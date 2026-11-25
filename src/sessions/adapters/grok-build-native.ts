@@ -1,4 +1,4 @@
-// Bounded native projection pinned to the captured Grok Build 1.0.77 store.
+// Bounded native projection pinned to the supported Grok Build 1.0.77/1.0.92 store.
 import { createHash } from 'node:crypto';
 import { lstat, opendir, readFile } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, parse, resolve } from 'node:path';
@@ -21,7 +21,7 @@ import {
   type ReaderLimits,
 } from '../readers.js';
 
-import { nativeDrift, parseNativeSummary, parseNativeCompactionCheckpoint, projectNativeLine, nativeProjectionRecord, projectNativeUpdate, type NativeProjection, type NativeMetadata, type NativeLineage } from './grok-build-native-records.js';
+import { GROK_BUILD_NATIVE_SUPPORTED_VERSIONS, nativeDrift, parseNativeSummary, parseNativeCompactionCheckpoint, projectNativeLine, nativeProjectionRecord, projectNativeUpdate, type NativeProjection, type NativeMetadata, type NativeLineage } from './grok-build-native-records.js';
 
 export const GROK_BUILD_NATIVE_SCHEMA_VERSION = '1.0.0';
 export const GROK_BUILD_NATIVE_SCHEMA_MAJOR = 1;
@@ -34,7 +34,7 @@ const ACTIVE_SESSIONS_MAX_BYTES = 1024 * 1024;
 
 export function grokBuildNativeEnabled(): boolean {
   return process.env.AIWG_GROK_BUILD_NATIVE_EXPERIMENTAL === '1'
-    && process.env.AIWG_GROK_BUILD_NATIVE_VERSION === '1.0.77';
+    && GROK_BUILD_NATIVE_SUPPORTED_VERSIONS.includes(process.env.AIWG_GROK_BUILD_NATIVE_VERSION ?? '');
 }
 
 /** One availability message for native readers, discovery and CLI capability reports. */
@@ -43,8 +43,8 @@ export function grokBuildNativeAvailability() {
   return {
     reasonCode: enabled ? 'GROK_BUILD_NATIVE_EXPERIMENTAL_ENABLED' : 'GROK_BUILD_NATIVE_EXPERIMENTAL_DISABLED',
     remediation: `Grok Build native ingestion is experimental and ${enabled ? 'enabled for the captured subset; other scenarios remain' : 'disabled and'} unqualified. `
-      + 'AIWG_GROK_BUILD_NATIVE_EXPERIMENTAL=1 and AIWG_GROK_BUILD_NATIVE_VERSION=1.0.77 are both required; '
-      + 'only exact 1.0.77 text/tool records with chat_format_version 1 are supported. '
+      + 'AIWG_GROK_BUILD_NATIVE_EXPERIMENTAL=1 and AIWG_GROK_BUILD_NATIVE_VERSION=1.0.77 or 1.0.92 are both required; '
+      + 'only exact 1.0.77/1.0.92 text/tool records with chat_format_version 1 are supported. '
       + 'Authorize the sessions root separately with --grok-root. '
       + 'Unknown versions or schemas must fall back to `grok export <session-id> <session-id>.md` and import the authorized Markdown file.',
   };

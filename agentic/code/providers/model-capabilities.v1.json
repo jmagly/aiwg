@@ -2737,7 +2737,7 @@
         "id": "grok-build",
         "provider": "grok-build",
         "adapterVersion": "1",
-        "supportedVersions": "1.0.77",
+        "supportedVersions": "1.0.77 || 1.0.92",
         "runtimeDriver": "installed:grok-build",
         "catalogAdapter": {
           "kind": "file",
@@ -2764,7 +2764,7 @@
             "streaming-json",
             "--no-subagents",
             "--disallowed-tools",
-            "workflow",
+            "workflow,scheduler_create,scheduler_list,scheduler_delete",
             "--no-plan",
             "--no-alt-screen",
             "--disable-web-search",
@@ -2803,7 +2803,7 @@
         "invocationProfiles": {
           "direct-shell": {
             "transport": "shell",
-            "supportedVersions": "1.0.77",
+            "supportedVersions": "1.0.77 || 1.0.92",
             "controls": {
               "model": {
                 "support": "unqualified",
@@ -2857,8 +2857,8 @@
               },
               "children": {
                 "support": "unqualified",
-                "mapping": "--no-subagents --disallowed-tools workflow (1.0.77 capture: workflow can spawn children despite --no-subagents; combined argv tested in grok-build-direct.test.ts; live-verified on 1.0.77 2026-11-10: no spawn_subagent or workflow call and no subagent records)",
-                "evidence": "H: grok 1.0.50 (c58f321264ba, stable) --help, captured 2026-10-10 (.aiwg/working/s1-scratch/cli-help/grok-1.0.50.txt); plus the installed binary's own bundled docs (strings-read, never live qualification; full extracts preserved in docs/providers/grok-build-cli-evidence.md) ('--no-subagents Disable subagent spawning'); 2026-11-10 1.0.77 capture correction: test/fixtures/providers/grok-build/captured-20261110/permissions.json replayed by test/unit/providers/grok-build-headless.test.ts demonstrates workflow bypass; both flags required in rendered argv"
+                "mapping": "--no-subagents --disallowed-tools workflow,scheduler_create,scheduler_list,scheduler_delete (1.0.77 workflow and 1.0.92 scheduler_create captures bypass --no-subagents; 2026-11-24 tool inventory confirms all five fan-out tools removed; combined argv tested in grok-build-direct.test.ts)",
+                "evidence": "H: grok 1.0.50 (c58f321264ba, stable) --help, captured 2026-10-10 (.aiwg/working/s1-scratch/cli-help/grok-1.0.50.txt); plus the installed binary's own bundled docs (strings-read, never live qualification; full extracts preserved in docs/providers/grok-build-cli-evidence.md) ('--no-subagents Disable subagent spawning'); 2026-11-10 1.0.77 capture correction: test/fixtures/providers/grok-build/captured-20261110/permissions.json replayed by test/unit/providers/grok-build-headless.test.ts demonstrates workflow bypass; 2026-11-24 captured-20261124/sched-run.jsonl confirms scheduler_create succeeds under the old ban; tools-banned-scheduler.json confirms the comma-separated scheduler ban; all guards required in rendered argv"
               },
               "fallback": {
                 "support": "unqualified",
@@ -2879,7 +2879,7 @@
               "No --no-ask-user-equivalent flag is listed in the captured root --help for this version (an internal no-ask-user arg name exists in the compiled binary's own strings but is not printed help text), so it is never emitted; whether an ask_user_question tool call blocks indefinitely under dontAsk in a non-interactive run is unqualified, not invented away.",
               "--always-approve and --permission-mode bypassPermissions are never emitted; a scoped --allow/--deny rule value, or the model/effort value, starting with '-' or containing whitespace/control characters is refused by the driver before argv is built.",
               "Permission-mode and sandbox-profile semantics are quoted directly from the installed binary's own bundled documentation (see docs/providers/grok-build-cli-evidence.md for the full extracts, strings command and binary version/hash); where that documentation does not settle a question (e.g. ask_user_question behavior under dontAsk), the control stays unqualified rather than assumed safe.",
-              "1.0.77 captured permissions (2026-11-10): default headless cancels spawn_subagent and workflow because a headless run cannot ask for approval; --allow spawn_subagent did not cover them. --permission-mode auto ran them, but AIWG keeps its existing permission defaults. Evidence: test/fixtures/providers/grok-build/captured-20261110/permissions.json; test/unit/providers/grok-build-headless.test.ts. ACP authMethods, logged-in session/new, end_turn usage, compact notifications and cancelled/MidTurnAbort are replayed in grok-build-acp.test.ts; live ACP dispatch qualification remains deferred. Native -w creates standalone copies under ~/.grok/worktrees/<slug>/<name>, not git worktrees; ownership/recovery list parsing is tested in grok-build-dispatch.test.ts. The combined flags were verified live on 1.0.77 (2026-11-10: no spawn_subagent or workflow call, no subagent records). The direct profile now pins 1.0.77; historical 1.0.50 help provenance is retained without requalification.",
+              "1.0.77 captured permissions (2026-11-10): default headless cancels spawn_subagent and workflow because a headless run cannot ask for approval; --allow spawn_subagent did not cover them. --permission-mode auto ran them, but AIWG keeps its existing permission defaults. Evidence: test/fixtures/providers/grok-build/captured-20261110/permissions.json; test/unit/providers/grok-build-headless.test.ts. ACP authMethods, logged-in session/new, end_turn usage, compact notifications and cancelled/MidTurnAbort are replayed in grok-build-acp.test.ts; the conductor passed live managed ACP dispatch on 1.0.92 (2026-11-24). Native -w creates standalone copies under ~/.grok/worktrees/<slug>/<name>, not git worktrees; ownership/recovery list parsing is tested in grok-build-dispatch.test.ts. The combined flags were verified live on 1.0.77 (2026-11-10: no spawn_subagent or workflow call, no subagent records). The direct profile supports exactly 1.0.77 and 1.0.92; live evidence of 2026-11-21..24 is 1.0.92 (b06756fd6256), following the 2026-11-21 09:05 auto-update; historical 1.0.50 help provenance is retained without requalification.",
               "Live qualification is an open S1 blocker: this profile has been exercised only against --help/--version/subcommand --help plus strings-read bundled docs, never a live prompted run. The smoke command in docs/providers/grok-build-direct.md is the first live check and needs an XAI_API_KEY (or cached grok login) from the operator."
             ],
             "health": {

@@ -23,6 +23,9 @@ function execute(command, args, cwd, env = process.env) {
 export function validateContract(contract) {
   if (contract.schema !== 'aiwg.grok-build.qualification-contract.v1') fail('Qualification contract schema mismatch');
   if (!/^\d+\.\d+\.\d+$/.test(contract.releasedVersion)) fail('Contract needs an exact released version');
+  if (contract.supportedVersions !== undefined && (!Array.isArray(contract.supportedVersions)
+    || !contract.supportedVersions.length || contract.supportedVersions.some(version => typeof version !== 'string'
+      || !/^\d+\.\d+\.\d+$/.test(version)))) fail('Supported versions must be an exact release list');
   if (!/^[0-9a-f]{40}$/.test(contract.publicSourceCommit)) fail('Contract needs a full public source commit');
   if (!/^[0-9a-f]{40}$/.test(contract.upstreamSourceRevision)) fail('Contract needs a full upstream SOURCE_REV');
   for (const [name, claim] of Object.entries(contract.surfaces ?? {})) {
@@ -118,7 +121,7 @@ export function collectSmoke({ env = process.env, cwd = process.cwd(), contract 
   if (versionResult.error?.code === 'ENOENT') return skip('Grok Build binary unavailable');
   if (versionResult.error || versionResult.status !== 0) return failed('Version probe failed');
   const version = versionResult.stdout?.match(/\b(\d+\.\d+\.\d+)\b/)?.[1];
-  if (version !== contract.capturedRelease?.version) return failed('Installed version differs from captured release');
+  if (!(contract.supportedVersions ?? [contract.capturedRelease?.version]).includes(version)) return failed('Installed version is not supported');
   const inspection = invoke(binary, ['inspect'], cwd, env);
   if (inspection.error || inspection.status !== 0) {
     if (/login|log in|authenticat/i.test(inspection.stderr || '')) return skip('Grok Build login unavailable');
@@ -160,10 +163,12 @@ export function smoke(args, contract, options = {}) {
 }
 
 /** Compare the observed CLI vocabulary and schema signature, without invoking a model. */
-export function compareCaptureSnapshot(snapshot, observed) {
+export function compareCaptureSnapshot(snapshot, observed, supportedVersions = [snapshot.version]) {
   const changes = [];
   const missing = [];
-  if (observed.version !== snapshot.version) changes.push('version');
+  const versionState = { installed: observed.version ?? null, supported: supportedVersions,
+    status: supportedVersions.includes(observed.version) ? 'supported' : 'unsupported' };
+  if (versionState.status === 'unsupported') changes.push('version');
   if (typeof observed.help !== 'string') missing.push('CLI help');
   else for (const token of snapshot.helpTokens) {
     const escaped = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -175,11 +180,11 @@ export function compareCaptureSnapshot(snapshot, observed) {
   };
   compare('headless JSON keys', snapshot.jsonResultKeys, observed.json && Object.keys(observed.json));
   compare('streaming event types', snapshot.streamingEventTypes, observed.events?.map(event => event.type));
-  return { status: changes.length ? 'drift' : missing.length ? 'partial' : 'current', changes, missing,
+  return { status: changes.length ? 'drift' : missing.length ? 'partial' : 'current', changes, missing, versionState,
     contract: 'docs/providers/grok-build-qualification.json; docs/providers/grok-build-cli-evidence.md' };
 }
 
-function captureDrift(args) {
+function captureDrift(args, contract) {
   const value = flag => {
     const index = args.indexOf(flag);
     if (index < 0) return undefined;
@@ -198,7 +203,7 @@ function captureDrift(args) {
     events = stream ? stream.trim().split(/\r?\n/).map(line => JSON.parse(line)) : undefined;
   } catch { fail('Invalid capture JSON; review sample privately (content omitted)'); }
   const result = compareCaptureSnapshot(snapshot, { version: version?.match(/\b(\d+\.\d+\.\d+)\b/)?.[1], help,
-    json: jsonSample, events });
+    json: jsonSample, events }, contract.supportedVersions ?? [snapshot.version]);
   if (result.status !== 'current') process.exitCode = 1;
   return result;
 }
@@ -233,7 +238,7 @@ async function main() {
     const result = verifyPromotion(contract, receipts, providerStatus(contract));
     console.log(JSON.stringify(result));
     if (result.errors.length) process.exitCode = 1;
-  } else if (mode === 'drift' && args.includes('--capture')) console.log(JSON.stringify(captureDrift(args)));
+  } else if (mode === 'drift' && args.includes('--capture')) console.log(JSON.stringify(captureDrift(args, contract)));
   else if (mode === 'drift') console.log(JSON.stringify(await drift(contract)));
   else fail('Usage: grok-build-qualification.mjs <smoke --output FILE|gate [--evidence-dir DIR]|drift [--capture --version-file FILE --help-file FILE --json-file FILE --stream-file FILE]>');
 }

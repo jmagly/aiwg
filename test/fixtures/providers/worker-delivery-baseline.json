@@ -1,5 +1,5 @@
 {
-  "note": "Synthetic shared renderer characterization captured before #2991/#3002/#2998; excludes the two intentionally changed provider deliveries. Codex last-message capture intentionally separated from the structured final in #3657; Copilot uses the captured 1.0.106 stdin-only delivery in #4088; Grok Build narrowly pre-allows AIWG discovery in #4093; other rows unchanged. No live CLI or credentials.",
+  "note": "Synthetic shared renderer characterization captured before #2991/#3002/#2998; excludes the two intentionally changed provider deliveries. Codex last-message capture intentionally separated from the structured final in #3657; Copilot uses the captured 1.0.106 stdin-only delivery in #4088; Grok Build narrowly pre-allows AIWG discovery in #4093 and removes scheduler fan-out in #2577; other rows unchanged. No live CLI or credentials.",
   "rows": [
     {
       "provider": "claude",
@@ -227,7 +227,7 @@
         "streaming-json",
         "--no-subagents",
         "--disallowed-tools",
-        "workflow",
+        "workflow,scheduler_create,scheduler_list,scheduler_delete",
         "--no-plan",
         "--no-alt-screen",
         "--disable-web-search",

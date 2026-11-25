@@ -3,6 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { getProviderParallelismDefaults } from '../../../src/config/aiwg-config.js';
 import { GrokBuildDispatcher, acquireGrokProjectSlot, prepareGrokWorktree, parseGrokNativeWorktreeList } from '../../../src/providers/grok-build-dispatch.js';
 
 function cleanRepo(): string {
@@ -17,6 +18,15 @@ function cleanRepo(): string {
 }
 
 describe('Grok Build governed dispatch', () => {
+  it('pins reviewed provider defaults and resolves four slots without project config', async () => {
+    expect(getProviderParallelismDefaults('grok-build')).toEqual({
+      max_parallel_subagents: 4, max_parallel_ralph_loops: 2, max_parallel_mc_missions: 4,
+    });
+    const root = cleanRepo();
+    try { expect((await GrokBuildDispatcher.forProject(root)).maxParallel).toBe(4); }
+    finally { rmSync(root, { recursive: true, force: true }); }
+  });
+
   it('parses captured standalone copy ownership without treating it as a Git worktree', () => {
     const fixture = (name: string) => readFileSync(new URL(`../../fixtures/providers/grok-build/captured-20261110/${name}`, import.meta.url), 'utf8');
     const wire = fixture('worktree-list.json');
@@ -43,7 +53,7 @@ describe('Grok Build governed dispatch', () => {
         authorize: () => true, budgetRemaining: () => true });
       const argv = result.events[0].data as string[];
       expect(argv.slice(argv.indexOf('--no-subagents'), argv.indexOf('--no-subagents') + 3))
-        .toEqual(['--no-subagents', '--disallowed-tools', 'workflow']);
+        .toEqual(['--no-subagents', '--disallowed-tools', 'workflow,scheduler_create,scheduler_list,scheduler_delete']);
       expect(argv).not.toContain('auto');
     } finally { rmSync(root, { recursive: true, force: true }); }
   });
@@ -165,7 +175,7 @@ describe('Grok Build governed dispatch', () => {
       const message=JSON.parse(line);
       if(message.method==='initialize') console.log(JSON.stringify({jsonrpc:'2.0',id:message.id,result:{authMethods:[{id:'xai.api_key'}]}}));
       if(message.method==='authenticate') console.log(JSON.stringify({jsonrpc:'2.0',id:message.id,result:{}}));
-      if(message.method==='session/new') console.log(JSON.stringify({jsonrpc:'2.0',id:message.id,result:{sessionId:process.argv.join(' ').includes('--no-subagents --disallowed-tools workflow')?'acp-fixture':'missing-cap-flag'}}));
+      if(message.method==='session/new') console.log(JSON.stringify({jsonrpc:'2.0',id:message.id,result:{sessionId:process.argv.join(' ').includes('--no-subagents --disallowed-tools workflow,scheduler_create,scheduler_list,scheduler_delete')?'acp-fixture':'missing-cap-flag'}}));
       if(message.method==='session/prompt') console.log(JSON.stringify({jsonrpc:'2.0',id:message.id,result:{stopReason:'end_turn'}}));
     })`;
     try {

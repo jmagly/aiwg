@@ -73,6 +73,8 @@
         "test/unit/models/worker-capabilities.test.ts",
         "test/conformance/orchestration-v1/worker-fixtures.test.ts",
         "test/unit/providers/grok-build-headless.test.ts",
+        "test/unit/providers/grok-build-capabilities.test.ts",
+        "test/unit/ralph-external/grok-build-version.test.ts",
         "test/unit/ralph-external/worker-invocation.test.ts",
         "test/integration/worker-adapter-package.test.ts",
         "test/unit/ralph-external/worker-installation.test.ts",

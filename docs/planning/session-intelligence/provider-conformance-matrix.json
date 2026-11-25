@@ -279,7 +279,7 @@
           "SCHEMA_DRIFT"
         ],
         "exceptions": {
-          "discovery": "CLI list/search/export captured on 1.0.77; native text/tool projection requires AIWG_GROK_BUILD_NATIVE_EXPERIMENTAL=1, exact AIWG_GROK_BUILD_NATIVE_VERSION=1.0.77, summary chat_format_version 1 and an authorized --grok-root; ACP, compaction, fork/resume, subagents and attachment ownership remain unqualified; unknown native schema requires CLI export fallback"
+          "discovery": "CLI list/search/export captured on 1.0.77; native text/tool projection requires AIWG_GROK_BUILD_NATIVE_EXPERIMENTAL=1, exact AIWG_GROK_BUILD_NATIVE_VERSION=1.0.77 or 1.0.92, summary chat_format_version 1 and an authorized --grok-root; ACP, compaction, fork/resume, subagents and attachment ownership remain unqualified; unknown native schema requires CLI export fallback"
         }
       }
     },

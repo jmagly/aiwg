@@ -1,0 +1,21 @@
+[
+  {
+    "id": "aiwg-probe-117b6f744e023c0a",
+    "path": "$HOME/.grok/worktrees/tmp-project/aiwg-probe",
+    "source_repo": "/absolute/temp/project",
+    "repo_name": "grokcap2-1vFY",
+    "kind": "fork",
+    "creation_mode": "standalone",
+    "git_ref": "HEAD",
+    "head_commit": "8e41b0d4664ebe6d385f25891fb0a92d3544e684",
+    "session_id": "pager-9ad50ffed48f",
+    "creator_pid": 4144706,
+    "created_at": 1795553313,
+    "last_accessed_at": 1795553313,
+    "status": "alive",
+    "metadata": {
+      "label": "aiwg-probe",
+      "user_provided": false
+    }
+  }
+]

@@ -55,9 +55,9 @@ it('requires an exact native version pin even after the experimental opt-in', as
     .rejects.toMatchObject({ code: 'UNSUPPORTED_OPERATION', message: expect.stringMatching(/1\.0\.77.*grok export/) });
 });
 
-it('imports the captured native schema with model and cwd provenance, without fabricated timestamps', async () => {
+it.each(['1.0.77', '1.0.92'])('imports the native schema on supported %s with accurate provenance and strict schema validation', async version => {
   vi.stubEnv('AIWG_GROK_BUILD_NATIVE_EXPERIMENTAL', '1');
-  vi.stubEnv('AIWG_GROK_BUILD_NATIVE_VERSION', '1.0.77');
+  vi.stubEnv('AIWG_GROK_BUILD_NATIVE_VERSION', version);
   const root = await temp();
   const directory = join(root, encodeURIComponent('/synthetic/workspace'), id);
   await mkdir(directory, { recursive: true });
@@ -68,7 +68,7 @@ it('imports the captured native schema with model and cwd provenance, without fa
   expect(records.map(r => r.kind)).toEqual(['message', 'message', 'tool-call', 'tool-result', 'message']);
   expect(records[1].model).toBe('grok-4.7-build');
   expect(records.every(r => r.occurredAt === undefined)).toBe(true);
-  expect(records[0].extensions).toMatchObject({ provenance: { grokVersion: '1.0.77', workingDirectory: '/synthetic/workspace', sessionCreatedAt: '2026-11-09T22:48:04.991625671Z', sessionUpdatedAt: '2026-11-09T22:54:29.223220284Z', currentModelId: 'grok-4.7' } });
+  expect(records[0].extensions).toMatchObject({ provenance: { grokVersion: version, workingDirectory: '/synthetic/workspace', sessionCreatedAt: '2026-11-09T22:48:04.991625671Z', sessionUpdatedAt: '2026-11-09T22:54:29.223220284Z', currentModelId: 'grok-4.7' } });
   expect(await collect(adapter.stream(source))).toEqual(records);
   expect((records[0].extensions?.provenance as Record<string, unknown>)).not.toHaveProperty('sessionKind');
   await writeFile(join(directory, 'summary.json'), '{"chat_format_version":2}\n');
@@ -115,7 +115,7 @@ it('keeps skipped system/reminder/reasoning content out of native imports and re
   await expect(adapter.inspect(source)).rejects.toMatchObject({ code: 'SCHEMA_DRIFT' });
 });
 
-it.each([undefined, '', '1.0.76', '1.0.78', '^1.0.77', '1.0.77-preview'])('refuses native version %s after opt-in', async version => {
+it.each([undefined, '', '1.0.76', '1.0.78', '1.0.91', '1.0.93', '1.0.92-preview', '^1.0.92', '^1.0.77', '1.0.77-preview'])('refuses native version %s after opt-in', async version => {
   vi.stubEnv('AIWG_GROK_BUILD_NATIVE_EXPERIMENTAL', '1');
   vi.stubEnv('AIWG_GROK_BUILD_NATIVE_VERSION', version);
   expect(new GrokBuildSessionAdapter().supportedOperations).toEqual(['inspect', 'stream']);

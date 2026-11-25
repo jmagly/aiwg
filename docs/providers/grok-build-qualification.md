@@ -1,5 +1,11 @@
 # Grok Build qualification and stable-promotion gate
 
+The profile supports exactly **1.0.77 and 1.0.92**. The conductor corrected
+November 21–24 live evidence to 1.0.92 after titan auto-updated on
+2026-11-21 09:05; see [native evidence](grok-build-native-agents.md).
+Managed ACP dispatch passed live on 1.0.92 (conductor, 2026-11-24).
+Historical 1.0.77 evidence and source-review pins are retained.
+
 Grok Build is the `grok` coding-agent CLI (`grok-build` in AIWG), distinct from
 Grok Bot and Grok web Build. The adapter remains **experimental**. The supplied
 Linux **1.0.77** captures (2026-11-09, banner revision `50ca579fa996`) establish
@@ -95,9 +101,10 @@ $env:AIWG_GROK_BUILD_AUTH_MODE = 'interactive'
 node C:\path\to\aiwg\tools\providers\grok-build-qualification.mjs smoke --output C:\private\new-receipt.json
 ```
 
-Use the Bash command inside WSL with its Linux binary. Live smoke is explicitly
-**deferred** here: Grok is unauthenticated and was not run. An installed version
-other than 1.0.77 fails until its captures and release pin are reviewed.
+Use the Bash command inside WSL with its Linux binary. This worker ran offline
+checks only; the conductor's 1.0.92 live result is noted above. An installed version
+outside the exact supported list (1.0.77 and 1.0.92) fails. The historical
+`capturedRelease` and source-review pins remain separate from this list.
 
 The existing `npm run smoke:grok-build:live -- --output FILE` alias works when
 run from the deployed checkout. Explicit opt-in is required. Missing opt-in,
@@ -142,7 +149,10 @@ npm run drift:grok-build -- --capture \
 This mode runs only local `--version`/`--help`. For fully offline replay, pass
 `--version-file FILE --help-file FILE` as well. JSON/stream samples must come
 from a separately authorized capture; the tool never generates them. It exits
-one on drift or missing samples and names the affected contract. Missing
+one on drift or missing samples and names the affected contract. `versionState`
+reports the installed version, exact supported list (1.0.77 and 1.0.92), and
+`supported`/`unsupported` independently of schema drift. The historical
+1.0.77 snapshot remains the vocabulary baseline. Missing
 JSON/stream samples yield `partial`, never a successful full comparison.
 Differences in JSON top-level keys and event discriminants are exact; help
 checks cover the observed token subset. Full help additions, nested config

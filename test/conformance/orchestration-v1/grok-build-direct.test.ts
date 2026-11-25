@@ -212,16 +212,16 @@ function messages(plan: any): string {
 describe('Grok Build version-bound profile (B-OG-41)', () => {
   it('GB01 pins the evidenced release, driver, argv template and health grammar; unknown controls stay unqualified', () => {
     const adapter = loadProviderModelCapabilities().providers['grok-build'].workerHealthAdapter!;
-    expect(GROK_BUILD_SUPPORTED_VERSIONS).toEqual([VERSION]);
-    expect(adapter).toMatchObject({ supportedVersions: VERSION, adapterVersion: '1', runtimeDriver: 'installed:grok-build',
+    expect(GROK_BUILD_SUPPORTED_VERSIONS).toEqual([VERSION, '1.0.92']);
+    expect(adapter).toMatchObject({ supportedVersions: '1.0.77 || 1.0.92', adapterVersion: '1', runtimeDriver: 'installed:grok-build',
       invocation: { kind: 'process', executable: 'grok', stdin: 'closed', versionArgv: ['--version'] },
       qualification: { status: 'unqualified' } });
     expect(adapter.invocation.argv).toEqual(['--prompt-file', '${brief}', '-m', '${model}', '--reasoning-effort', '${effort}',
       '--permission-mode', 'dontAsk', '--sandbox', '${sandbox}', '--cwd', '${workspace}', '--output-format', 'streaming-json',
-      '--no-subagents', '--disallowed-tools', 'workflow', '--no-plan', '--no-alt-screen', '--disable-web-search', '--allow', 'Bash(aiwg discover *)']);
+      '--no-subagents', '--disallowed-tools', 'workflow,scheduler_create,scheduler_list,scheduler_delete', '--no-plan', '--no-alt-screen', '--disable-web-search', '--allow', 'Bash(aiwg discover *)']);
     expect(adapter.invocation.argv.join(' ')).not.toMatch(/always-approve|bypassPermissions|allow-all|yolo/);
     const profile = adapter.invocationProfiles!['direct-shell'];
-    expect(profile.supportedVersions).toBe(VERSION);
+    expect(profile.supportedVersions).toBe('1.0.77 || 1.0.92');
     expect(profile.transport).toBe('shell');
     for (const [name, control] of Object.entries(profile.controls)) {
       expect(control.support, name).toBe('unqualified');
@@ -249,7 +249,7 @@ describe('Grok Build version-bound profile (B-OG-41)', () => {
       { selected: { model: MODEL, effort: { value: 'medium' } }, cwd: '/w', briefPath: '/w/brief.md' },
       null, { sandbox: 'workspace-write', allowRules: ['Edit'] })).toEqual(['--prompt-file', '/w/brief.md',
       '-m', MODEL, '--reasoning-effort', 'medium', '--permission-mode', 'dontAsk', '--sandbox', 'workspace',
-      '--cwd', '/w', '--output-format', 'streaming-json', '--no-subagents', '--disallowed-tools', 'workflow', '--no-plan', '--no-alt-screen',
+      '--cwd', '/w', '--output-format', 'streaming-json', '--no-subagents', '--disallowed-tools', 'workflow,scheduler_create,scheduler_list,scheduler_delete', '--no-plan', '--no-alt-screen',
       '--disable-web-search', '--allow', 'Bash(aiwg discover *)', '--allow', 'Edit']);
     expect(GROK_BUILD_DIRECT_STDIN).toBe('closed');
   });

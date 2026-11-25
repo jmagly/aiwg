@@ -148,6 +148,18 @@ describe('Grok Build ACP contract', () => {
     } finally { acp.close(); }
   });
 
+  it.each([undefined, true, false])('always prohibits ACP native fan-out (override=%s)', async disableSubagents => {
+    const acp = new GrokAcpClient({ cwd: tmpdir(), command: process.execPath,
+      prefixArgs: ['-e', `process.stderr.write(JSON.stringify(process.argv.slice(1)));` + responder, '--'],
+      env: {}, timeoutMs: 2_000, disableSubagents });
+    try {
+      await acp.initialize();
+      const args: string[] = JSON.parse(acp.stderr);
+      expect(args.includes('--no-subagents')).toBe(true);
+      expect(args[args.indexOf('--disallowed-tools') + 1]).toBe('workflow,scheduler_create,scheduler_list,scheduler_delete');
+    } finally { acp.close(); }
+  });
+
   it.each([false, true])('pre-allows only discovery in ACP argv (disableSubagents=%s)', async disableSubagents => {
     const script = `process.stderr.write(JSON.stringify(process.argv.slice(1)));` + responder;
     const acp = new GrokAcpClient({ cwd: tmpdir(), command: process.execPath, prefixArgs: ['-e', script, '--'],
@@ -235,6 +247,12 @@ require('readline').createInterface({input:process.stdin}).on('line',line=>{
     expect(observation).toMatchObject({ binaryVersion: version, protocolVersion: 1, authMethods: [{ id: 'grok.com' }] });
     const acp = client(responder.replace("{id:'xai.api_key'},{id:'cached_token'}", "{id:'grok.com'}"));
     try { await expect(acp.initialize()).rejects.toThrow(/grok\.com interactive authentication is not qualified/); }
+    finally { acp.close(); }
+  });
+
+  it('reports an unavailable default grok executable without waiting for initialization', async () => {
+    const acp = new GrokAcpClient({ cwd: tmpdir(), env: { PATH: '' } });
+    try { await expect(acp.initialize()).rejects.toThrow(/launch failed/); }
     finally { acp.close(); }
   });
 

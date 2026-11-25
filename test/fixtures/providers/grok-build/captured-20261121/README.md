@@ -1,12 +1,13 @@
 # Grok Build ACP live capture — 2026-11-21
 
 `acp-live.json` retains all 72 timestamped in/out JSON-RPC frames and the
-conductor's result summary from the live titan run, reported CLI version
-1.0.77, using an existing grok.com login. No model calls are made by replay.
-The initialize payload advertises `_meta.agentVersion: 1.0.92`; this differs
-from the conductor's CLI version and is preserved without reinterpretation.
+conductor's result summary from the live titan run on **1.0.92**, using an
+existing grok.com login. The conductor corrected the former 1.0.77 label on
+2026-11-24: titan auto-updated to `grok 1.0.92 (b06756fd6256) [stable]` at
+2026-11-21 09:05. The initialize payload agrees (`_meta.agentVersion: 1.0.92`).
+Captured bytes remain unchanged. No model calls are made by replay.
 
-The supplied source was `grok-1.0.77-acp-live-20261121.json`, SHA-256
+The historically named supplied source was `grok-1.0.77-acp-live-20261121.json`, SHA-256
 `3dca744bb4571f931966bead7f690e5914ae3ac06908ef941919679ae132810e`.
 Temporary project/home paths were already placeholders and the conductor
 reported no credential-like strings. No auth/token files were read.
@@ -33,5 +34,6 @@ without an API key and with a synthetic key when API-key auth is not offered.
 
 This satisfies #2577 criterion 5's live ACP protocol check for this Linux login
 state. It does not establish resident lifecycle, cross-platform support,
-combined fan-out guard enforcement, or managed-dispatch admission. No new
+combined fan-out guard enforcement, or managed-dispatch admission. The conductor separately passed live managed
+ACP dispatch on 1.0.92 on 2026-11-24. No new
 live qualification runner or evidence schema is introduced.

@@ -12,8 +12,8 @@ binary version, in
 
 The bundled `direct-shell` invocation profile in
 `agentic/code/providers/model-capabilities.v1.json` is version-bound to
-`grok 1.0.77` using the existing exact semver range semantics. Offline tests
-cover this pin and reject adjacent releases. Historical help provenance stays
+`grok 1.0.77` and `grok 1.0.92` using the exact supported list
+`1.0.77 || 1.0.92`. Offline tests accept both and reject adjacent releases. Historical help provenance stays
 at 1.0.50 (`H:` evidence grade, captured on host `noodle`, 2026-10-10;
 `.aiwg/working/s1-scratch/cli-help/grok-1.0.50.txt`, plus the installed
 binary's own bundled docs read with `strings` — never a live prompted run).
@@ -24,7 +24,7 @@ renders:
 ```
 grok --prompt-file <briefPath> -m <model> --reasoning-effort <effort> \
   --permission-mode dontAsk --sandbox <profile> --cwd <workspace> \
-  --output-format streaming-json --no-subagents --disallowed-tools workflow --no-plan \
+  --output-format streaming-json --no-subagents --disallowed-tools workflow,scheduler_create,scheduler_list,scheduler_delete --no-plan \
   --no-alt-screen --disable-web-search \
   [--allow <rule> ...] [--deny <rule> ...]
 ```
@@ -37,10 +37,13 @@ emits `-p`.
 
 The 2026-11-10 1.0.77 [capture replay tests](../../test/unit/providers/grok-build-headless.test.ts)
 show `workflow` spawning two children despite `--no-subagents`. This profile
-also emits `--disallowed-tools workflow`; [conformance tests](../../test/conformance/orchestration-v1/grok-build-direct.test.ts)
-check both the template and rendered argv. A live 1.0.77 run with both flags
-(2026-11-10) made no `spawn_subagent` or `workflow` call. The profile now pins
-that 1.0.77 release; the pin change does not qualify live direct-worker dispatch.
+also emits `--disallowed-tools workflow,scheduler_create,scheduler_list,scheduler_delete`; [conformance tests](../../test/conformance/orchestration-v1/grok-build-direct.test.ts)
+check both the template and rendered argv. The 2026-11-24 scheduler captures show the old workflow-only ban still allowed
+`scheduler_create`; the new tool inventory removes all three scheduler tools.
+AIWG disables native scheduling in dispatched sessions to preserve its cap;
+interactive sessions remain uncapped. A live 1.0.77 run with the old flags
+(2026-11-10) made no `spawn_subagent` or `workflow` call. The profile supports exactly 1.0.77 and 1.0.92;
+live direct-shell worker dispatch remains unqualified.
 
 Native `.grok/agents/*.md` agents require `--copy <bundle>` or `--copy-all`;
 default and kernel-only deployments report agents through the index. Refresh
@@ -155,7 +158,7 @@ echo 'Reply with exactly: grok-smoke-ok' > brief.md
 XAI_API_KEY="$XAI_API_KEY" grok --prompt-file brief.md -m "$MODEL" \
   --reasoning-effort low --permission-mode dontAsk --sandbox read-only \
   --allow "Bash(aiwg discover *)" \
-  --cwd "$d" --output-format streaming-json --no-subagents --disallowed-tools workflow --no-plan \
+  --cwd "$d" --output-format streaming-json --no-subagents --disallowed-tools workflow,scheduler_create,scheduler_list,scheduler_delete --no-plan \
   --no-alt-screen --disable-web-search </dev/null
 echo "exit=$?"
 ```

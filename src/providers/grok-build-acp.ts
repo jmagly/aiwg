@@ -12,7 +12,7 @@ export interface GrokAcpOptions {
   timeoutMs?: number;
   maxStderrBytes?: number;
   onUpdate?: (update: Record<string, unknown>) => void;
-  /** Disable internal fan-out for a caller that accounts for workers itself. */
+  /** @deprecated Accepted for compatibility; AIWG always prohibits native fan-out. */
   disableSubagents?: boolean;
   /** Called when the child process has actually exited. */
   onExit?: () => void | Promise<void>;
@@ -51,7 +51,7 @@ export class GrokAcpClient {
     this.timeoutMs = Math.min(Math.max(options.timeoutMs ?? 30_000, 1), 120_000);
     this.maxStderrBytes = Math.min(options.maxStderrBytes ?? 1024 * 1024, 8 * 1024 * 1024);
     this.onUpdate = options.onUpdate;
-    this.child = spawn(options.command ?? 'grok', [...(options.prefixArgs ?? []), '--no-auto-update', '--allow', 'Bash(aiwg discover *)', ...(options.disableSubagents ? ['--no-subagents', '--disallowed-tools', 'workflow'] : []), 'agent', 'stdio'], {
+    this.child = spawn(options.command ?? 'grok', [...(options.prefixArgs ?? []), '--no-auto-update', '--allow', 'Bash(aiwg discover *)', '--no-subagents', '--disallowed-tools', 'workflow,scheduler_create,scheduler_list,scheduler_delete', 'agent', 'stdio'], {
       cwd: options.cwd, env: this.env, stdio: ['pipe', 'pipe', 'pipe'], shell: false,
     });
     this.child.on('error', error => this.failAll(new Error(`Grok ACP launch failed: ${error.message}`)));
