@@ -4496,6 +4496,16 @@ aiwg models refresh --drift --json
 aiwg models refresh --url https://catalog.example/model-catalog.v1.json --json
 ```
 
+`models refresh --json` returns a compact receipt with `source`, `fetchedAt`,
+`cachePath`, per-provider `modelCount` (and `errorKind` on failure), total
+`modelCount`, and `warnings`. Counts describe provider discovery rows, without
+duplicating the account-instance copies. Warning messages are capped at 512
+characters each. This replaces the complete catalog previously printed by
+refresh. Callers needing model rows should read `cachePath` or run
+`aiwg models sources --json`. With `--drift --json`, the `catalog` field contains
+the receipt and `drift` retains its provider/role comparison. Text output and
+`models sources --json` continue to return the complete catalog.
+
 `models sources` is offline: it reads a fresh user cache when present and
 otherwise returns the committed catalog. `models refresh` consults a public
 JSON feed only when `--url` or `AIWG_MODEL_CATALOG_URL` configures one, then

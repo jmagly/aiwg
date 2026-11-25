@@ -22,6 +22,8 @@ export const ADAPTER_THRESHOLDS = { branches: 80 };
 export const FOCUSED_TESTS = [
   'test/unit/serve/**/*.test.ts',
   'test/unit/models/**/*.test.ts',
+  'test/unit/cli/doctor-factory-worker.test.ts',
+  'test/unit/cli/handlers/models.test.ts',
   'test/unit/config/**/*.test.ts',
   'test/unit/mission-protocol/**/*.test.ts',
   'test/unit/mcp/**/*.test.ts',

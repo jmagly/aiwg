@@ -99,6 +99,13 @@ it.each([true, false])('discovers BYOK settings before qualification and never r
     : { code: 0, stdout: '', stderr: '' };
   expect(refreshed.code, refreshed.stdout + refreshed.stderr).toBe(0);
   const cache = refresh ? await readFile(path.join(f.root, '.cache/aiwg/model-catalog.v1.json'), 'utf8') : '';
+  if (refresh) {
+    expect(Buffer.byteLength(refreshed.stdout)).toBeLessThan(16 * 1024);
+    expect(JSON.parse(refreshed.stdout)).toMatchObject({
+      cachePath: path.join(f.root, '.cache/aiwg/model-catalog.v1.json'),
+      providers: expect.arrayContaining([{ provider: 'factory', modelCount: 1 }]),
+    });
+  }
   if (refresh) expect(JSON.parse(cache).discovery.providers.factory.models).toContainEqual(expect.objectContaining({
     id: model, apiModelId: model, llmProvider: 'openrouter', worker: expect.objectContaining({
       runtimeVersion: '1.0.0', accountScope: 'synthetic-account', effortSupport: 'not-applicable', contextTokens: 131072,
