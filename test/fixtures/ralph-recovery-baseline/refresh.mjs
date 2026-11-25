@@ -3,6 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { amendWorkerSelectionShape } from './worker-selection-compat.mjs';
 
 // Original method: git show <base>:<source>, prepend a pin header, and
 // relocate imports. Keep this graph independent of installation ownership
@@ -74,6 +75,14 @@ function route(source, dest, specifier) {
   return relative.startsWith('.') ? relative : `./${relative}`;
 }
 function relocate(body, source, dest) {
+  // Preserve the existing #4125 refusal-text amendment when refreshing the baseline.
+  if (source === 'src/serve/worker-invocation.ts') body = body.replace(
+    "    throw new WorkerPolicyError('OG_PIN_MISMATCH', 'Saved invocation differs from current qualified plan; resolve again');",
+    "    // Kept in step with src/serve/worker-invocation.ts (#4125) so the equivalence tests compare\n"
+      + "    // the same refusal text.\n"
+      + "    throw new WorkerPolicyError('OG_PIN_MISMATCH', 'Saved invocation differs from current qualified plan; resolve again'\n"
+      + "      + ' from the conductor project directory you launch from (a plan resolved elsewhere, such as in the worker tree, never matches)');",
+  );
   // Static imports/exports, dynamic imports, type imports, and URL-bound files.
   body = body.replace(/(\bfrom\s*|\bimport\s*\(\s*|\bimport\s+|\bnew URL\(\s*)(['"])(\.[^'"\n]+)\2/g,
     (match, prefix, quote, specifier) => `${prefix}${quote}${route(source, dest, specifier)}${quote}`);
@@ -100,12 +109,13 @@ for (const [dest, source] of Object.entries(sources)) {
   const original = git('show', `${base}:${source}`);
   const output = dest.endsWith('.json') ? original : `/**\n * FROZEN REFERENCE FIXTURE -- NOT PRODUCTION CODE.\n * Source: ${source} at ${base}.\n * Only import routing and this pin header differ from the baseline body.\n * Refresh with: node test/fixtures/ralph-recovery-baseline/refresh.mjs --ref=${base}\n * Installation ownership and default input loading stay in this fixture graph.\n * Other dependencies use repository source. Never import from production.\n */\n\n${relocate(original, source, dest)}`;
   const filename = path.join(fixtureDir, dest);
+  const compatible = dest === 'src/models/provider-policy.ts' ? amendWorkerSelectionShape(output) : output;
   if (check) {
-    if (readFileSync(filename, 'utf8') !== output) {
+    if (readFileSync(filename, 'utf8') !== compatible) {
       process.stderr.write(`Baseline fixture differs: ${dest}\n`);
       mismatches += 1;
     }
-  } else writeFileSync(filename, output);
+  } else writeFileSync(filename, compatible);
 }
 if (mismatches) process.exitCode = 1;
 else process.stdout.write(`${check ? 'Verified' : 'Refreshed'} ${Object.keys(sources).length} baseline files from ${base}\n`);

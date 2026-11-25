@@ -1,0 +1,8 @@
+{
+  "defaults": {
+    "workerSelection": {
+      "strategy": "balanced",
+      "maxAutoTier": "premium"
+    }
+  }
+}

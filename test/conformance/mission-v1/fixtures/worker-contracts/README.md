@@ -885,3 +885,12 @@ is an operator-declared self-hosted path, not backend attestation.
 #4347 renames the OUT Desktop coverage row to canonical `devin`. Deprecated
 `windsurf` selectors still resolve to that row; scope and qualification are
 unchanged. No frozen schema fragment or manifest digest changes.
+
+#2642 foundation disposition (2026-11-24): the existing models.json
+workerSelection fragment additively accepts strategy and maxAutoTier. Omission
+preserves legacy ordering and adds no ceiling; max-quality aliases flagship.
+Round 4 removes implicit defaults to preserve premium authorization diagnostics.
+The manifest digest is refreshed; exact-match tests remain unchanged. The
+schema brief, compatibility notes, and projection checks are documented in
+`docs/models/worker-selection.md`. This does not add a delegation root or change
+Mission protocol definitions; rules/context/wrappers/measurement are deferred.

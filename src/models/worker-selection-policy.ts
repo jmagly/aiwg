@@ -1,5 +1,6 @@
 // Validates and merges worker selection restrictions and constrained role aliases.
 import { z } from 'zod';
+import { MODEL_TIERS, normalizeModelTier, TIER_ORDER } from './tiers.js';
 import { validLocalOnlyPath } from './conductor-data-policy.mjs';
 import { integer } from '../schema/zod-validation.mjs';
 import type { WorkerSelectionPolicy, WorkerPolicyOrigin, WorkerPolicyDiagnostic, WorkerDataPolicy } from './types.js';
@@ -16,7 +17,7 @@ const baseRoles = ['efficiency', 'coding', 'reasoning'] as const;
 const WorkerRoleSchema = z.strictObject({
   baseRole: z.enum(baseRoles).optional(),
   groups: uniqueStrings.refine(values => values.length > 0),
-  tier: z.enum(['economy', 'standard', 'premium', 'flagship', 'max-quality']),
+  tier: z.enum(MODEL_TIERS),
   initialEffort: z.string().min(1).nullable(),
   effortLadder: uniqueStrings,
   escalateAfter: integer().positive().optional(),
@@ -38,6 +39,8 @@ export function ownWorkerRoleGuidance(policy: WorkerSelectionPolicy | undefined,
 }
 
 export const WorkerSelectionPolicySchema = z.strictObject({
+  strategy: z.enum(['cost-effective', 'balanced', 'quality']).optional(),
+  maxAutoTier: z.enum(MODEL_TIERS).optional(),
   roleGuidance: roleGuidanceSchema.optional(),
   guards: z.strictObject({
     deniedEfforts: uniqueStrings.optional(),
@@ -156,6 +159,9 @@ export function mergeWorkerSelection(layers: WorkerPolicyLayer[]): {
         } else if (['maxRetentionDays', 'warnHours', 'blockHours', 'policyDays'].includes(key)) {
           relaxation = value > previous;
           effective = Math.min(previous, value);
+        } else if (key === 'maxAutoTier') {
+          relaxation = TIER_ORDER.indexOf(normalizeModelTier(value)) > TIER_ORDER.indexOf(normalizeModelTier(previous));
+          effective = relaxation ? previous : value;
         } else if (key === 'minimumIdentityEvidence') {
           relaxation = previous === 'backend-attested' && value !== previous;
           effective = previous === 'backend-attested' ? previous : value;

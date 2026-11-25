@@ -5,6 +5,7 @@ import { workerReviewLineageDiagnostics } from './worker-review-lineage.js';
 // Resolves eligible worker tuples against current config, catalog and installation snapshots.
 import { isFlagshipModel, flagshipElected, normalizeModelTier } from './tiers.js';
 import { ownWorkerRoleGuidance } from './worker-selection-policy.js';
+import { exceedsWorkerAutoTier, rankWorkerChoices, workerSelectionTier } from './worker-tier-selection.js';
 import { resolveWorkerCeilings } from './worker-ceilings.js';
 import { mergeGroupWorkerPolicy } from '../config/worker-group-templates.js';
 import { WORKER_DISPATCH_ENABLE_COMMAND, WORKER_DISPATCH_READINESS_COMMAND } from './worker-dispatch-offer.js';
@@ -354,6 +355,9 @@ export function resolveWorkerPlan(snapshot: WorkerPlanSnapshot, request: WorkerP
           const flagship = normalizeModelTier(guidance.tier) === 'flagship' || isFlagshipModel(row.apiModelId);
           if (flagship && !flagshipElected(request.authority ?? {})) deny('OG_MODEL_UNAPPROVED', '/request/authority', 'Flagship models are user-elected only');
           const premium = ['premium', 'flagship', 'max-quality'].includes(guidance.tier) || observation.pricing.costClass === 'premium';
+          if (exceedsWorkerAutoTier(workerSelectionTier(guidance.tier, row.apiModelId, observation.pricing), policy, request.authority)) {
+            deny('OG_MODEL_UNAPPROVED', '/defaults/workerSelection/maxAutoTier', 'Candidate exceeds the automatic worker tier ceiling; pins and conductor choices do not grant user authority');
+          }
           // Worker candidates always invoke a model; deterministic/routine hints must not bypass premium authority.
           const authority = routeModelTier({ ...request.authority, deterministic: false, routine: false, requestedTier: flagship ? 'flagship' : undefined,
             defaultTier: guidance.tier === 'economy' ? 1 : 2, requestedPremium: premium || request.authority?.requestedPremium });
@@ -395,6 +399,8 @@ export function resolveWorkerPlan(snapshot: WorkerPlanSnapshot, request: WorkerP
       }
     }
   }
+  rankWorkerChoices(plan.eligible, policy.strategy, tuple =>
+    findWorkerModelRow(snapshot.catalog.discovery?.instances?.[tuple.cli]?.models, tuple.model)!.worker!.pricing, guidance.tier);
   if (request.choice) {
     if (!request.choice.rationale.trim()) block('OG_CONFIG_REFERENCE', '/request/choice/rationale', 'Conductor choice requires a rationale');
     plan.selected = plan.eligible.find(tuple => matchesChoice(tuple, request.choice!)) ?? null;
@@ -406,7 +412,9 @@ export function resolveWorkerPlan(snapshot: WorkerPlanSnapshot, request: WorkerP
     plan.policy = groupPolicies.get(plan.selected.group);
     plan.status = 'eligible';
     plan.diagnostics.push(...plan.selected.diagnostics.filter(item => item.code === 'OG_SANDBOX_EXTERNAL'));
-    plan.choice = { source: request.choice ? 'conductor' : 'default', rationale: request.choice?.rationale ?? 'Role group order, member priority/declaration order, then qualified effort ladder',
+    plan.choice = { source: request.choice ? 'conductor' : 'default', rationale: request.choice?.rationale ?? (policy.strategy === undefined
+      ? 'Role group order, member priority/declaration order, then qualified effort ladder'
+      : `${policy.strategy} strategy; ties use role group order, member priority/declaration order, then qualified effort ladder`),
       ...(request.substitution && matchesChoice(plan.selected, request.substitution) ? { substitution: structuredClone(request.substitution) } : {}) };
   }
   if (!plan.selected && plan.resources?.slots === 0) {
