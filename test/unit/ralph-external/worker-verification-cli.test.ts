@@ -69,8 +69,15 @@ describe('T-OG-04 installed CLI trusted verification', () => {
     f.writeRecord('exit.json', { invocationId: 'previous-1', termination: 'confirmed', endedAt: new Date(Date.now() - 10000).toISOString() });
     expect(f.invoke(request, mcp).output.errorCode).toBe('ARTIFACT_CHANGED_AFTER_EXIT');
     f.writeRecord('exit.json', { invocationId: 'previous-1', termination: 'confirmed', endedAt: new Date().toISOString() });
+    const embedded = JSON.stringify({ id: 'embedded', command: `${process.execPath} -e "read deliver/answer.json"`, args: [] });
+    const malformed = f.invoke(['--check', embedded, '--deliverable', deliverable], mcp);
+    expect(malformed.output).toMatchObject({ status: 'rejected', errorCode: 'CHECK_COMMAND_NOT_EXECUTABLE', evidence: [] });
+    expect(malformed.output.findings.join(' ')).toContain('command must be a single executable path');
+    expect(malformed.output.findings.join(' ')).toContain('put arguments (including the artifact path) in args');
     const probe = JSON.stringify({ id: 'exists', command: '/usr/bin/test', args: ['-f', f.artifact] });
-    expect(f.invoke(['--check', probe, '--deliverable', deliverable], mcp).output.errorCode).toBe('CHECKS_CONTENT_FREE');
+    const contentFree = f.invoke(['--check', probe, '--deliverable', deliverable], mcp);
+    expect(contentFree.output.errorCode).toBe('CHECKS_CONTENT_FREE');
+    expect(contentFree.output.findings.join(' ')).toContain('containing directory in args');
     expect(existsSync(marker)).toBe(false);
     expect(existsSync(deliverable)).toBe(false);
   });
