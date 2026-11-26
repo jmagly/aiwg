@@ -115,7 +115,7 @@ describe('aiwg use grok-build e2e (#2575)', () => {
 
   it.each([
     { mode: 'default', flags: [], agents: 0 },
-    { mode: 'copy-all', flags: ['--copy-all'], agents: 220 },
+    { mode: 'copy-all', flags: ['--copy-all'], agents: 225 },
   ])('deploys $mode with indexed availability, mirrors, and registry/receipts', ({ flags, agents }) => {
     const home = isolated('aiwg-grok-use-home-');
     const project = isolated('aiwg-grok-use-project-');
@@ -183,7 +183,7 @@ describe('aiwg use grok-build e2e (#2575)', () => {
     // No full-corpus dump into the standard mirror without --copy-all.
     expect(existsSync(path.join(project, '.grok', '.aiwg', 'skills'))).toBe(agents > 0);
     expect(use.json.discovery).toMatchObject({ byType: { agent: expect.any(Number) } });
-    expect((use.json.discovery as { byType: { agent: number } }).byType.agent).toBeGreaterThanOrEqual(agents || 220);
+    expect((use.json.discovery as { byType: { agent: number } }).byType.agent).toBeGreaterThanOrEqual(agents || 225);
     // Native agent copies require explicit opt-in; all modes retain index discovery.
     const projectAgents = path.join(project, '.grok', 'agents');
     expect(existsSync(projectAgents)).toBe(agents > 0);

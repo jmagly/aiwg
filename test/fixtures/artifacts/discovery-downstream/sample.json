@@ -1,0 +1,494 @@
+{
+  "note": "Synthetic deterministic evidence-to-configuration sample. Counts and similarities are authored fixtures, not observed use or embeddings. No semantic edge is an invocation dependency. Labels are read only by scoring.",
+  "documents": [
+    {
+      "path": "orbit-guide.json",
+      "digest": "sha256:8a6d8de7f86d5bea26bdd28d24ca09e1849358d2302f109ee6e7ac0dc147ac47",
+      "type": "skill",
+      "name": "orbit-guide",
+      "summary": "orbit workspace configuration",
+      "sources": [
+        "orbit-parameters.json",
+        "orbit-limits.json"
+      ]
+    },
+    {
+      "path": "orbit-parameters.json",
+      "digest": "sha256:dccdafd6a182d5ff011d40e50e7bb3623cfb8e39b44419c53678dadfef46e232",
+      "type": "memory",
+      "name": "orbit-parameters",
+      "summary": "Retained operational values",
+      "sources": []
+    },
+    {
+      "path": "orbit-limits.json",
+      "digest": "sha256:ad7ff1de25d3f5d3820e3c7bc6e28f71bac124196e79d8ceedbb896c3e0bd4e3",
+      "type": "memory",
+      "name": "orbit-limits",
+      "summary": "Retained operational values",
+      "sources": []
+    },
+    {
+      "path": "orbit-adjacent.json",
+      "digest": "sha256:89506323fe192a3888d26dfb851f22688ab22ca5a00a0e640abe7b7c022b0842",
+      "type": "memory",
+      "name": "orbit-adjacent",
+      "summary": "adjacent workspace configuration",
+      "sources": []
+    },
+    {
+      "path": "harbor-guide.json",
+      "digest": "sha256:6a257b8e9a6e9b4132f8bd7b808450b71b2f16ec4e13a9426ce2d2d3561d0ee3",
+      "type": "skill",
+      "name": "harbor-guide",
+      "summary": "harbor workspace configuration",
+      "sources": [
+        "harbor-parameters.json",
+        "harbor-limits.json"
+      ]
+    },
+    {
+      "path": "harbor-parameters.json",
+      "digest": "sha256:ba128b4cfb11b3a86c0ecd637a0284d9f6f8693af68e6e84762ce6e5d485a2c4",
+      "type": "memory",
+      "name": "harbor-parameters",
+      "summary": "Retained operational values",
+      "sources": []
+    },
+    {
+      "path": "harbor-limits.json",
+      "digest": "sha256:3717a8e8d474532cad6799bb3389ced4c5e7e9e01ae939d2d25b935ef51903b0",
+      "type": "memory",
+      "name": "harbor-limits",
+      "summary": "Retained operational values",
+      "sources": []
+    },
+    {
+      "path": "harbor-adjacent.json",
+      "digest": "sha256:89506323fe192a3888d26dfb851f22688ab22ca5a00a0e640abe7b7c022b0842",
+      "type": "memory",
+      "name": "harbor-adjacent",
+      "summary": "adjacent workspace configuration",
+      "sources": []
+    },
+    {
+      "path": "meadow-guide.json",
+      "digest": "sha256:6f560be460e9e7eaad5cb866d8d490ace57aed245ae28ad9af5fd226262958c5",
+      "type": "skill",
+      "name": "meadow-guide",
+      "summary": "meadow workspace configuration",
+      "sources": [
+        "meadow-parameters.json",
+        "meadow-limits.json"
+      ]
+    },
+    {
+      "path": "meadow-parameters.json",
+      "digest": "sha256:e72bd47bcc44667b1a1cf84a0985aef279de5fd16ce18a9a5503c7edb3e81468",
+      "type": "memory",
+      "name": "meadow-parameters",
+      "summary": "Retained operational values",
+      "sources": []
+    },
+    {
+      "path": "meadow-limits.json",
+      "digest": "sha256:6dee8dafd14897c151e7b33a9ad7d1c225071b18b8f7b1b05ebcdfb71a4dda80",
+      "type": "memory",
+      "name": "meadow-limits",
+      "summary": "Retained operational values",
+      "sources": []
+    },
+    {
+      "path": "meadow-adjacent.json",
+      "digest": "sha256:89506323fe192a3888d26dfb851f22688ab22ca5a00a0e640abe7b7c022b0842",
+      "type": "memory",
+      "name": "meadow-adjacent",
+      "summary": "adjacent workspace configuration",
+      "sources": []
+    },
+    {
+      "path": "summit-guide.json",
+      "digest": "sha256:759a749a24a701d183e8f615aaa271d9a5c9fc83b8cbf587cf402f918a3cdfb0",
+      "type": "skill",
+      "name": "summit-guide",
+      "summary": "summit workspace configuration",
+      "sources": [
+        "summit-parameters.json",
+        "summit-limits.json"
+      ]
+    },
+    {
+      "path": "summit-parameters.json",
+      "digest": "sha256:64bbdba25245e139269abc262047dbe0b4d2f81db28f7198e5bff9376f385138",
+      "type": "memory",
+      "name": "summit-parameters",
+      "summary": "Retained operational values",
+      "sources": []
+    },
+    {
+      "path": "summit-limits.json",
+      "digest": "sha256:72edb5469ad7c93929a1bbeb2d45060e728f654d4065c350fcdd0df37258f617",
+      "type": "memory",
+      "name": "summit-limits",
+      "summary": "Retained operational values",
+      "sources": []
+    },
+    {
+      "path": "summit-adjacent.json",
+      "digest": "sha256:89506323fe192a3888d26dfb851f22688ab22ca5a00a0e640abe7b7c022b0842",
+      "type": "memory",
+      "name": "summit-adjacent",
+      "summary": "adjacent workspace configuration",
+      "sources": []
+    }
+  ],
+  "tasks": [
+    {
+      "id": "orbit-compile",
+      "query": "orbit workspace configuration",
+      "fields": [
+        "runtime",
+        "port",
+        "timeout"
+      ],
+      "expected": {
+        "runtime": "node24",
+        "port": 8100,
+        "timeout": 30
+      },
+      "required_sources": [
+        "orbit-parameters.json",
+        "orbit-limits.json"
+      ]
+    },
+    {
+      "id": "orbit-conflict",
+      "query": "orbit workspace configuration",
+      "fields": [
+        "audit"
+      ],
+      "expected": "abstain",
+      "required_sources": [
+        "orbit-parameters.json",
+        "orbit-limits.json"
+      ]
+    },
+    {
+      "id": "orbit-missing",
+      "query": "orbit workspace configuration",
+      "fields": [
+        "owner"
+      ],
+      "expected": "abstain",
+      "required_sources": []
+    },
+    {
+      "id": "harbor-compile",
+      "query": "harbor workspace configuration",
+      "fields": [
+        "runtime",
+        "port",
+        "timeout"
+      ],
+      "expected": {
+        "runtime": "node24",
+        "port": 8101,
+        "timeout": 31
+      },
+      "required_sources": [
+        "harbor-parameters.json",
+        "harbor-limits.json"
+      ]
+    },
+    {
+      "id": "harbor-conflict",
+      "query": "harbor workspace configuration",
+      "fields": [
+        "audit"
+      ],
+      "expected": "abstain",
+      "required_sources": [
+        "harbor-parameters.json",
+        "harbor-limits.json"
+      ]
+    },
+    {
+      "id": "harbor-missing",
+      "query": "harbor workspace configuration",
+      "fields": [
+        "owner"
+      ],
+      "expected": "abstain",
+      "required_sources": []
+    },
+    {
+      "id": "meadow-compile",
+      "query": "meadow workspace configuration",
+      "fields": [
+        "runtime",
+        "port",
+        "timeout"
+      ],
+      "expected": {
+        "runtime": "node24",
+        "port": 8102,
+        "timeout": 32
+      },
+      "required_sources": [
+        "meadow-parameters.json",
+        "meadow-limits.json"
+      ]
+    },
+    {
+      "id": "meadow-conflict",
+      "query": "meadow workspace configuration",
+      "fields": [
+        "audit"
+      ],
+      "expected": "abstain",
+      "required_sources": [
+        "meadow-parameters.json",
+        "meadow-limits.json"
+      ]
+    },
+    {
+      "id": "meadow-missing",
+      "query": "meadow workspace configuration",
+      "fields": [
+        "owner"
+      ],
+      "expected": "abstain",
+      "required_sources": []
+    },
+    {
+      "id": "summit-compile",
+      "query": "summit workspace configuration",
+      "fields": [
+        "runtime",
+        "port",
+        "timeout"
+      ],
+      "expected": {
+        "runtime": "node24",
+        "port": 8103,
+        "timeout": 33
+      },
+      "required_sources": [
+        "summit-parameters.json",
+        "summit-limits.json"
+      ]
+    },
+    {
+      "id": "summit-conflict",
+      "query": "summit workspace configuration",
+      "fields": [
+        "audit"
+      ],
+      "expected": "abstain",
+      "required_sources": [
+        "summit-parameters.json",
+        "summit-limits.json"
+      ]
+    },
+    {
+      "id": "summit-missing",
+      "query": "summit workspace configuration",
+      "fields": [
+        "owner"
+      ],
+      "expected": "abstain",
+      "required_sources": []
+    }
+  ],
+  "graph": {
+    "coUse": {
+      "windows": 100,
+      "occurrences": {
+        "orbit-guide.json": 20,
+        "orbit-parameters.json": 20,
+        "orbit-limits.json": 20,
+        "orbit-adjacent.json": 20,
+        "harbor-guide.json": 20,
+        "harbor-parameters.json": 20,
+        "harbor-limits.json": 20,
+        "harbor-adjacent.json": 20,
+        "meadow-guide.json": 20,
+        "meadow-parameters.json": 20,
+        "meadow-limits.json": 20,
+        "meadow-adjacent.json": 20,
+        "summit-guide.json": 20,
+        "summit-parameters.json": 20,
+        "summit-limits.json": 20,
+        "summit-adjacent.json": 20
+      },
+      "pairs": [
+        {
+          "source": "orbit-guide.json",
+          "target": "orbit-parameters.json",
+          "count": 12
+        },
+        {
+          "source": "orbit-guide.json",
+          "target": "orbit-limits.json",
+          "count": 12
+        },
+        {
+          "source": "orbit-parameters.json",
+          "target": "orbit-limits.json",
+          "count": 12
+        },
+        {
+          "source": "orbit-limits.json",
+          "target": "orbit-adjacent.json",
+          "count": 12
+        },
+        {
+          "source": "harbor-guide.json",
+          "target": "harbor-parameters.json",
+          "count": 12
+        },
+        {
+          "source": "harbor-guide.json",
+          "target": "harbor-limits.json",
+          "count": 12
+        },
+        {
+          "source": "harbor-parameters.json",
+          "target": "harbor-limits.json",
+          "count": 12
+        },
+        {
+          "source": "harbor-limits.json",
+          "target": "harbor-adjacent.json",
+          "count": 12
+        },
+        {
+          "source": "meadow-guide.json",
+          "target": "meadow-parameters.json",
+          "count": 12
+        },
+        {
+          "source": "meadow-guide.json",
+          "target": "meadow-limits.json",
+          "count": 12
+        },
+        {
+          "source": "meadow-parameters.json",
+          "target": "meadow-limits.json",
+          "count": 12
+        },
+        {
+          "source": "meadow-limits.json",
+          "target": "meadow-adjacent.json",
+          "count": 12
+        },
+        {
+          "source": "summit-guide.json",
+          "target": "summit-parameters.json",
+          "count": 12
+        },
+        {
+          "source": "summit-guide.json",
+          "target": "summit-limits.json",
+          "count": 12
+        },
+        {
+          "source": "summit-parameters.json",
+          "target": "summit-limits.json",
+          "count": 12
+        },
+        {
+          "source": "summit-limits.json",
+          "target": "summit-adjacent.json",
+          "count": 12
+        }
+      ]
+    },
+    "similarities": [
+      {
+        "source": "orbit-guide.json",
+        "target": "orbit-parameters.json",
+        "similarity": 0.8
+      },
+      {
+        "source": "orbit-guide.json",
+        "target": "orbit-limits.json",
+        "similarity": 0.8
+      },
+      {
+        "source": "orbit-parameters.json",
+        "target": "orbit-limits.json",
+        "similarity": 0.8
+      },
+      {
+        "source": "orbit-limits.json",
+        "target": "orbit-adjacent.json",
+        "similarity": 0.8
+      },
+      {
+        "source": "harbor-guide.json",
+        "target": "harbor-parameters.json",
+        "similarity": 0.8
+      },
+      {
+        "source": "harbor-guide.json",
+        "target": "harbor-limits.json",
+        "similarity": 0.8
+      },
+      {
+        "source": "harbor-parameters.json",
+        "target": "harbor-limits.json",
+        "similarity": 0.8
+      },
+      {
+        "source": "harbor-limits.json",
+        "target": "harbor-adjacent.json",
+        "similarity": 0.8
+      },
+      {
+        "source": "meadow-guide.json",
+        "target": "meadow-parameters.json",
+        "similarity": 0.8
+      },
+      {
+        "source": "meadow-guide.json",
+        "target": "meadow-limits.json",
+        "similarity": 0.8
+      },
+      {
+        "source": "meadow-parameters.json",
+        "target": "meadow-limits.json",
+        "similarity": 0.8
+      },
+      {
+        "source": "meadow-limits.json",
+        "target": "meadow-adjacent.json",
+        "similarity": 0.8
+      },
+      {
+        "source": "summit-guide.json",
+        "target": "summit-parameters.json",
+        "similarity": 0.8
+      },
+      {
+        "source": "summit-guide.json",
+        "target": "summit-limits.json",
+        "similarity": 0.8
+      },
+      {
+        "source": "summit-parameters.json",
+        "target": "summit-limits.json",
+        "similarity": 0.8
+      },
+      {
+        "source": "summit-limits.json",
+        "target": "summit-adjacent.json",
+        "similarity": 0.8
+      }
+    ],
+    "nearestNeighbours": 3,
+    "minSharedNeighbours": 1,
+    "nowSeconds": 1000,
+    "uses": {}
+  }
+}

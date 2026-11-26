@@ -29,10 +29,26 @@ run status also remain executable. Nothing in the qualitative score changes thei
 verdicts or the #3315 blocked claim gate.
 
 The existing pilot's asserted success criteria are executable; none is reclassified
-as a qualitative judgment. The proposed qualitative measures are explanation support (Q1), faithful policy
-explanation (Q2), qualitative scope coverage against an explicit checklist (Q3),
-uncertainty communication (Q4), permitted recovery actionability (Q5) and defect
-routing (Q6). Executable artifact correctness is excluded from their weights.
+as a qualitative judgment. The checks that keep authority are the pinned hidden
+checker in `tools/eval/src/pilot-checks.ts`:
+
+| Check | What it decides | Authority |
+| --- | --- | --- |
+| `corpus` | Source and value match the hidden vector. | Retains authority. |
+| `coding` | Hidden functional cases pass in the bounded VM. | Retains authority. |
+| `security` | Functional result, permissions, one effect and the start/verified/complete path match the hidden vector. | Retains authority. |
+
+Run status (`completed`, `partial`, `failed`), schema and content commitments,
+and budgets stay executable as well. The executable reference archived by the
+collector is `hidden-executable-artifact-correctness`. It is not a Q1–Q6 label
+and it never enters `humans`, adjudications, or qualitative denominators.
+
+Q1–Q6 are the non-executable criteria. None is decidable from those checks.
+They are explanation support (Q1), faithful policy explanation (Q2), qualitative
+scope coverage against an explicit checklist (Q3), uncertainty communication (Q4),
+permitted recovery actionability (Q5) and defect routing (Q6). Executable artifact
+correctness is excluded from their weights. Q1 may cite the `checks` span, but
+that citation does not turn the executable pass bit into the Q1 judgment.
 The frozen definitions record type, version, evidence, applicability, anchors,
 weight and missing-evidence handling. Q1/Q2 are binary; Q3–Q5 use ZERO/HALF/ONE
 mapped to 0/0.5/1; Q6 is nominal, weight zero, with no numeric category values.
@@ -52,10 +68,15 @@ The study commitment covers definitions, prompt, source provenance, dataset
 commitment, task contexts, family split and the complete saved-output bundle hash.
 Hashes use the existing canonical JSON SHA-256 helper (not file-byte hashes).
 Runtime validation rejects changed, duplicate, incomplete or mismatched outputs.
-The original H1/H2 split remains intact. Calibration uses corpus-verification
-only for development (16 tasks, 128 outputs); coding-repair and security-testing
-are locked held-out families (32 tasks, 256 outputs). Related variants never cross
-this boundary. Rubric-design and training examples must remain development-only.
+The original H1/H2 task split remains intact: four development and twelve
+held-out tasks in each family. The qualitative estimate uses a stricter family
+freeze. Calibration uses corpus-verification only for development (16 tasks,
+128 outputs), including corpus tasks whose pilot task split is held-out.
+Coding-repair and security-testing are locked held-out families (32 tasks, 256
+outputs). Related variants never cross this boundary. Rubric-design and training
+examples must remain development-only episode IDs. `calibrate` drops every
+design-example episode from held-out scores, agreement, comparisons and SKIP
+denominators, and validation rejects a held-out or unknown example ID.
 Held-out examples in evaluator prompts are rejected, including unknown IDs.
 This small, heterogeneous split cannot establish generalization to unseen families.
 
@@ -85,8 +106,10 @@ supply a label. The last attempt in a validated retry chain is selected, and
 retrying a completed judgment is forbidden; separately declared configurations
 represent repeated-vote treatments. All attempts, including development,
 calibration and discarded attempts, remain in raw evidence and total cost.
-Never submit an unknown cost as zero; incomplete cost accounting prevents a
-cost recommendation.
+Never submit an unknown cost as zero. A known paid component does not replace
+an unknown component: if any attempt is `unknown`, the total stays `unknown`.
+Incomplete cost accounting prevents a cost recommendation. Failed, partial,
+missing and provider-error votes stay in the raw archive and in that total.
 
 SKIP scores show original count/weight and retained numeric count/weight; nominal
 Q6 never contributes. Empty retained weight yields null. Candidate tables expose
@@ -117,16 +140,49 @@ there is no automatic cross-vendor panel or independence assumption.
 
 ## Measurement recommendation
 
-**Insufficient evidence; retain executable checks and human assessment.** No
-candidate is recommended and the claim gate remains BLOCKED. The fixture has no
-observed evaluators, judge votes, human labels or adjudications; total evaluation
-cost is $0 because no calls ran. No sensitivity, agreement or reliability estimate
-from synthetic tests is presented as empirical evidence. Thresholds are explicitly
-not predeclared, so the offline report remains insufficient even with imported
-synthetic labels. A future version must preregister criterion-specific sensitivity,
-false-positive, coverage and cost/latency bounds before examining locked human
-labels, and collect enough independent families. Preserve failed calibration and
-unresolved disagreements. Vendor diversity alone cannot qualify an evaluator.
+**Insufficient evidence; #3315's claim gate stays blocked.** No candidate is
+recommended. The report refuses a reliability claim while two blinded human
+annotators and an independent adjudicator are absent. The same refusal holds
+when synthetic labels are imported, because acceptance thresholds are
+`not-predeclared: insufficient-evidence` in the versioned study
+`test/fixtures/eval-pilot/calibration.v1.json`. This version does not invent
+numeric thresholds. The offline fixture has no observed evaluators, judge votes,
+human labels or adjudications; its total evaluation cost is $0 because no calls
+ran. No sensitivity, agreement or reliability estimate from synthetic tests is
+empirical evidence. A future version must preregister criterion-specific
+sensitivity, false-positive, coverage and cost/latency bounds before examining
+locked human labels, and collect enough independent families. Preserve failed
+calibration and unresolved disagreements. Vendor diversity alone cannot qualify
+an evaluator.
+
+Limits of the recommendation: the held-out set has two scenario families, so
+clustered intervals stay descriptive; the frozen outputs have null policy,
+checklist, uncertainty and recovery evidence, so CANNOT_ASSESS is the honest
+qualitative label for those missing spans; inter-judge agreement, if later
+computed, is not calibration against a reference; and subscription cost that
+the transport does not report stays unknown.
+
+## Reported dev-slice accounting (2026-11-25)
+
+These figures are operator-reported. This tree did not re-read the local titan
+archives and did not call a judge. They are not inputs to `calibrate` and they
+are not a reliability result.
+
+| Judge | Calls | Valid votes | Not counted as valid | Cost |
+| --- | ---: | ---: | --- | --- |
+| Codex `workers`, observed model `gpt-6-luna` | 48 | 46 | 2 missing final output | subscription, unknown USD |
+| Cursor `cursor`, observed model `grok-4.7-low` | 48 | 48 | 0 | subscription, unknown USD |
+| OpenRouter `openai/gpt-4.1-mini` | 48 | 38 | 10 judgments cited an absent evidence span | included in the paid component below |
+| Paid component |  |  |  | USD 0.027 |
+| CLI subscription component |  |  |  | unknown |
+| Total evaluation cost |  |  |  | unknown |
+
+The issue progress note itemizes the paid component as USD 0.022 on the 48-call
+OpenRouter slice plus USD 0.0047 on earlier calls. Those earlier calls are
+excluded from the valid-vote counts because the prompt digest changed. This
+note does not re-sum invoices. USD 0.027 is the stated paid component only.
+Because the CLI subscription component is unknown, the total evaluation cost
+is unknown. Unknown is not zero, and the paid component does not fill it in.
 
 ## Collecting judge votes
 

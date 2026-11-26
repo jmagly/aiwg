@@ -1,0 +1,11 @@
+{
+  "kind": "derived",
+  "facts": {
+    "port": 1
+  },
+  "sources": [
+    "summit-parameters.json",
+    "summit-limits.json"
+  ],
+  "note": "Stale summary port; raw evidence is authoritative."
+}
