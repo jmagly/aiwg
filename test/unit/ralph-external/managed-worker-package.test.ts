@@ -49,7 +49,7 @@ describe('T-OG-14 packaged managed one-shot entry point', () => {
     await mkdir(dirname(join(root, capabilities)), { recursive: true });
     await copyFile(join(source, capabilities), join(root, capabilities));
     // These runtime sources are already ESM; stage their published dist locations without a build.
-    for (const file of ['process/signal-child.mjs', 'process/bounded-child-process.mjs', 'models/worker-installation.mjs', 'models/cursor-worker-version.mjs', 'models/worker-installation-store.mjs', 'models/qualification-digest.mjs',
+    for (const file of ['process/signal-child.mjs', 'process/bounded-child-process.mjs', 'models/worker-installation.mjs', 'models/cursor-worker-version.mjs', 'models/worker-installation-store.mjs', 'models/qualification-digest.mjs', 'models/worker-environment-binding.mjs',
       'models/worker-artifact-binding.mjs', 'serve/worker-artifacts.mjs', 'config/dispatch-thresholds-runtime.mjs', 'config/host-resource-runtime.mjs', 'config/worker-invocation-marker.mjs', 'config/worker-attribution.mjs', 'config/project-artifacts-runtime.mjs']) {
       await mkdir(dirname(join(root, 'dist/src', file)), { recursive: true });
       await copyFile(join(source, 'src', file), join(root, 'dist/src', file));

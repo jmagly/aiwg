@@ -1,8 +1,8 @@
 {
   "T-OG-03": {
-    "testFiles": ["test/unit/models/cursor-models.test.ts", "test/unit/models/cursor-worker-qualification.test.ts", "test/unit/models/cursor-direct-dispatch.test.ts"]
+    "testFiles": ["test/unit/models/cursor-models.test.ts", "test/unit/models/cursor-worker-qualification.test.ts", "test/unit/models/cursor-direct-dispatch.test.ts", "test/unit/models/worker-qualification-environment.test.ts"]
   },
   "T-OG-12": {
-    "testFiles": ["test/unit/models/cursor-models.test.ts", "test/unit/models/cursor-worker-qualification.test.ts", "test/unit/models/cursor-worker-versions.test.ts"]
+    "testFiles": ["test/unit/models/cursor-models.test.ts", "test/unit/models/cursor-worker-qualification.test.ts", "test/unit/models/cursor-worker-versions.test.ts", "test/unit/models/worker-qualification-environment.test.ts"]
   }
 }

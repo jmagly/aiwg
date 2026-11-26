@@ -10,6 +10,7 @@ import { createHash } from 'node:crypto';
 import { parse } from 'acorn';
 import { satisfies, valid, validRange } from 'semver';
 import { workerComparableVersion } from './cursor-worker-version.mjs';
+import { workerEnvironmentValue, workerEnvironmentScope, workerDesktopEnvironmentBindings, changedWorkerDesktopEnvironment } from './worker-environment-binding.mjs';
 
 // Recovery metadata belongs to the installed driver identity, never its shape.
 const workerRecoveryCapabilities = new WeakMap();
@@ -213,7 +214,7 @@ export async function prepareInstalledWorkerInvocation(instance, invocation, qua
       // allowlisted name stays bound, while the executable is pinned separately.
       // Other launch values must still match qualification.
       if (JSON.stringify([...result.envNames].sort()) !== JSON.stringify(Object.keys(installation.environment ?? {}).sort())
-        || result.envNames.some(name => name !== 'PATH' && process.env[name] !== installation.environment[name])) {
+        || result.envNames.some(name => name !== 'PATH' && workerEnvironmentValue(name, process.env[name]) !== workerEnvironmentValue(name, installation.environment[name]))) {
         throw new WorkerPolicyError('OG_PIN_MISMATCH', 'Worker launch environment differs from qualification');
       }
     }
@@ -332,7 +333,7 @@ export async function inspectWorkerInstallation(instance, request) {
   return { binary, cwd: canonicalCwd, inputRoots, outputRoots, scopeDigest: qualificationDigest({ metadata, profileId, cliVersion, platform, binary, modules, runtimeFiles,
     permissionRequirements, controlArgv, fixtureDigest: await workerNegativeFixtureDigest(),
     requiredControls: [...requiredControls].sort(), effectiveConfigDigest, accountScope, boundary, cwd: canonicalCwd,
-    workerWritableRoots: canonicalWritableRoots, inputRoots, outputRoots, environmentDigest: qualificationDigest(Object.fromEntries(Object.entries(environment).filter(([name]) => name !== 'PATH'))), endpoints, mcp: request.mcp ?? null,
+    workerWritableRoots: canonicalWritableRoots, inputRoots, outputRoots, environmentDigest: qualificationDigest(workerEnvironmentScope(environment)), endpoints, mcp: request.mcp ?? null,
     mcpServerDigest: request.mcpServerDigest ?? null }) };
 }
 
@@ -821,11 +822,12 @@ export async function recordWorkerInstallation(instance, options) {
   installation.cwd = await realpath(installation.cwd);
   return withWorkerInstallationStore(installation.workerWritableRoots, async ({ stored }) => {
     const environmentNames = Object.keys(installation.environment ?? {});
+    const environmentBindings = workerDesktopEnvironmentBindings(installation.environment ?? {});
     delete installation.environment;
     delete installation.adapter;
     delete installation.now;
     const record = { cli, ...(options.modelObservations ? { modelObservations: structuredClone(options.modelObservations) } : {}), binding: { ...structuredClone(binding), boundary: installation.boundary }, adapter,
-      installation: { ...installation, environmentNames, versionProbe: { rawBanner: result.rawVersionBanner, version: result.cliVersion } },
+      installation: { ...installation, environmentNames, environmentBindings, versionProbe: { rawBanner: result.rawVersionBanner, version: result.cliVersion } },
       ...(options.mcpSchemas ? { mcpSchemas: structuredClone(options.mcpSchemas) } : {}),
       ...(options.mcpProfile ? { mcpProfile: structuredClone(options.mcpProfile) } : {}) };
     const signedAt = new Date().toISOString();
@@ -848,11 +850,14 @@ export async function loadRecordedWorkerInstallations({ registry, cwd, policy, p
   const { WorkerPolicyError, WorkerQualificationPolicyError, parseProviderModelCapabilities } = await import('./provider-policy.js');
   // Compiled TS modules load lazily so the managed launcher's ESM-only import chain stays minimal (#3851).
   const { workerQualificationPolicyDiagnostic } = await import('./worker-qualification-policy.js');
+  const { workerQualificationEnvironmentError } = await import('./worker-qualification-environment.js');
   const { qualificationDigest } = await import('./qualification-digest.mjs');
-  // Only fixed stage codes, bounded indexes and signed policy-drift summaries leave this boundary.
+  // Only fixed stages, bounded indexes, signed policy summaries and environment names leave this boundary.
   // Underlying errors can contain probe output, environment values or paths.
   const rejections = [];
   const fail = () => {
+    const environmentMismatch = workerQualificationEnvironmentError(rejections, stored?.registrations);
+    if (environmentMismatch) return environmentMismatch;
     const mismatch = workerQualificationPolicyDiagnostic(rejections, stored?.registrations, policy);
     return mismatch ? new WorkerQualificationPolicyError(mismatch, rejections) : new WorkerPolicyError('OG_ADAPTER_UNQUALIFIED',
     `Trusted installation qualification is required (${[...new Set(rejections.map(row => row.reason))].join(', ')})${rejections.some(row => row.reason.startsWith('signature-'))
@@ -919,6 +924,8 @@ export async function loadRecordedWorkerInstallations({ registry, cwd, policy, p
         if (typeof name !== 'string' || process.env[name] === undefined) throw fail();
         installation.environment[name] = process.env[name];
       }
+      reason = 'environment-value';
+      if (changedWorkerDesktopEnvironment(installation, process.env).length) throw fail();
       reason = 'binding-mismatch';
       if (binding.profile !== installation.profile || binding.cliVersion !== installation.cliVersion
         || binding.accountScope !== installation.accountScope

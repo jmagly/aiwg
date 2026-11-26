@@ -202,7 +202,7 @@ it('refuses resolution when a listed and approved selector lacks context limits 
 
 
 it.each(['desktop', 'headless'] as const)('#4416 probes and launches with only the allowed %s environment', async mode => {
-  const desktop = { DISPLAY: ':4416', DBUS_SESSION_BUS_ADDRESS: 'unix:path=/synthetic/bus', XDG_RUNTIME_DIR: '/synthetic/runtime' };
+  const desktop = { DISPLAY: ':4416', DBUS_SESSION_BUS_ADDRESS: 'unix:path=/synthetic/bus,guid=abc123', XDG_RUNTIME_DIR: '/synthetic/runtime' };
   for (const [name, value] of Object.entries(desktop)) vi.stubEnv(name, mode === 'desktop' ? value : undefined);
   vi.stubEnv('CURSOR_API_KEY', mode === 'headless' ? 'synthetic-headless-key' : undefined);
   vi.stubEnv('CONDUCTOR_PRIVATE', 'synthetic-private-status');
@@ -238,6 +238,53 @@ it.each(['desktop', 'headless'] as const)('#4416 probes and launches with only t
   for (const name of ['CONDUCTOR_PRIVATE', 'USER', 'LANG', 'XDG_CONFIG_HOME', 'AIWG_CONFIG']) {
     expect(probe.env).not.toHaveProperty(name);
     expect(worker.env).not.toHaveProperty(name);
+  }
+  if (mode === 'desktop') {
+    // #4447: systemd's bus address omits the shell's volatile GUID hint.
+    (f.env as NodeJS.ProcessEnv).DBUS_SESSION_BUS_ADDRESS = 'unix:path=/synthetic/bus';
+    const unit = await f.resolve();
+    expect(unit.code, unit.stdout + unit.stderr).toBe(0);
+    expect(JSON.parse(unit.stdout).invocation.readiness).toBe('launchable');
+    Object.assign(f.env, desktop);
+    const receipts = await readFile(path.join(f.config, 'worker-installations.json'), 'utf8');
+    const binding = JSON.parse(receipts).registrations.find(record => record.cli === 'cursor').installation.environmentBindings;
+    expect(Object.keys(binding).sort()).toEqual(Object.keys(desktop).sort());
+    for (const value of Object.values(desktop)) expect(receipts).not.toContain(value);
+    // A changed endpoint wins over generic scope revalidation, without values.
+    for (const names of [...Object.keys(desktop).map(name => [name]), Object.keys(desktop)]) {
+      for (const name of names) (f.env as NodeJS.ProcessEnv)[name] = name === 'DBUS_SESSION_BUS_ADDRESS'
+        ? 'unix:path=/synthetic/changed-bus,guid=abc123' : `${desktop[name as keyof typeof desktop]}-changed`;
+      const changed = await f.resolve();
+      expect(changed.code).toBe(2);
+      const plan = JSON.parse(changed.stdout);
+      expect(plan.status).toBe('blocked');
+      expect(plan.invocation).toBeUndefined();
+      expect(plan.diagnostics).toEqual([{ code: 'OG_ENVIRONMENT_MISMATCH', pointer: '/parallelism/clis',
+        message: `Launch environment variables changed since qualification: ${[...names].sort().join(', ')}. `
+          + 'Launch with the same environment, or re-qualify from the launch environment '
+          + 'with aiwg doctor --probe-workers --qualify.' }]);
+      for (const value of [...Object.values(desktop), ...names.map(name => (f.env as NodeJS.ProcessEnv)[name]!)]) {
+        expect(changed.stdout + changed.stderr).not.toContain(value);
+      }
+      Object.assign(f.env, desktop);
+    }
+    // #4447: qualify in a desktop shell, then resolve from a session-less unit.
+    for (const absent of [...Object.keys(desktop).map(name => [name]), Object.keys(desktop)]) {
+      for (const name of absent) delete (f.env as NodeJS.ProcessEnv)[name];
+      const changed = await f.resolve();
+      expect(changed.code).toBe(2);
+      const plan = JSON.parse(changed.stdout);
+      expect(plan.status).toBe('blocked');
+      expect(plan.invocation).toBeUndefined();
+      expect(plan.diagnostics).toEqual([{ code: 'OG_ENVIRONMENT_MISMATCH', pointer: '/parallelism/clis',
+        message: `Launch environment lacks variables present at worker qualification: ${[...absent].sort().join(', ')}. `
+          + 'Launch with the same environment, or re-qualify from the launch environment '
+          + 'with aiwg doctor --probe-workers --qualify.' }]);
+      for (const value of Object.values(desktop)) expect(changed.stdout + changed.stderr).not.toContain(value);
+      Object.assign(f.env, desktop);
+    }
+    // Restoring the qualified environment retains the original approval.
+    expect((await f.resolve()).code).toBe(0);
   }
 });
 
