@@ -1590,7 +1590,7 @@ Sensitive inputs and migration status: [Supplying sensitive values](sensitive-va
 
 Policy-plan and manage issues with `issue` or its alias `issues`. Run
 `aiwg issues --help` or `aiwg issues list --help` for the command and flag reference.
-With a configured external tracker, `create`/`new`, `comment`, and `close` use that
+With a configured external tracker, `create`/`new`, `edit`, `comment`, and `close` use that
 tracker and its verified actor; `--provider local` selects local storage.
 `list` queries local storage only: initialize it with `aiwg issues init`, then use
 `aiwg issues list --provider local`. Query external trackers with their tracker tools.
@@ -1598,12 +1598,30 @@ tracker and its verified actor; `--provider local` selects local storage.
 ```bash
 aiwg issue init [--prefix KEY] [--padding N]
 aiwg issue plan --title "..." [--body "..."|--body-file path] [--json]
-aiwg issue new --title "..." [--body-file path] [--authorize-policy DIGEST]
+aiwg issues create|new --title "..." [--body-file path] [--authorize-policy DIGEST]
+  [--label bug,docs --label triage] [--assignee alice,bob --assignee carol] [--milestone <title|id>]
+aiwg issues edit <number> [--milestone <title|id|none>]
+  [--add-label bug,docs --add-label triage] [--remove-label stale --remove-label duplicate]
+  [--title "..."] [--body-file path] [--authorize-policy DIGEST]
 aiwg issue list [--status open] [--label bug] [--json]
 aiwg issue show <KEY> [--comments last:10|all]
 aiwg issue comment <KEY> --body "..."
 aiwg issue close <KEY> [--reason "..."]
 ```
+
+`--label` and `--assignee` accept comma lists and repeated flags; values combine
+in order with duplicates removed. Other flags may only appear once. `plan` accepts
+the same labels, assignees, and milestone as create; include them when reviewing
+a digest for authorization. Milestones accept an exact open or closed title,
+a Gitea milestone id, or a GitHub milestone number. Unknown titles fail before creation.
+
+`edit` requires an external tracker and accepts issue or PR numbers. `--add-label`
+and `--remove-label` accept comma lists and repeats. All labels and milestone
+titles are resolved before any write. `--milestone none` clears the milestone.
+Title/body edits assess the resulting content with the create composition policy;
+flagged edits return the plan and digest for `--authorize-policy`. Edits that need
+multiple segments are refused. Label/milestone-only edits are metadata. Every write
+verifies `remotes.tracker_actor`, including its forbidden actors.
 
 `plan` emits `aiwg.issue-composition-plan.v1`. Safe drafts have disposition
 `single`; flagged drafts require digest-bound authorization; separable drafts
@@ -5291,6 +5309,11 @@ version, the command reports `needs-rebuild` instead of silently falling back.
 `aiwg decision ask` performs a bounded yes/no, choices or numeric-scale decision
 through the configured decision-offload checkpoint. It can use the configured
 external service and return a fallback for the calling model to handle.
+
+Confidence does not transfer across wording; do not use it as a calibrated
+probability of correctness. The default threshold stays at 0.8 as a routing
+policy. Validate unfamiliar wording and consequential answers independently;
+see the [wording-shift decision and recalibration plan](../decision/jev-confidence-wording-shift.md).
 
 ```bash
 aiwg decision ask --question "Is this change ready?" --yes-no --json

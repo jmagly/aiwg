@@ -12,11 +12,13 @@
 import type {
   ModelRouteDecision,
   ModelRouteRequest,
+  MergedModelConfig,
   ModelTier,
   RuntimeModelTier,
 } from './types.js';
 
 import { flagshipElected, normalizeModelTier } from './tiers.js';
+import { resolveDelegationDefaults } from './delegation-defaults.js';
 
 const RUNTIME_TO_MODEL_TIER: Record<RuntimeModelTier, ModelTier | null> = {
   0: null,
@@ -30,16 +32,26 @@ function clampRuntimeTier(tier: RuntimeModelTier | undefined, fallback: RuntimeM
   return tier === 0 || tier === 1 || tier === 2 || tier === 3 || tier === 4 ? tier : fallback;
 }
 
-export function routeModelTier(request: ModelRouteRequest = {}): ModelRouteDecision {
-  const defaultTier = clampRuntimeTier(request.defaultTier, 1);
-  const maxAutoTier = clampRuntimeTier(
-    request.maxAutoTier,
-    request.unattended ? 1 : 2,
-  );
+const runtimeTier = (tier: ModelTier): RuntimeModelTier =>
+  ({ economy: 1, standard: 2, premium: 3, flagship: 4 } as const)[normalizeModelTier(tier)];
+
+/** Read merged policy for callers without an already-loaded model configuration. */
+export async function resolveModelTier(request: ModelRouteRequest = {}, cwd?: string): Promise<ModelRouteDecision> {
+  const { ConfigLoader } = await import('./config-loader.js');
+  return routeModelTier(request, await new ConfigLoader(cwd).load());
+}
+
+/** Pure routing/authorization helper; pass ConfigLoader's result to honor user/project policy. */
+export function routeModelTier(request: ModelRouteRequest = {}, models?: MergedModelConfig): ModelRouteDecision {
+  const defaults = resolveDelegationDefaults({ workerId: request.agentName, task: request.task,
+    role: request.role ?? (request.routine && !request.task ? 'efficiency' : undefined) }, models);
+  const defaultTier = clampRuntimeTier(request.defaultTier, runtimeTier(defaults.tier));
+  const maxAutoTier = clampRuntimeTier(request.maxAutoTier, runtimeTier(defaults.ceiling));
 
   let tier: RuntimeModelTier = defaultTier;
   let source: ModelRouteDecision['source'] = 'default';
-  const rationale: string[] = [];
+  const rationale: string[] = request.defaultTier === undefined
+    ? [`${defaults.strategy} worker policy; ${defaults.role} role; automatic ceiling ${defaults.ceiling}`] : [];
 
   if (request.deterministic) {
     tier = 0;
@@ -62,7 +74,7 @@ export function routeModelTier(request: ModelRouteRequest = {}): ModelRouteDecis
     source = 'complexity';
     rationale.push('complex or multi-step work needs a capable work tier');
   } else if (request.routine) {
-    tier = Math.min(defaultTier, 1) as RuntimeModelTier;
+    tier = request.defaultTier === undefined ? defaultTier : Math.min(defaultTier, 1) as RuntimeModelTier;
     source = 'default';
     rationale.push('routine work stays at the default/cheap tier');
   } else {

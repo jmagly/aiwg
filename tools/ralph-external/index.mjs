@@ -16,7 +16,6 @@
  */
 
 import { resolve, join } from 'path';
-import { loadModelConfig } from '../agents/providers/base-models-platforms.mjs';
 import { createWriteStream, existsSync, readFileSync } from 'fs';
 import { Orchestrator } from './orchestrator.mjs';
 import { StateManager } from './state-manager.mjs';
@@ -129,12 +128,8 @@ function parseArgs(args) {
     objective: null,
     completionCriteria: null,
     maxIterations: 5,
-    // #1450 P0: explicit pinned ID. Was 'opus' — under a 1M-context parent
-    // (opus[1m]) the bare alias inherits 1M attributes, and most Claude
-    // accounts (Pro, Team standard) lack 1M access. The configured coding pin is the
-    // standard (cost-effective) tier and much cheaper for headless dispatch.
-    // See also #1442 (skill frontmatter pinning) and agent-deployment rule.
-    model: loadModelConfig().claude.coding.model,
+    // Each worker is resolved under defaults.workerSelection before launch.
+    model: undefined,
     // #1450 P0: cache-creation cost alone for a fresh claude headless session
     // is ~$1.60 sonnet / ~$3.90 opus. $2.0 per-iter was smaller than the cache
     // creation itself, causing every mission to abort at iteration 1.
@@ -207,6 +202,8 @@ function parseArgs(args) {
       options._explicit.add('maxIterations');
     } else if (arg === '--model') {
       options.model = args[++i];
+    } else if (arg === '--worker-tier') {
+      options.workerTier = args[++i] ?? '';
     } else if (arg === '--budget') {
       options.budgetPerIteration = positiveNumber('--budget', args[++i]);
       options._explicit.add('budgetPerIteration');
@@ -405,7 +402,8 @@ ARGUMENTS:
 OPTIONS:
   -c, --completion <str>  Completion criteria (required for new loop)
   --max-iterations <n>    Maximum external iterations (default: 5)
-  --model <model>         Claude model variant (default: configured Claude coding pin)
+  --model <model>         Explicit operator model pin (default: worker tier policy)
+  --worker-tier <tier>    Requested worker tier under defaults.workerSelection
                           Bare aliases (sonnet/opus) inherit parent context;
                           pinning a specific variant is required for headless.
   --budget <usd>          Budget per iteration in USD (default: 5.0)
@@ -885,7 +883,7 @@ export async function main(args = process.argv.slice(2)) {
         objective: options.objective,
         completionCriteria: options.completionCriteria,
         maxIterations: options.maxIterations,
-        model: options.model,
+        model: options.model, workerTier: options.workerTier,
         budgetPerIteration: options.budgetPerIteration,
         timeoutMinutes: options.timeoutMinutes,
         budgetLimits: options.budgetLimits,

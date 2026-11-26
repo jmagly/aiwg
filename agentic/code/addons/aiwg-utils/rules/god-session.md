@@ -41,6 +41,8 @@ This causes:
 - Debugging difficulty — failures are buried in a long, mixed-purpose context
 - Inconsistent output quality — early work is coherent; late work is rushed
 
+Delegate bounded independent reads and verification according to `subagent-scoping` Rule 4a (“Delegate by default”), including its mode, cheapest-capable selection and keep-local exits. Coupled work may stay with one focused worker; the orchestrator verifies condensed returns centrally.
+
 ## Mandatory Rules
 
 ### Rule 1: Bounded Agent Scope

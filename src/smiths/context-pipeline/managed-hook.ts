@@ -17,6 +17,8 @@ import { buildProviderBootstrapBlock } from './workspace-context.js';
 import { dominantLineEnding, withLineEnding } from './line-endings.js';
 import { assertSafeContextFile, writeContextFileSync } from './context-file-safety.js';
 import { hasRuleStartup, normalizeRuleStartup } from './bridge-ownership.js';
+import { buildDelegationBridge } from './delegation-rubric.js';
+import { replaceOrAppendParallelismBlock } from './parallelism-section.js';
 
 export const CONTEXT_HOOK_START = '<!-- AIWG:context-hook:start -->';
 export const CONTEXT_HOOK_END = '<!-- AIWG:context-hook:end -->';
@@ -57,6 +59,20 @@ export function hasContextHook(content: string): boolean {
  * operator-authored content. Additive by default (no `--force` needed).
  */
 export async function ensureManagedHook(filePath: string, opts: { force?: boolean; provider?: string } = {}): Promise<ManagedHookResult> {
+  const result = await updateManagedHook(filePath, opts);
+  if (!['AGENTS.md', 'AGENTS.override.md'].includes(path.basename(filePath)) || result.action === 'skipped') return result;
+  const existing = await fs.readFile(filePath, 'utf8');
+  const section = withLineEnding(await buildDelegationBridge(path.dirname(filePath)), dominantLineEnding(existing));
+  let content = replaceOrAppendParallelismBlock(existing, section);
+  if (hasRuleStartup(content)) content = normalizeRuleStartup(content, buildProviderBootstrapBlock(opts.provider || 'codex'), false, false);
+  if (content !== existing) {
+    writeContextFileSync(filePath, content, 'utf8');
+    if (result.action === 'unchanged') result.action = 'updated';
+  }
+  return result;
+}
+
+async function updateManagedHook(filePath: string, opts: { force?: boolean; provider?: string }): Promise<ManagedHookResult> {
   await assertSafeContextFile(filePath);
   const base = path.basename(filePath);
   let block = buildContextHookBlock(opts.provider);

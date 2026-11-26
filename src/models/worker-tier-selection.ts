@@ -2,6 +2,12 @@
 import type { ModelTier, ModelRouteRequest, WorkerModelObservation, WorkerSelectionPolicy } from './types.js';
 import { flagshipElected, isFlagshipModel, normalizeModelTier, TIER_ORDER } from './tiers.js';
 
+/** A configured ceiling is never a flagship election. Doctor reports the mismatch offline. */
+export function workerSelectionPolicyWarnings(policy: WorkerSelectionPolicy | undefined): string[] {
+  return policy?.maxAutoTier && normalizeModelTier(policy.maxAutoTier) === 'flagship'
+    ? ['defaults.workerSelection.maxAutoTier is flagship; this does not authorize automatic flagship selection. Narrow to premium or below; flagship still requires explicit user election or an authorized capability allowlist.'] : [];
+}
+
 /** Role authority is a floor; observed pricing and recognized flagship identities can raise it. */
 export function workerSelectionTier(roleTier: ModelTier, model: string,
   pricing: WorkerModelObservation['pricing']): ModelTier {

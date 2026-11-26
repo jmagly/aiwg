@@ -14,6 +14,7 @@ import { parseFlag, parseNumberFlag, getPositionalArgs } from './mc-args.js';
 
 import { readAdmissionConfig, mcWorkerSupport, readWorkerJson, resolveMcWorker } from './mc-worker.js';
 import { managedControlFailure } from './mc-control.js';
+import { parseWorkerTier } from '../../models/tiers.js';
 
 // ── Subcommand handlers ──────────────────────────────────────
 
@@ -74,6 +75,9 @@ export async function mcDispatch(ctx: HandlerContext): Promise<HandlerResult> {
   const modeRaw = parseFlag(ctx.args, '--mode') || 'direct';
   const mode: MissionMode = modeRaw === 'pty-orchestrator' ? 'pty-orchestrator' : 'direct';
   const targetAgent = parseFlag(ctx.args, '--target-agent');
+  let workerTier;
+  try { workerTier = parseWorkerTier(parseFlag(ctx.args, '--worker-tier') ?? (ctx.args.includes('--worker-tier') ? '' : undefined)); }
+  catch (error) { return managedControlFailure(error); }
 
   if (!objective) {
     // #1438: keep this in sync with subcommandUsage.dispatch above so 'mc
@@ -151,6 +155,7 @@ export async function mcDispatch(ctx: HandlerContext): Promise<HandlerResult> {
     priority,
     mode,
     targetAgent: targetAgent || undefined,
+    workerTier,
   };
 
   const dispatchPath = parseFlag(ctx.args, '--worker-dispatch');

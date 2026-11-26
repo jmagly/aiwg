@@ -76,3 +76,24 @@ economics contracts; a point estimate or synthetic fixture cannot upgrade `HOLD`
 or `ROLLBACK`. No reviewed held-out dataset or complete economic observations were
 supplied for this implementation. Issue #2621 therefore remains open for the
 preregistered study, approved live configuration and promotion review.
+
+## Offline study contracts
+
+The installed `aiwg/discovery/shadow` export also provides
+`createDiscoveryStudyManifest`, `assertDiscoveryStudyRegistration`, and
+`buildUnrunDiscoveryStudyReport`. Their strict contracts ship under
+`schemas/decision/DiscoveryStudy{Manifest,Report}.v1.schema.json`.
+See [the study protocol](discovery-shadow-study.md) for the fields and limitations.
+The report explicitly says `not-run`: unknown quality, latency, tokens, monetary
+cost and downstream work remain `null`. Zero samples means no observations.
+It carries the existing #2037/#2048 integrity fields and #1585 complete-task
+accounting slots; an upstream `HOLD` or `ROLLBACK` cannot be upgraded.
+
+A trusted host may supply `health()` with boolean breach flags for `drift`,
+`quality`, `latency` and `cost`. The observer checks it before authorization or
+evaluation. Any breach, malformed verdict or monitoring exception automatically
+latches the circuit; recovery needs a newly reviewed route instance. The governed
+bridge accepts this callback through its existing host configuration. Hosts must
+supply their own independently measured monitoring signals; query/candidate text
+and Jev output cannot supply them. Without a monitor, per-call model, calibration,
+acceptance, latency and accounting checks still apply.

@@ -24,9 +24,10 @@ import { ConfigLoader } from '../../models/config-loader.js';
 import type { DynamicModelCatalog } from '../../models/model-discovery.js';
 import { validateWorkerCatalogDiscovery } from '../../models/provider-policy.js';
 import { wrapperEnforcementReport } from '../../models/wrapper-enforcement.js';
+import { DELEGATION_BLOCK_START, DELEGATION_BLOCK_END, readDelegationPolicy, renderDelegationRubric } from './delegation-rubric.js';
 
-export const PARALLELISM_BLOCK_START = '<!-- AIWG-PARALLELISM-CAP:START -->';
-export const PARALLELISM_BLOCK_END = '<!-- AIWG-PARALLELISM-CAP:END -->';
+export const PARALLELISM_BLOCK_START = DELEGATION_BLOCK_START;
+export const PARALLELISM_BLOCK_END = DELEGATION_BLOCK_END;
 
 /** Plain-path pointer (not an `@` import) to the long health/supervision explanation. */
 export const WORKER_HEALTH_DOC_POINTER = '`docs/getting-started/worker-dispatch.md` ("Worker health windows and supervision")';
@@ -241,7 +242,10 @@ function delegationSupport(provider: string | undefined): string {
       return '**Provider behavior (openhuman)**: wrapper roles compile to OpenHuman agent definitions; exact pins validate while semantic hints may be routed dynamically.';
     case 'warp':
     case 'hermes':
+    case 'grokbot':
       return `**Provider behavior (${provider})**: delegation is available, but model selection is global/run-scoped. Use the wrapper rubric for task selection while reporting that heterogeneous per-worker pinning is not enforced.`;
+    case 'grok-build':
+      return '**Provider behavior (grok-build)**: native per-worker model enforcement is pending (#2577); do not claim model pinning from reference wrappers.';
     case 'devin':
       return '**Provider behavior (devin)**: portable subagent model selection is unsupported. Apply the decomposition rubric in the primary agent and do not claim wrapper pinning or parallel delegation.';
     default:
@@ -261,10 +265,11 @@ export async function buildParallelismSection(projectPath: string, deps: Paralle
   // Step 1: the project config, independently validated except for the
   // worker-model defaults (never throws solely because bundled defaults are
   // unreachable — any error here is a genuine config problem and stays fatal).
-  const cfg: AiwgConfig | null = deps.readConfig
+  const candidate: AiwgConfig | null = deps.readConfig
     ? await deps.readConfig(projectPath)
     : await readAiwgConfigCandidate(projectPath);
-  if (!cfg) return '';
+  const cfg = candidate ?? { providers: [] } as unknown as AiwgConfig;
+  const rubric = await renderDelegationRubric(await readDelegationPolicy(projectPath), !candidate);
 
   // Step 2: worker-model defaults validation, attempted only when dispatch
   // is enabled. A bundled-defaults failure degrades (health/group details
@@ -312,7 +317,7 @@ export async function buildParallelismSection(projectPath: string, deps: Paralle
     lines.push(`*Rationale*: ${resolved.rationale}`);
   }
   lines.push('');
-  lines.push('Delegation policy and model-worker selection: `aiwg show rule subagent-scoping`.');
+  lines.push(rubric);
   lines.push('After changing project parallelism with `aiwg config set/reset --project`, follow the emitted provider-specific regeneration commands and run `aiwg workspace-context doctor`.');
   lines.push('');
   for (const provider of cfg.providers.length ? cfg.providers : ['unknown']) {
@@ -390,18 +395,14 @@ export async function buildParallelismSection(projectPath: string, deps: Paralle
  * already has a parallelism block from a prior regeneration.
  */
 export function replaceOrAppendParallelismBlock(content: string, newSection: string): string {
-  const startIdx = content.indexOf(PARALLELISM_BLOCK_START);
-  const endIdx = content.indexOf(PARALLELISM_BLOCK_END);
-
-  if (startIdx >= 0 && endIdx > startIdx) {
-    const before = content.slice(0, startIdx);
-    const after = content.slice(endIdx + PARALLELISM_BLOCK_END.length);
-    // Trim leading newline from `after` if present, since newSection ends with one
-    const cleanAfter = after.startsWith('\n') ? after.slice(1) : after;
-    return before + newSection + cleanAfter;
-  }
-
-  if (!newSection) return content;
-  // No existing block — append before the final trailing newline
-  return content.trimEnd() + '\n\n' + newSection;
+  // Consume old and new blocks together, retaining one insertion position and
+  // preserving all operator text. Regenerate is idempotent even after a mixed migration.
+  const blocks = /<!-- (AIWG-PARALLELISM-CAP|AIWG-DELEGATION):START -->[\s\S]*?<!-- \1:END -->\r?\n?/g;
+  let inserted = false;
+  const result = content.replace(blocks, () => {
+    if (inserted) return '';
+    inserted = true;
+    return newSection;
+  });
+  return inserted || !newSection ? result : content.trimEnd() + '\n\n' + newSection;
 }

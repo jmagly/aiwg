@@ -105,7 +105,8 @@ External Ralph wraps Claude Code sessions with an external supervisor that provi
 | `objective` | *required* | Task objective |
 | `completionCriteria` | *required* | Verifiable completion criteria |
 | `maxIterations` | 5 | Maximum external iterations |
-| `model` | opus | Claude model (opus, sonnet, haiku) |
+| `model` | worker tier policy | Explicit operator model pin; session models are not inherited |
+| `workerTier` | role guidance | Requested tier under `defaults.workerSelection` |
 | `budgetPerIteration` | 2.0 | Budget per iteration (USD) |
 | `timeoutMinutes` | 60 | Timeout per iteration |
 | `verbose` | false | Enable verbose Claude output |

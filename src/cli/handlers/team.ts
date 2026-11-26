@@ -154,7 +154,7 @@ async function listAllTeams(frameworkRoot: string, cwd: string): Promise<TeamDef
 
 /** Public OMP dispatch delegates to the same bounded native runtime used by conformance. */
 async function teamRunOmp(ctx: HandlerContext): Promise<HandlerResult> {
-  const allowed = new Set(['--provider', '--body-file', '--cwd', '--output-root', '--max-parallel', '--model', '--profile']);
+  const allowed = new Set(['--provider', '--body-file', '--cwd', '--output-root', '--max-parallel', '--model', '--worker-tier', '--profile']);
   const values: Record<string, string> = {};
   for (let i = 0; i < ctx.args.length; i++) {
     const flag = ctx.args[i];
@@ -184,7 +184,8 @@ async function teamRunOmp(ctx: HandlerContext): Promise<HandlerResult> {
       tasks: payload.tasks,
       cwd: values['--cwd'] ? resolve(ctx.cwd, values['--cwd']) : ctx.cwd,
       outputDir: values['--output-root'] ? resolve(ctx.cwd, values['--output-root']) : undefined,
-      maxParallel, model: values['--model'], profile: values['--profile'], signal: controller.signal,
+      maxParallel, model: values['--model'], workerTier: values['--worker-tier'], profile: values['--profile'], signal: controller.signal,
+      election: values['--model'] ? 'user' : undefined, premiumAuthorized: Boolean(values['--model']),
     });
     console.log(JSON.stringify(result, null, 2));
     return { exitCode: result.results.every((task: { status: string }) => task.status === 'completed') ? 0 : 1 };
@@ -217,6 +218,13 @@ async function teamRun(ctx: HandlerContext): Promise<HandlerResult> {
   }
 
   const dispatchMode = team.dispatch || 'sequential';
+  let selection;
+  try {
+    const { teamDelegation } = await import('./team-delegation.js');
+    selection = await teamDelegation(ctx, provider, team.agents, objective, parseFlag(ctx.args, '--worker-tier') ?? (ctx.args.includes('--worker-tier') ? '' : undefined));
+  } catch (error) { ui.error(String(error)); return { exitCode: 1 }; }
+  const tierFlag = selection.requestedTier ? ` --worker-tier ${selection.requestedTier}` : '';
+  if (provider !== 'claude') ui.warn(`Provider '${provider}' uses MC handoff; native per-worker model enforcement is unavailable here.`);
 
   ui.blank();
   console.log(`  ${ui.brandMark()} ${ui.bold('Team')} — ${ui.accent(team.name)}`);
@@ -233,6 +241,9 @@ async function teamRun(ctx: HandlerContext): Promise<HandlerResult> {
     console.log(`  Invoke team members using @agent-name syntax:`);
     ui.blank();
     for (const member of team.agents) {
+      const routing = selection.routes.find(route => route.workerId === member.agent)!;
+      console.log(`    ${JSON.stringify(routing)}`);
+      console.log(`    Launch ${routing.wrapper} with model=${routing.resolved_model}; load specialist ${member.agent}.`);
       const roleIcon = member.role === 'lead' ? '★' : member.role === 'reviewer' ? '◎' : member.role === 'advisor' ? '◇' : '○';
       console.log(`    ${roleIcon} @${member.agent}  ${ui.dimText('[' + member.role + ']')}`);
       if (member.responsibilities && member.responsibilities.length > 0) {
@@ -255,9 +266,9 @@ async function teamRun(ctx: HandlerContext): Promise<HandlerResult> {
     console.log(`  aiwg mc start --name "${team.name}"`);
     ui.blank();
     console.log(`  ${ui.dimText('# Step 2: Dispatch agents')}`);
-    console.log(`  aiwg mc dispatch <session-id> "Run ${lead.agent}: ${objective}" --completion "${lead.agent} deliverables complete"`);
+    console.log(`  aiwg mc dispatch <session-id> "Run ${lead.agent}: ${objective}" --completion "${lead.agent} deliverables complete"${tierFlag}`);
     for (const member of others) {
-      console.log(`  aiwg mc dispatch <session-id> "Run ${member.agent}: ${objective}" --completion "${member.agent} review complete"`);
+      console.log(`  aiwg mc dispatch <session-id> "Run ${member.agent}: ${objective}" --completion "${member.agent} review complete"${tierFlag}`);
     }
     ui.blank();
     console.log(`  ${ui.dimText('# Step 3: Monitor')}`);
@@ -416,6 +427,7 @@ function showTeamHelp(): void {
     --output-root <dir>  OMP result and control artifact directory
     --max-parallel <n>   OMP requested worker cap (workspace ceiling still applies)
     --model <id>         OMP coordinator/worker model selector
+    --worker-tier <tier> Worker tier under defaults.workerSelection
     --profile <name>     OMP native profile
     --json                 Machine-readable output
 

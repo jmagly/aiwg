@@ -28,3 +28,37 @@ export async function deliveryTracker(cwd: string, config: AiwgConfig,
   const token = await trackerToken(provider, remotes.tracker_actor, options.source);
   return new LiveIssueClient({ provider, repo, apiUrl, token, actor: remotes.tracker_actor });
 }
+
+/** Resolve repository metadata completely before callers start mutations. */
+export async function trackerLabels(client: LiveIssueClient, names: string[]): Promise<Array<{ id: number; name: string }>> {
+  if (!names.length) return [];
+  const available: Array<{ id: number; name: string }> = [];
+  for (let page = 1; ; page++) {
+    const entries = await client.repositoryRequest<Array<{ id: number; name: string }>>('GET', `/labels?per_page=100&limit=100&page=${page}`);
+    available.push(...entries);
+    if (entries.length < 100) break;
+  }
+  return names.map(name => {
+    const label = available.find(label => label.name === name);
+    if (!label) throw new Error(`Unknown issue label on the configured tracker: ${name}`);
+    return label;
+  });
+}
+
+export async function trackerMilestone(client: LiveIssueClient, value: string): Promise<number> {
+  if (/^[1-9][0-9]*$/.test(value) && Number.isSafeInteger(Number(value))) return Number(value);
+  for (const state of ['open', 'closed']) {
+    for (let page = 1; ; page++) {
+      const entries = await client.repositoryRequest<Array<{ id: number; number?: number; title: string }>>(
+        'GET', `/milestones?state=${state}&per_page=100&limit=100&page=${page}`);
+      const milestone = entries.find(entry => entry.title === value);
+      if (milestone) {
+        const id = client.provider === 'github' ? milestone.number : milestone.id;
+        if (!id || !Number.isSafeInteger(id)) throw new Error('Tracker returned an invalid milestone identifier');
+        return id;
+      }
+      if (entries.length < 100) break;
+    }
+  }
+  throw new Error(`Unknown milestone on the configured tracker: ${value}`);
+}

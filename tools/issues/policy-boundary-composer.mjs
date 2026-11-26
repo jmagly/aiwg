@@ -157,6 +157,7 @@ function segmentRejectedDraft(draft, config, originDigest) {
       body,
       labels: [...(draft.labels ?? [])],
       assignees: [...(draft.assignees ?? [])],
+      milestone: draft.milestone,
       priority: draft.priority,
       providerScope: draft.providerScope,
       marker,
@@ -180,6 +181,7 @@ export function planIssueDraft(draft, options = {}) {
     body: String(draft.body ?? '').trim(),
     labels: [...new Set((draft.labels ?? []).map(String))],
     assignees: [...new Set((draft.assignees ?? []).map(String))],
+    milestone: draft.milestone == null ? null : String(draft.milestone),
     priority: draft.priority ?? null,
     providerScope: draft.providerScope ?? null,
     actor: draft.actor,
@@ -300,6 +302,7 @@ export async function executeIssuePlan(plan, adapter, options = {}) {
         body: segment.body,
         labels: segment.labels,
         assignees: segment.assignees,
+        milestone: segment.milestone,
         priority: segment.priority,
         marker: segment.marker,
       });

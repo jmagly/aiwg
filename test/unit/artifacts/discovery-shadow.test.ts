@@ -177,3 +177,128 @@ describe('shadow shutdown races', () => {
     expect(s.records[0]).toMatchObject({ reason: 'budget-breach', latencyMs: 100 });
   });
 });
+
+describe('D27 exhaustive offline boundaries and failures', () => {
+  it.each([-1, 0, 1])('repeats score and margin threshold boundaries at epsilon step %s', step => {
+    const p = policy().ambiguity;
+    for (let repeat = 0; repeat < 10; repeat++) {
+      const cs = candidates(); cs[0]!.score = .5 + step * Number.EPSILON; cs[1]!.score = .25;
+      expect(discoveryAmbiguity('query', cs, p)).toEqual({ version: p.version, eligible: step < 0, reason: step < 0 ? 'low-score' : 'high-margin' });
+      cs[0]!.score = .75; cs[1]!.score = .5 - step * Number.EPSILON;
+      expect(discoveryAmbiguity('query', cs, p).reason).toBe(step < 0 ? 'low-margin' : 'high-margin');
+    }
+  });
+  it.each([-1, 0, 1])('bounds UTF-8 input at maximumTextBytes plus %s', step => {
+    const cs = candidates(); cs[0]!.capability = 'é😀';
+    const bytes = Buffer.byteLength('query' + cs.map(c => c.name + c.type + c.capability + c.id).join(''));
+    const p = { ...policy().ambiguity, maximumTextBytes: bytes - step };
+    expect(discoveryAmbiguity('query', cs, p).reason).toBe(step > 0 ? 'invalid-input' : 'low-margin');
+  });
+  it.each([0, 1, 100, 101])('validates maximumCandidates at %s', maximumCandidates => {
+    const p = { ...policy().ambiguity, maximumCandidates };
+    if (maximumCandidates === 0 || maximumCandidates === 101) expect(() => discoveryAmbiguity('query', candidates(), p)).toThrow();
+    else expect(discoveryAmbiguity('query', candidates(), p).eligible).toBe(true);
+  });
+  it.each([0, 1, 1000000, 1000001])('validates maximumTextBytes at %s', maximumTextBytes => {
+    const p = { ...policy().ambiguity, maximumTextBytes };
+    if (maximumTextBytes === 0 || maximumTextBytes === 1000001) expect(() => discoveryAmbiguity('q', [], p)).toThrow();
+    else expect(discoveryAmbiguity('q', [], p).reason).toBe('no-candidates');
+  });
+  it.each(['version', 'negative-score', 'nan-score', 'zero-margin', 'nan-margin', 'fractional-count'] as const)('rejects invalid gate policy %s', kind => {
+    const p = policy().ambiguity;
+    if (kind === 'version') (p as unknown as Record<string, unknown>).version = 'v2';
+    if (kind === 'negative-score') p.minimumScore = -Number.EPSILON;
+    if (kind === 'nan-score') p.minimumScore = NaN;
+    if (kind === 'zero-margin') p.minimumMargin = 0;
+    if (kind === 'nan-margin') p.minimumMargin = NaN;
+    if (kind === 'fractional-count') p.maximumCandidates = 1.5;
+    expect(() => discoveryAmbiguity('q', candidates(), p)).toThrow();
+  });
+  it('accepts zero minimum score and the smallest positive margin', () => {
+    const p = { ...policy().ambiguity, minimumScore: 0, minimumMargin: Number.MIN_VALUE };
+    expect(discoveryAmbiguity('q', [{ ...candidates()[0]!, score: 0 }], p).reason).toBe('low-margin');
+  });
+  it.each([1, 2, 3])('only offers the first %s authorized candidates, with none', async maximumCandidates => {
+    const cs = [...candidates(), { ...candidates()[1]!, id: 'skill:third', name: 'third', score: .4 }];
+    const p = policy(); p.ambiguity.maximumCandidates = maximumCandidates;
+    const s = setup(p); await s.route.observe('query', cs);
+    expect(s.host.evaluate).toHaveBeenCalledWith(expect.objectContaining({
+      candidates: cs.slice(0, maximumCandidates).map((c, i) => ({ option: `candidate_${i}`, id: c.id, name: c.name, type: c.type, capability: c.capability })),
+      options: [...cs.slice(0, maximumCandidates).map((_, i) => `candidate_${i}`), 'none'],
+    }));
+  });
+  it.each(['exact', 'high-margin'] as const)('preserves byte-equivalent frozen baseline and zero calls for %s corpus', async kind => {
+    const s = setup();
+    for (const query of kind === 'exact' ? ['first', ' FIRST ', 'skill:second'] : ['capability lookup', 'workflow query', 'ordinary paraphrase']) {
+      const cs = candidates(); if (kind === 'high-margin') cs[0]!.score = 1;
+      const before = JSON.stringify(cs); cs.forEach(Object.freeze); Object.freeze(cs);
+      await s.route.observe(query, cs); expect(JSON.stringify(cs)).toBe(before);
+    }
+    expect(s.host.evaluate).not.toHaveBeenCalled(); expect(s.host.authorize).not.toHaveBeenCalled();
+  });
+  it.each([-1, 0, 1])('acceptance probability boundary %s', async step => {
+    const p = policy(); p.minimumProbability = .75; p.minimumMargin = .1;
+    const r = result(); const probability = .75 + step * Number.EPSILON;
+    r.spec.uncertainty!.distribution = { candidate_0: 1 - probability, candidate_1: probability, none: 0 };
+    const s = setup(p, r); await s.route.observe('query', candidates());
+    expect(s.records[0]!.reason).toBe(step < 0 ? 'rejected-evidence' : 'accepted-shadow');
+  });
+  it.each([-1, 0, 1])('acceptance margin boundary %s', async step => {
+    const p = policy(); p.minimumProbability = .5; p.minimumMargin = .5;
+    const r = result(); const probability = .75 + step * Number.EPSILON;
+    r.spec.uncertainty!.distribution = { candidate_0: 1 - probability, candidate_1: probability, none: 0 };
+    const s = setup(p, r); await s.route.observe('query', candidates());
+    expect(s.records[0]!.reason).toBe(step < 0 ? 'rejected-evidence' : 'accepted-shadow');
+  });
+  it.each(['tokens', 'cost', 'latency'] as const)('checks both sides and equality of the %s budget', async kind => {
+    for (const step of [-1, 0, 1]) {
+      const p = policy(), r = result();
+      if (kind === 'tokens') r.spec.attempts[0]!.usage = { inputTokens: 1000 + step, outputTokens: 0, costUsd: .01 };
+      if (kind === 'cost') r.spec.attempts[0]!.usage.costUsd = 1 + step * Number.EPSILON;
+      const s = setup(p, r); let reads = 0;
+      if (kind === 'latency') s.host.clock = () => reads++ === 0 ? 0 : 100 + step;
+      const before = JSON.stringify(candidates()); const cs = candidates();
+      await s.route.observe('query', cs);
+      expect(JSON.stringify(cs)).toBe(before);
+      expect(s.records[0]!.reason).toBe((kind === 'latency' ? step >= 0 : step > 0) ? 'budget-breach' : 'accepted-shadow');
+    }
+  });
+  it.each(['low-confidence', 'invalid', 'unsupported', 'rate-limited', 'timed-out', 'privacy-denied', 'calibration-incompatible', 'malformed'] as const)('retains baseline on the %s failure class', async kind => {
+    const r = result(), s = setup(policy(), r), cs = candidates(), before = JSON.stringify(cs);
+    if (kind === 'low-confidence') r.spec.uncertainty!.distribution = { candidate_0: .3, candidate_1: .4, none: .3 };
+    if (kind === 'invalid') r.spec.value = 'candidate_999';
+    if (kind === 'unsupported') r.spec.status = 'unsupported';
+    if (kind === 'rate-limited') s.host.evaluate = vi.fn(async () => { throw new Error('429'); });
+    if (kind === 'timed-out') { vi.useFakeTimers(); s.host.evaluate = vi.fn(() => new Promise(() => {})); }
+    if (kind === 'privacy-denied') s.host.authorize = () => false;
+    if (kind === 'calibration-incompatible') r.spec.calibrationCompatibility!.state = 'incompatible';
+    if (kind === 'malformed') s.host.evaluate = vi.fn(async () => ({ result: null as unknown as DecisionResult, receiptDigest: hash }));
+    const task = s.route.observe('query', cs);
+    if (kind === 'timed-out') await vi.advanceTimersByTimeAsync(100);
+    await expect(task).resolves.toBeUndefined();
+    expect(JSON.stringify(cs)).toBe(before); expect(s.records[0]!.selection).toBeNull();
+    expect(s.records[0]!.reason).not.toBe('accepted-shadow');
+  });
+  it.each(['drift', 'quality', 'latency', 'cost', 'throwing', 'malformed'] as const)('automatically latches the circuit on trusted %s health breach', async kind => {
+    const s = setup();
+    s.host.health = () => {
+      if (kind === 'throwing') throw new Error('PRIVATE_HEALTH');
+      return { drift: false, quality: false, latency: false, cost: false,
+        ...(kind === 'malformed' ? { drift: undefined as unknown as boolean } : { [kind]: true }) };
+    };
+    await s.route.observe('query', candidates());
+    s.host.health = () => ({ drift: false, quality: false, latency: false, cost: false });
+    await s.route.observe('query', candidates());
+    expect(s.route.disabled).toBe(true); expect(s.host.evaluate).not.toHaveBeenCalled();
+    expect(s.records.map(r => r.reason)).toEqual(['circuit-open', 'circuit-open']);
+    expect(JSON.stringify(s.records)).not.toContain('PRIVATE_HEALTH');
+  });
+  it('allows healthy monitoring but latches on rejected quality/model/calibration evidence', async () => {
+    const s = setup(); s.host.health = () => ({ drift: false, quality: false, latency: false, cost: false });
+    await s.route.observe('query', candidates()); expect(s.records[0]!.reason).toBe('accepted-shadow');
+    const r = result(); r.spec.calibrationCompatibility!.state = 'incompatible';
+    s.host.evaluate = vi.fn(async () => ({ result: r, receiptDigest: hash }));
+    await s.route.observe('query', candidates()); await s.route.observe('query', candidates());
+    expect(s.host.evaluate).toHaveBeenCalledTimes(1); expect(s.records.at(-1)!.reason).toBe('circuit-open');
+  });
+});

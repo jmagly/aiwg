@@ -13,6 +13,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { getFrameworkRoot } from '../channel/manager.mjs';
 import { readAiwgConfig } from '../config/aiwg-config.js';
+import { parseArgs, stringFlag, csvFlag, type ParsedArgs } from './args.js';
 import { externalIssues } from './external-cli.js';
 import { trackerToken } from './tracker-policy.js';
 import { sensitiveInputOptions } from '../auth/sensitive-input.js';
@@ -26,13 +27,6 @@ import {
   parseExternalIssueSnapshot,
 } from './index.js';
 
-interface ParsedArgs {
-  cwd?: string;
-  raw: string[];
-  positional: string[];
-  flags: Map<string, string | boolean>;
-}
-
 export async function main(args: string[], cwd = process.cwd()): Promise<void> {
   const parsed = parseArgs(args);
   parsed.cwd = cwd;
@@ -41,7 +35,8 @@ export async function main(args: string[], cwd = process.cwd()): Promise<void> {
   if (parsed.flags.has('backend')) {
     throw new Error('aiwg issue commands use the local issue provider; --backend is not supported');
   }
-  if (await externalIssues(parsed, cwd, async () => ({ plan: await buildIssuePlan(parsed, cwd), composer: await loadIssueComposer() }))) return;
+  if (await externalIssues(parsed, cwd, async (draft) => ({ plan: await buildIssuePlan(parsed, cwd, draft), composer: await loadIssueComposer() }))) return;
+  if (subcommand === 'edit') throw new Error('aiwg issues edit requires a configured external tracker; local issue edits are not supported');
   const provider = stringFlag(parsed, 'provider');
   if (provider && provider !== 'local') {
     throw new Error(`aiwg issue is for local issue storage only; configured external trackers use their tracker tools (${provider})`);
@@ -116,10 +111,10 @@ async function loadIssueComposer(): Promise<IssueCompositionModule> {
   return import(pathToFileURL(modulePath).href) as Promise<IssueCompositionModule>;
 }
 
-async function buildIssuePlan(args: ParsedArgs, cwd: string): Promise<Record<string, any>> {
-  const title = stringFlag(args, 'title') ?? args.positional[1];
+async function buildIssuePlan(args: ParsedArgs, cwd: string, draft: Record<string, unknown> = {}): Promise<Record<string, any>> {
+  const title = draft.title ?? stringFlag(args, 'title') ?? args.positional[1];
   if (!title) throw new Error('Usage: aiwg issue plan --title <title> [--body <text>|--body-file <path>]');
-  const body = await readBody(args);
+  const body = typeof draft.body === 'string' ? draft.body : await readBody(args);
   const config = await readAiwgConfig(cwd);
   const composer = await loadIssueComposer();
   return composer.planIssueDraft({
@@ -130,6 +125,8 @@ async function buildIssuePlan(args: ParsedArgs, cwd: string): Promise<Record<str
     labels: csvFlag(args, 'label'),
     assignees: csvFlag(args, 'assignee'),
     author: stringFlag(args, 'author'),
+    milestone: stringFlag(args, 'milestone'),
+    ...draft,
   }, { threatAssessment: config?.security?.threatAssessment });
 }
 
@@ -399,49 +396,15 @@ function printJsonOrText(args: ParsedArgs, value: unknown, text: string): void {
   }
 }
 
-function parseArgs(args: string[]): ParsedArgs {
-  const positional: string[] = [];
-  const flags = new Map<string, string | boolean>();
-  for (let i = 0; i < args.length; i++) {
-    const arg = args[i];
-    if (!arg.startsWith('--')) {
-      positional.push(arg);
-      continue;
-    }
-    const [rawKey, inline] = arg.slice(2).split(/=(.*)/s).filter((part) => part !== undefined);
-    if (inline !== undefined && inline !== '') {
-      flags.set(rawKey, inline);
-      continue;
-    }
-    const next = args[i + 1];
-    if (next && !next.startsWith('--')) {
-      flags.set(rawKey, next);
-      i++;
-    } else {
-      flags.set(rawKey, true);
-    }
-  }
-  return { raw: args, positional, flags };
-}
-
-function stringFlag(args: ParsedArgs, name: string): string | undefined {
-  const value = args.flags.get(name);
-  if (value === undefined || value === true) return undefined;
-  return String(value);
-}
-
-function csvFlag(args: ParsedArgs, name: string): string[] {
-  const value = stringFlag(args, name);
-  return value ? value.split(',').map((item) => item.trim()).filter(Boolean) : [];
-}
-
 export function printUsage(): void {
   console.log(`Usage:
-  aiwg issues create --title "..." --body-file path  (configured external tracker)
+  aiwg issues create|new --title "..." --body-file path [--label a,b --label c] [--assignee a,b --assignee c] [--milestone <title|id>]
+  aiwg issues edit <number> [--milestone <title|id|none>] [--add-label a,b] [--remove-label c]
+    [--title "..."] [--body-file path] [--authorize-policy DIGEST]  (external tracker only)
   aiwg issues comment|close <number> [--body-file path]  (configured external tracker)
   Use --provider local for local writes when an external tracker is configured.
   aiwg issue init [--prefix KEY] [--padding N]
-  aiwg issue plan --title "..." [--body "..."] [--body-file path] [--json]
+  aiwg issue plan --title "..." [--body "..."] [--body-file path] [--label a,b --label c] [--assignee a,b --assignee c] [--milestone <title|id>] [--json]
   aiwg issue new --title "..." [--body "..."] [--body-file path] [--authorize-policy DIGEST]
   aiwg issues list --provider local [--status open] [--label bug] [--search text] [--limit 20] [--json]
   aiwg issue show <KEY> [--comments last:10|all]
@@ -459,8 +422,12 @@ Notes:
   issue and issues are aliases; --help and -h show this reference for any subcommand.
   list queries local storage only; initialize it with aiwg issues init.
   External tracker queries require that tracker's tools, including duplicate searches.
-  create/new, comment and close use the configured external tracker and verified actor.
+  create/new, edit, comment and close use the configured external tracker and verified actor.
   --provider local selects local storage; an external --provider must match project config.
+  --label, --assignee, --add-label and --remove-label accept comma lists and repeats;
+    values combine in order without duplicates. Other flags may only be specified once.
+  Milestones resolve open and closed titles, or accept Gitea ids / GitHub numbers.
+  Edit accepts issue or PR numbers; --milestone none clears the milestone.
   --authorize-policy DIGEST authorizes a reviewed issue plan when policy requires it.
 
 Live token sources: --token-interactive, --token-stdin, --token-file <path>,

@@ -3,7 +3,9 @@ import { createServer, type Server } from 'node:http';
 export interface Call { method: string; path: string; body: Record<string, any>; authorization?: string }
 export async function fakeTracker() {
   const calls: Call[] = [];
-  const state = { login: 'operator', head: '', title: 'Fixture change', prState: 'open', base: 'main', reflect: false, reject: false, onRead: undefined as (() => Promise<void>) | undefined };
+  const state = { login: 'operator', head: '', title: 'Fixture change', body: 'Fixture body', prState: 'open', base: 'main', reflect: false, reject: false,
+    labels: [{ id: 2, name: 'bug' }], milestones: { open: [], closed: [] } as Record<string, Array<{ id: number; number?: number; title: string }>>,
+    onRead: undefined as (() => Promise<void>) | undefined };
   const server: Server = createServer(async (request, response) => {
     const chunks = [];
     for await (const chunk of request) chunks.push(chunk);
@@ -20,7 +22,13 @@ export async function fakeTracker() {
         result = { number: 1, state: state.prState, title: state.title, head: { sha: state.head, ref: 'feature' }, base: { ref: state.base } };
       } else { if (request.method === 'PATCH') state.prState = 'closed'; result = { merged: true }; }
     } else if (request.url?.includes('/issues?')) result = [];
-    else if (request.url?.includes('/labels?')) result = [{ id: 2, name: 'bug' }];
+    else if (request.url?.includes('/labels?') || request.url?.includes('/milestones?')) {
+      const url = new URL(request.url!, 'http://fixture.invalid');
+      const page = Number(url.searchParams.get('page') ?? 1);
+      const entries = url.pathname.endsWith('/labels') ? state.labels : state.milestones[url.searchParams.get('state') ?? 'open'];
+      result = entries.slice((page - 1) * 100, page * 100);
+    }
+    else if (request.method === 'GET' && /\/issues\/\d+$/.test(request.url ?? '')) result = { number: 1, title: state.title, body: state.body };
     else result = { number: 1, body: call.body.body, updated_at: '2026-01-01T00:00:00Z' };
     if (state.reflect && request.url !== '/user') result = { reflected: request.headers.authorization };
     response.end(JSON.stringify(result));

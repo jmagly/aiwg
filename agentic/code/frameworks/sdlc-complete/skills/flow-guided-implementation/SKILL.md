@@ -14,6 +14,10 @@ description: Orchestrate autonomous issue-to-code implementation using existing 
 
 Orchestrate autonomous issue-to-code implementation using existing tools and agents with bounded iteration.
 
+## Delegation
+
+Follow [Worker delegation](references/delegation.md) before every worker launch.
+
 ## Usage
 
 ```

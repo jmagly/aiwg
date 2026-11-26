@@ -71,7 +71,7 @@ if (process.argv[2] === '--cold') {
       const start = performance.now();
       const observed = JSON.parse(execFileSync(process.execPath,
         ['--import', import.meta.resolve('tsx'), fileURLToPath(import.meta.url), '--cold', project, JSON.stringify(record), strategy],
-        { cwd: project, env: process.env, encoding: 'utf8', timeout: 60_000 }));
+        { cwd: project, env: process.env, encoding: 'utf8', timeout: 60_000, killSignal: 'SIGKILL' }));
       cold.push({ strategy, query_id: id, process_wall_ms: performance.now() - start, ...observed });
     }
     const fixtureDir = path.join(root, 'test/fixtures/artifacts/discovery-downstream');
@@ -89,7 +89,7 @@ if (process.argv[2] === '--cold') {
       reciprocal_rank_delta: query.reciprocal_rank - matrix.runs[0].queries[i].reciprocal_rank,
       same_results: JSON.stringify(query.results) === JSON.stringify(matrix.runs[0].queries[i].results) }));
     const report = { issue: 3319, command: 'nice -n 19 node --import tsx tools/benchmarks/discovery-research.mjs',
-      source_commit: execFileSync('git', ['-C', root, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
+      source_commit: execFileSync('git', ['-C', root, 'rev-parse', 'HEAD'], { encoding: 'utf8', timeout: 30_000, killSignal: 'SIGKILL' }).trim(),
       fixture: { path: historicalPath, digest: historicalDigest, source: historicalSource, queries: records.length },
       corpus: { metadata_digest: sha(metadata), entry_count: Object.keys(index.entries).length,
         index_build_ms: indexBuildMs, index_files: indexFiles, supplied_graph_observations: Boolean(index.experimentalGraph) },

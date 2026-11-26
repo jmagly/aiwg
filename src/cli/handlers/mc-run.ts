@@ -38,6 +38,8 @@ import { managedControlFailure, cancelManagedMission } from './mc-control.js';
  * baseline; opus is ~$3.90).
  */
 export const SONNET_CACHE_USD = 1.60;
+// Planning coefficients, not observed provider prices; standard retains the legacy baseline.
+export const TIER_CACHE_USD = { economy: 0.20, standard: SONNET_CACHE_USD, premium: 3.90, flagship: 8.00, 'max-quality': 8.00 };
 
 /** Estimate at or above which `mc run` warns and refuses in non-TTY contexts. */
 export const COST_WARNING_THRESHOLD_USD = 5.0;
@@ -74,14 +76,14 @@ export interface MissionRunCostEstimate {
 /**
  * Estimate cumulative spend for a set of queued missions (#2522).
  *
- * The floor for each mission is `maxIterations × SONNET_CACHE_USD`. A declared
+ * The planning floor is `maxIterations × TIER_CACHE_USD[resolved tier]`. A declared
  * `maxTotalCost` bounds that floor **only** when the target provider reports
  * spend — on a provider that reports none, the ceiling is inert (#1766), so
  * subtracting it would make the warning weaker precisely where the operator has
  * no enforced protection. Those ceilings are counted and surfaced instead.
  */
 export function estimateMissionRunCost(
-  missions: ReadonlyArray<Pick<Mission, 'maxIterations' | 'maxTotalCost'>>,
+  missions: ReadonlyArray<Pick<Mission, 'maxIterations' | 'maxTotalCost' | 'workerTier' | 'workerRouting'>>,
   provider: string,
 ): MissionRunCostEstimate {
   const spendObservable = COST_REPORTING_PROVIDERS.has(provider);
@@ -92,7 +94,7 @@ export function estimateMissionRunCost(
   let inertCeilingMissions = 0;
 
   for (const mission of missions) {
-    const floor = mission.maxIterations * SONNET_CACHE_USD;
+    const floor = mission.maxIterations * TIER_CACHE_USD[mission.workerRouting?.resolved_tier ?? mission.workerTier ?? 'standard'];
     iterationFloorUsd += floor;
     const ceiling = typeof mission.maxTotalCost === 'number' && Number.isFinite(mission.maxTotalCost)
       ? mission.maxTotalCost
@@ -159,6 +161,20 @@ export async function mcRun(ctx: HandlerContext): Promise<HandlerResult> {
 
   const projectRoot = ctx.cwd || process.cwd();
   const frameworkRoot = ctx.frameworkRoot;
+  const workers = new Map<string, Awaited<ReturnType<typeof resolveMcWorker>>>();
+  try {
+    const { resolveDelegation } = await import('../../models/delegation.js');
+    for (const mission of eligible) {
+      if (workerDispatch(mission)) workers.set(mission.id, await resolveMcWorker(ctx, session, mission));
+      else mission.workerRouting = (await resolveDelegation({ orchestrator: 'mc', workerId: mission.id,
+        assignment: mission.objective, provider: cfg?.providers[0] ?? 'claude', cwd: projectRoot,
+        requestedTier: mission.workerTier })).record;
+    }
+  } catch (error) { return managedControlFailure(error); }
+  if (hasFlag(ctx.args, '--dry-run')) {
+    console.log(JSON.stringify({ workers: eligible.map(mission => ({ id: mission.id, tier: mission.workerRouting?.resolved_tier, routing: mission.workerRouting })) }));
+    return { exitCode: 0 };
+  }
   let scheduler: Awaited<ReturnType<typeof createMcAdmissionScheduler>>;
   try {
     scheduler = await createMcAdmissionScheduler(projectRoot, cfg);
@@ -173,14 +189,14 @@ export async function mcRun(ctx: HandlerContext): Promise<HandlerResult> {
 
   if (estimate.estimateUsd >= COST_WARNING_THRESHOLD_USD && !acceptCost) {
     ui.blank();
-    ui.warn(`Cost estimate: ~$${estimate.estimateUsd.toFixed(2)} (${eligible.length} missions × iteration floors × ~$${SONNET_CACHE_USD.toFixed(2)} cache cost per claude headless iter).`);
+    ui.warn(`Cost estimate: ~$${estimate.estimateUsd.toFixed(2)} (${eligible.length} missions × tier-aware iteration planning costs).`);
     if (estimate.cappedMissions > 0) {
       ui.warn(`Declared ceilings: $${estimate.declaredCeilingUsd.toFixed(2)} across ${estimate.cappedMissions} mission(s) — counted toward the estimate because ${provider} reports spend.`);
     }
     if (estimate.inertCeilingMissions > 0) {
       ui.warn(`${estimate.inertCeilingMissions} mission(s) declare --max-total-cost totalling $${estimate.declaredCeilingUsd.toFixed(2)}, but ${provider} does not report spend — those ceilings cannot fire and are NOT subtracted from this estimate (#1766).`);
     }
-    ui.warn('Actual spend may be lower if missions complete early, higher if model is opus or context grows.');
+    ui.warn('Planning costs are heuristic; actual spend depends on provider prices, early completion and context growth.');
     if (!process.stdout.isTTY) {
       ui.error('Refusing to launch in non-interactive context. Re-run with `--accept-cost` to proceed.');
       return { exitCode: 1 };
@@ -207,10 +223,6 @@ export async function mcRun(ctx: HandlerContext): Promise<HandlerResult> {
   const allowanceOwner = managed ? await import('../../serve/shared-host-scheduler.js') : null;
 
   // Qualify every worker before admission; one parent retains completion gates.
-  const workers = new Map<string, Awaited<ReturnType<typeof resolveMcWorker>>>();
-  try {
-    for (const mission of queued) if (workerDispatch(mission)) workers.set(mission.id, await resolveMcWorker(ctx, session, mission));
-  } catch (error) { return managedControlFailure(error); }
 
   for (const mission of queued) {
     const worker = workers.get(mission.id);
@@ -301,6 +313,7 @@ export async function mcRun(ctx: HandlerContext): Promise<HandlerResult> {
         await writeSession(session);
       }
       const result = await launchExternalRalph(frameworkRoot, projectRoot, {
+        provider: cfg?.providers[0], workerTier: mission.workerTier ?? mission.workerRouting?.resolved_tier,
         objective: mission.objective,
         completionCriteria: mission.completion,
         maxIterations: managed ? admission.accounting!.attemptCount : mission.maxIterations,
@@ -337,6 +350,7 @@ export async function mcRun(ctx: HandlerContext): Promise<HandlerResult> {
       await writeSession(session);
       await appendLog(session.id, {
         event: 'mission_started',
+        routing: mission.workerRouting,
         missionId: mission.id,
         loopId: result.loopId,
         pid: result.pid,

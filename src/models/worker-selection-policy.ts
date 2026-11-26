@@ -39,6 +39,8 @@ export function ownWorkerRoleGuidance(policy: WorkerSelectionPolicy | undefined,
 }
 
 export const WorkerSelectionPolicySchema = z.strictObject({
+  mode: z.enum(['default', 'advisory', 'off']).optional(),
+  returnBudgetTokens: integer().positive().optional(),
   strategy: z.enum(['cost-effective', 'balanced', 'quality']).optional(),
   maxAutoTier: z.enum(MODEL_TIERS).optional(),
   roleGuidance: roleGuidanceSchema.optional(),

@@ -2,14 +2,15 @@
 import { readFile } from 'node:fs/promises';
 import { readAiwgConfig } from '../config/aiwg-config.js';
 import { sensitiveInputOptions } from '../auth/sensitive-input.js';
-import { deliveryTracker } from '../delivery/tracker.js';
-import type { IssueCompositionModule } from './cli.js';
+import { deliveryTracker, trackerLabels, trackerMilestone } from '../delivery/tracker.js';
+import { editIssue, type IssueComposition } from './edit.js';
+import type { ParsedArgs } from './args.js';
 
-export interface ExternalArgs { raw: string[]; positional: string[]; flags: Map<string, string | boolean> }
+export type ExternalArgs = ParsedArgs;
 export async function externalIssues(args: ExternalArgs, cwd: string,
-  composition: () => Promise<{ plan: Record<string, any>; composer: IssueCompositionModule }>): Promise<boolean> {
+  composition: IssueComposition): Promise<boolean> {
   const [operation, number] = args.positional;
-  if (!['create', 'new', 'comment', 'close', 'list', 'ls'].includes(operation) || args.flags.get('provider') === 'local') return false;
+  if (!['create', 'new', 'edit', 'comment', 'close', 'list', 'ls'].includes(operation) || args.flags.get('provider') === 'local') return false;
   const config = await readAiwgConfig(cwd);
   if (!config || config.remotes?.issue_provider === 'local' || config.remotes?.issue_tracker === 'local') return false;
   if (!config.remotes?.issue_tracker && !['gitea', 'github'].includes(String(config.remotes?.issue_provider))) return false;
@@ -21,7 +22,10 @@ export async function externalIssues(args: ExternalArgs, cwd: string,
   const client = await deliveryTracker(cwd, config, { repo: value('repo'), apiUrl: value('api-url'), source: sensitiveInputOptions(args.raw, 'token') });
   let result: unknown;
   if (operation === 'create' || operation === 'new') {
+    if (args.flags.has('milestone') && !value('milestone')?.trim()) throw new Error('--milestone requires a non-empty value');
     const { plan, composer } = await composition();
+    const milestone = value('milestone') === undefined ? undefined : await trackerMilestone(client, value('milestone')!);
+    const resolvedLabels = await trackerLabels(client, [...new Set<string>(plan.segments.flatMap((segment: { labels: string[] }) => segment.labels))]);
     result = await composer.executeIssuePlan(plan, {
       async findByMarker(marker: string) {
         for (let page = 1; ; page++) {
@@ -32,22 +36,9 @@ export async function externalIssues(args: ExternalArgs, cwd: string,
         }
       },
       async create(draft: Record<string, unknown>) {
-        let labels = draft.labels as Array<string | number> | undefined;
-        if (client.provider === 'gitea' && labels?.length) {
-          const available: Array<{ id: number; name: string }> = [];
-          for (let page = 1; ; page++) {
-            const entries = await client.repositoryRequest<Array<{ id: number; name: string }>>('GET', `/labels?limit=100&page=${page}`);
-            available.push(...entries);
-            if (entries.length < 100) break;
-          }
-          labels = labels.map(name => {
-            const id = available.find(label => label.name === name)?.id;
-            if (id === undefined) throw new Error('Issue label is not defined on the configured tracker');
-            return id;
-          });
-        }
+        const labels = (draft.labels as string[]).map(name => client.provider === 'gitea' ? resolvedLabels.find(label => label.name === name)!.id : name);
         const issue = await client.repositoryRequest<{ number: number; body: string }>('POST', '/issues', {
-          title: draft.title, body: draft.body, labels, assignees: draft.assignees,
+          title: draft.title, body: draft.body, labels, assignees: draft.assignees, milestone,
         });
         return { id: String(issue.number), reference: `#${issue.number}`, body: issue.body };
       },
@@ -56,6 +47,8 @@ export async function externalIssues(args: ExternalArgs, cwd: string,
       },
     }, { authorizationDigest: value('authorize-policy') });
     if ((result as { status: string }).status !== 'created') throw new Error(`Issue creation refused: ${JSON.stringify(result)}`);
+  } else if (operation === 'edit') {
+    result = await editIssue(args, client, composition);
   } else {
     if (!/^[1-9][0-9]*$/.test(number ?? '')) throw new Error(`${operation} requires a positive issue number`);
     const body = value('body-file') ? await readFile(value('body-file')!, 'utf8') : value('body') ?? value('reason');

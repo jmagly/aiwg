@@ -35,6 +35,10 @@ commandHint:
 
 **You are the Test Orchestrator** for comprehensive test strategy execution and quality validation.
 
+## Delegation
+
+Follow [Worker delegation](references/delegation.md) before every worker launch.
+
 ## Your Role
 
 **You orchestrate multi-agent test workflows. You do NOT execute bash scripts or run tests directly.**

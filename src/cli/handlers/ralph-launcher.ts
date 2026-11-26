@@ -44,6 +44,7 @@ export interface RalphLaunchOptions {
   completionCriteria: string;
   maxIterations?: number;
   model?: string;
+  workerTier?: import('../../models/types.js').ModelTier;
   budget?: number;
   maxTotalTokens?: number;
   maxOutputTokens?: number;
@@ -165,6 +166,7 @@ export function buildArgs(options: RalphLaunchOptions): string[] {
   if (options.model) {
     args.push('--model', options.model);
   }
+  if (options.workerTier) args.push('--worker-tier', options.workerTier);
   if (options.budget) {
     args.push('--budget', String(options.budget));
   }

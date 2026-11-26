@@ -1,6 +1,6 @@
 ---
 activation: summary
-summary: "Delegate one bounded objective with minimal context, uncertainty policy, regression checks and a verification oracle; parallelize independent work within provider, project, and context caps."
+summary: "Delegate bounded work by mode to the cheapest capable worker; keep coupled work local and verify condensed returns."
 bound_to:
   skills:
     - agent-loop
@@ -136,14 +136,30 @@ Decompose complex tasks into atomic units before spawning. **FORBIDDEN**: "Imple
 ### Rule 4: Parallelize Independent Work Only
 When N independent tasks exist and delegation is beneficial, use separate focused subagents up to the effective cap. **FORBIDDEN**: parallel edits with serial dependencies or likely shared-state collisions. **REQUIRED**: keep tightly coupled work serial and retain integration in the primary agent.
 
-### Rule 4a: Select the Model Wrapper by Work Characteristics
-When the provider supports delegation, prefer AIWG's deployed wrappers instead of selecting the most capable model by default:
+### Rule 4a: Delegate by default
+Read the merged `models.json` `defaults.workerSelection` policy (builtin → user → project). `mode: default` delegates bounded work when it is read-heavy (>3 files or broad search), verbose (tests/logs/builds), independent, or verification/review of orchestrator work. `advisory` (the rollout default) means **consider** delegation; `off` disables automatic delegation clauses. Explicit user requests still apply.
 
-- `aiwg-model-efficiency-worker` for discovery, inventory, focused edits, and bounded low-cost work.
-- `aiwg-model-coding-worker` for implementation, tests, debugging, and routine technical delivery.
-- `aiwg-model-reasoning-worker` for architecture, synthesis, difficult analysis, and high-consequence review.
+Keep local: trivial lookups; coupled edits sharing design decisions; serial dependencies; user back-and-forth; tasks one agent already handles reliably. Delegate reads, own writes. Parallel writers need disjoint files, preferably separate worktrees.
 
-The primary agent remains responsible for orchestration, final integration, conflict resolution, validation, and the user-facing result. On global-only, compiled, inherited, or unsupported provider surfaces, describe actual enforcement honestly; never claim a per-worker pin that the provider cannot enforce.
+**Bang for the buck**: choose the cheapest capable wrapper/tier, never inherit the session model:
+- `aiwg-model-explorer` / economy: bounded read-only extraction and inventory (`aiwg-model-efficiency-worker` for other bounded economy work).
+- `aiwg-model-coding-worker` / standard: implementation, analysis and routine review; `aiwg-model-verifier` / standard: read-only oracle checks.
+- `aiwg-model-reasoning-worker` / premium: high-consequence reasoning, subject to premium authorization.
+
+Use `defaults.workerSelection.strategy` (`cost-effective` guidance default), `maxAutoTier`, `roleGuidance` and `taskClasses`; projects may narrow user ceilings, never widen them. Escalate one step only on low confidence or failed verification. Flagship is exceptional and user-elected; a flagship session does not raise workers' tiers. Provider pinning limits must be reported honestly.
+
+Return ≤ `returnBudgetTokens` (default 2000) tokens with file:line/URL pointers, confidence and open questions. Preserve the exact final worker artifact as evidence; verify centrally and reconcile conclusions, never concatenate reports or treat worker claims as verified.
+
+Brief contract (expand with exact paths and acceptance criteria; see `templates/subagent-brief.md`):
+```text
+OBJECTIVE: one measurable result
+CONTEXT: only relevant facts and pointers
+SCOPE: allowed files/tools and ownership
+CONSTRAINTS: tier, return budget, timeout, attempt limit, no redelegation
+OUTPUT: exact final artifact path, format, pointers, confidence, open questions
+STOP WHEN: acceptance criteria met or bounded attempt exhausted
+DO NOT: exceed scope, claim unobserved results, or integrate unverified writes
+```
 
 ### Rule 5: Output Scoping
 State exactly what format and scope to return. **FORBIDDEN**: "Analyze the auth system and provide recommendations" (output unspecified). **REQUIRED**: "Identify the top 3 security risks — list of exactly 3, each with name + severity + 1-sentence description, ≤300 words."
@@ -419,7 +435,7 @@ Optional activity-log receipt fields: task/attempt, transport/profile/version, c
 
 ## Orchestrator Fan-Out
 
-Consider subagents when non-trivial work decomposes into independent, bounded units. The decision per subtask is: atomic, context minimal (<20% of window), output scoped, independent, collision-safe, and worth the coordination cost? If yes, dispatch up to the effective cap and aggregate in the primary agent. If no—especially for trivial, tightly coupled, inherently serial, or shared-state-sensitive work—keep it local.
+Apply Rule 4a (“Delegate by default”) in the configured mode. Scale to difficulty: 0–1 workers for simple work, 2–4 for moderate independent work, 5+ only for difficult independent work, always within Rule 8’s minimum of caps. Keep the brief atomic, context minimal (<20% of window), outputs scoped, and writes collision-safe; verify centrally before integration.
 
 Maintain a checkpoint with the active objective, the next bounded action, its owner, and the condition for starting it.
 Report `blocked` while a prerequisite or authorization is missing, `running` when the action has actually started, and

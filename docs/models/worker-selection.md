@@ -67,8 +67,35 @@ fixture's strict validator. That mirror accepts the same optional fields through
 an explicit schema-only amendment in its refresh script; recovery behavior and
 installation ownership remain pinned to the original baseline.
 
-Next slice: update selection rules and generated provider context; connect
-wrapper defaults without overriding exact operator pins; document user-facing
-selection examples and migration; measure task outcomes/cost before claiming
-strategy quality gains. No rules, context generation, wrappers, measurement,
-provider probing, or launch machinery changes belong to this foundation.
+## Rules and generated context follow-up (#2644–#2646)
+
+The existing policy now also accepts `mode` (`default`, `advisory`, `off`) and a
+positive integer `returnBudgetTokens`. Prompt defaults are advisory and 2000;
+the measurement gate still controls any scaffold flip. These fields merge as
+ordinary leaves through ConfigLoader and never authorize a launch. The compact
+template is always emitted, including without aiwg.config. Context guidance
+uses cost-effective / premium when fields are omitted while explicitly retaining
+the legacy resolver behavior described above. Set strategy and ceiling explicitly
+for enforceable ranking/exclusion; no implicit ranking or authority migration is
+performed. `aiwg config get --project defaults.workerSelection --origins` reads the merged
+policy. Project `config set/reset` rejects every model-owned defaults subtree;
+updates use the existing reviewed worker policy proposal/apply path with merged
+candidate validation, so attempts to widen a user ceiling fail atomically.
+
+Role floors and task adjustments remain `roleGuidance` / `taskClasses`, and
+premium confirmation / flagship election remain the existing authority surfaces;
+no separate min/orchestrator tier or flagship config namespace is added. Doctor
+warns if a ceiling names flagship or its compatibility alias: a ceiling alone is
+not election. Ralph's former `opus` fallbacks are gone: Ralph workers
+resolve through this tier policy (#2648), with an explicit `--model` treated as an operator pin. MC's legacy Sonnet estimate is a labeled cache-cost
+floor, not a model selector; managed worker launch and accounting already use
+resolved invocation observations. Remaining end-to-end orchestration routing is
+owned by #2648, and actual cost/accepted-task measurement by #2651. No live model
+or human evaluation result is claimed by this follow-up.
+
+The lightweight CLI ships the existing models-v2 defaults and compact rubric
+template as runtime assets. A cold install can merge project workerSelection
+preferences, including mode off, without installing the full framework corpus.
+
+Native and qualified orchestration wiring is documented separately in
+[Orchestration worker selection (#2648)](orchestration-worker-selection.md).
