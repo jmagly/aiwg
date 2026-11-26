@@ -13,6 +13,8 @@ export type RoutedCapabilityType = ResolvedRoutableCapability['type'];
 export type WrapperLaunchMechanism = 'native-subagent' | 'aiwg-mc' | 'manual';
 
 export interface WrapperRouteRequest extends ModelRouteRequest {
+  role?: ModelRole;
+  modelOverride?: string;
   provider: Parameters<typeof compileModelPolicy>[0]['provider'];
   capability: ResolvedRoutableCapability;
   assignment: string;
@@ -47,7 +49,7 @@ function roleForTier(tier: ModelTier | null): ModelRole | null {
 }
 
 export function buildWrapperRouteEnvelope(request: WrapperRouteRequest): WrapperRouteEnvelope {
-  if (!request.assignment.trim()) throw new Error('Wrapper routing requires a bounded assignment.');
+  if (typeof request.assignment !== 'string' || !request.assignment.trim()) throw new Error('Wrapper routing requires a bounded assignment.');
 
   const decision = routeModelTier({ ...request, agentName: request.agentName ?? request.capability.name });
   if (request.worker?.snapshot.config.parallelism?.worker_dispatch && !request.deterministic) {
@@ -68,13 +70,13 @@ export function buildWrapperRouteEnvelope(request: WrapperRouteRequest): Wrapper
     };
   }
   const tier = decision.modelTier;
-  const role = roleForTier(tier);
+  const role = tier ? request.role ?? roleForTier(tier) : null;
   const wrapper = role ? MODEL_WRAPPERS[role] : null;
   const model = role && tier
     ? compileModelPolicy({
         provider: request.provider,
         artifact: 'agent',
-        policy: { role, tier },
+        policy: { role, tier, override: request.modelOverride },
         election: request.election,
         flagshipAllowlist: request.flagshipAllowlist,
         agentName: request.agentName ?? request.capability.name,

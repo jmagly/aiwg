@@ -22,6 +22,7 @@ import {
   RalphLaunchOptions,
 } from './ralph-launcher.js';
 import { handlerResultFromError } from '../errors.js';
+import { parseWorkerTier } from '../../models/tiers.js';
 
 /** Parse a complete positive decimal value without truncating counter limits. */
 function parsePositiveLimit(raw: string | undefined, integer = false): number | undefined {
@@ -38,6 +39,7 @@ function parseRalphArgs(args: string[]): {
   completionCriteria?: string;
   maxIterations?: number;
   model?: string;
+  workerTier?: import('../../models/types.js').ModelTier;
   budget?: number;
   maxTotalTokens?: number;
   maxOutputTokens?: number;
@@ -95,6 +97,8 @@ function parseRalphArgs(args: string[]): {
       result.maxIterations = positiveNumber('--max-iterations', args[++i], true);
     } else if (arg === '--model') {
       result.model = args[++i];
+    } else if (arg === '--worker-tier') {
+      try { result.workerTier = parseWorkerTier(args[++i] ?? ''); } catch { result.invalidFlags.push('--worker-tier'); }
     } else if (arg === '--budget') {
       result.budget = positiveNumber('--budget', args[++i]);
     } else if (arg === '--max-total-tokens') {
@@ -231,6 +235,7 @@ export class RalphHandler implements CommandHandler {
         completionCriteria: parsed.completionCriteria,
         maxIterations: parsed.maxIterations,
         model: parsed.model,
+        workerTier: parsed.workerTier,
         budget: parsed.budget,
         maxTotalTokens: parsed.maxTotalTokens,
         maxOutputTokens: parsed.maxOutputTokens,
@@ -292,7 +297,8 @@ ARGUMENTS:
 OPTIONS:
   -c, --completion <str>  Completion criteria (required)
   --max-iterations <n>    Maximum iterations (default: 5)
-  --model <model>         Claude model (default: claude-sonnet-5)
+  --model <model>         Explicit user pin (default: worker tier policy)
+  --worker-tier <tier>    Requested worker tier under defaults.workerSelection
   --budget <usd>          Budget per iteration in USD (default: 5.0)
   --timeout <min>         Timeout per iteration in minutes (default: 60)
 

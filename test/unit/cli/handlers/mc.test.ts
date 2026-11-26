@@ -26,7 +26,8 @@ const { inMemoryFs } = vi.hoisted(() => {
 });
 
 // mc.ts uses `import { promises as fs } from 'node:fs'` — must mock 'node:fs', not 'node:fs/promises'
-vi.mock('node:fs', () => {
+vi.mock('node:fs', async importOriginal => {
+  const actual = await importOriginal<typeof import('node:fs')>();
   const store = inMemoryFs.store;
   const fsMethods = {
     mkdir: vi.fn(async (_path: string) => undefined),
@@ -69,7 +70,7 @@ vi.mock('node:fs', () => {
     }),
   };
   return {
-    existsSync: vi.fn(() => false),
+    ...actual, existsSync: vi.fn((path: string) => store.has(path) || actual.existsSync(path)),
     promises: fsMethods,
     default: { promises: fsMethods },
   };

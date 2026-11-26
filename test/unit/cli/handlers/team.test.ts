@@ -228,7 +228,7 @@ describe('team run', () => {
     it('dispatches natively when current Claude Code markers are present', async () => {
       process.env.CLAUDECODE = '1';
       process.env.CLAUDE_CODE_ENTRYPOINT = 'cli';
-      writeTeam('sdlc-review');
+      writeTeam('sdlc-review', { ...sampleTeam, agents: [{ agent: 'fixture-coder', role: 'contributor', responsibilities: [] }] });
       const log = vi.spyOn(console, 'log').mockImplementation(() => {});
       try {
         const result = await teamHandler.execute(makeCtx(['run', 'sdlc-review']));

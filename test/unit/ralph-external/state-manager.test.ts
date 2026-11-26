@@ -88,7 +88,7 @@ describe('StateManager', () => {
 
       expect(state.maxIterations).toBe(10);
       const expectedConfig = {
-        provider: 'claude', model: 'opus', budgetPerIteration: 2.0,
+        provider: 'claude', budgetPerIteration: 2.0,
         budgetLimits: {}, explorationQuota: { enabled: false },
         budgetStopPolicy: 'completion-wins', evalHarness: null, executionMode: 'default',
         timeoutMinutes: 60, mcpConfig: null, workingDir: testDir,
@@ -107,7 +107,7 @@ describe('StateManager', () => {
 
     it('should accept custom config values', () => {
       const configuredOptions = {
-        provider: 'codex', model: 'sonnet', budgetPerIteration: 5.0,
+        provider: 'codex', model: 'sonnet', workerTier: 'standard', modelElection: 'user', budgetPerIteration: 5.0,
         budgetLimits: { maxTokens: 5000 }, explorationQuota: { enabled: true, ratio: 0.2 },
         budgetStopPolicy: 'budget-wins', evalHarness: { command: 'fixture-only' },
         executionMode: 'test-fixture', timeoutMinutes: 12,

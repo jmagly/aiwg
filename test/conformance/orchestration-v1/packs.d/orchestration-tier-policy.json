@@ -1,0 +1,18 @@
+{
+  "T-OG-01": {
+    "testFiles": [
+      "test/unit/models/delegation.test.ts",
+      "test/unit/models/worker-routing-record.test.ts"
+    ]
+  },
+  "T-OG-08": {
+    "testFiles": [
+      "test/unit/serve/cycle-delegation.test.ts",
+      "test/unit/cli/handlers/orchestration-tier-policy.test.ts",
+      "test/unit/ralph-external/ralph-delegation.test.ts",
+      "test/unit/ralph-external/orchestrator-resilience.test.mjs",
+      "test/unit/skills/flow-delegation.test.ts",
+      "test/unit/providers/omp-team-selection.test.ts"
+    ]
+  }
+}

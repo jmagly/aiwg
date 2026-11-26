@@ -7,6 +7,8 @@ export type SessionState = 'active' | 'paused' | 'stopped';
 export type MissionMode = 'direct' | 'pty-orchestrator';
 
 export interface Mission {
+  workerTier?: import('../../models/types.js').ModelTier;
+  workerRouting?: import('../../models/delegation.js').DelegationRecord;
   id: string;
   objective: string;
   completion?: string;
