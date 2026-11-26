@@ -88,7 +88,8 @@ Result: PASS — all checks passed
 Create a new addon called "my-analytics"
 ```
 
-The `devkit-create-addon` skill scaffolds:
+The canonical `scaffold-addon` skill (alias: `devkit-create-addon`) scaffolds the following.
+Load its guided design and next steps with `aiwg show skill scaffold-addon --body`:
 
 ```
 agentic/code/addons/my-analytics/
@@ -107,7 +108,8 @@ Fill in the description and start adding components.
 Create a new skill called "analyze-coverage" in the my-analytics addon
 ```
 
-The `devkit-create-skill` skill creates:
+The canonical `add-skill` skill (alias: `devkit-create-skill`) creates the following.
+Load its guided design and next steps with `aiwg show skill add-skill --body`:
 
 ```
 agentic/code/addons/my-analytics/skills/analyze-coverage/

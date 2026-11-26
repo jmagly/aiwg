@@ -90,6 +90,7 @@ This is the recommended path for first-time framework creation. Ask:
    - Quality (reviewers, testers, validators)
    - Coordination (managers, orchestrators, leads)
 6. **Template categories**: What artifact types will this framework produce?
+   - Planning, requirements, design, implementation, quality, and deployment artifacts
 7. **Core commands**: What phase-execution and transition commands are needed?
 
 ### 4. Run Scaffolding
@@ -156,7 +157,7 @@ Each phase gets a flow definition in `flows/`:
 After scaffold, build agents in this order:
 
 1. **Phase 1**: 2-3 core agents per phase (primary authors)
-2. **Phase 2**: Reviewer agents for each phase
+2. **Phase 2**: Reviewer agents and other specialized agents as needed for each phase
 3. **Phase 3**: Orchestration agents for phase transitions
 
 ```bash
@@ -173,7 +174,15 @@ aiwg add-agent <role> --to <name> --template complex
 aiwg add-command flow-<phase> --to <name> --template orchestration
 ```
 
-### 9. Deploy and Validate
+### 9. Build Template Set (Priority Order)
+
+1. Create 2-3 key templates per phase
+2. Add specialized templates as needed
+3. Add cross-cutting templates shared across phases
+
+Review `actors-and-templates.md` first so the initial agents and templates cover the key artifacts.
+
+### 10. Deploy and Validate
 
 ```bash
 # Deploy framework to active provider
@@ -277,9 +286,9 @@ aiwg scaffold-framework data-science-ops \
 
 ## References
 
-- @$AIWG_ROOT/agentic/code/addons/aiwg-utils/skills/devkit-create-framework/SKILL.md — Devkit equivalent (interactive design)
 - @$AIWG_ROOT/src/cli/handlers/scaffolding.ts — CLI handler implementation
 - @$AIWG_ROOT/docs/cli-reference.md — Full CLI reference
 - @$AIWG_ROOT/docs/development/framework-creation-guide.md — Detailed framework authoring guide
+- @$AIWG_ROOT/docs/development/devkit-overview.md — Developer toolkit overview
 - @$AIWG_ROOT/agentic/code/frameworks/sdlc-complete/ — Primary reference implementation
 - @$AIWG_ROOT/agentic/code/frameworks/media-marketing-kit/ — Alternative reference implementation

@@ -63,8 +63,13 @@ Ask the following before generating:
 4. **Tools needed**: Which tools does it require? (Read, Write, Bash, Grep, WebFetch, Task)
 5. **Model tier**: haiku (fast/utility), sonnet (balanced), opus (reasoning-heavy)
 6. **Output format**: What structured output should it produce?
+7. **Workflow**: How should it approach tasks?
 
 ### 4. Select Template
+
+Templates live in `$AIWG_ROOT/templates/agent-scaffolding/`. The complex template
+includes grounding, uncertainty handling, and recovery safeguards; the orchestrator
+template includes workflow patterns and agent assignment tables.
 
 | Template | Use When | Default Model | Tools |
 |----------|----------|---------------|-------|
@@ -123,11 +128,21 @@ After creation, run the agent linter:
 aiwg lint agents <target>/agents/<name>.md --verbose
 ```
 
-Key checks:
-- Single responsibility (no "and" overload in description)
-- Minimal tools (0-3 tools, each justified)
-- Explicit I/O contract defined
-- Model tier matches task complexity
+Follow the [Agent Design Bible]($AIWG_ROOT/docs/frameworks/sdlc-complete/agent-design.md).
+Its failure prevention guidance draws on REF-001 (Bandara et al.) and REF-002 (Roig 2025).
+
+| Rule | Check |
+|------|-------|
+| 1. Single Responsibility | One clear purpose, no "and" overload |
+| 2. Minimal Tools | 0-3 tools, each justified |
+| 3. Explicit I/O | Inputs and outputs defined |
+| 4. Grounding | Verify before acting (Archetype 1) |
+| 5. Uncertainty | Escalate ambiguity (Archetype 2) |
+| 6. Context Scope | Filter distractors (Archetype 3) |
+| 7. Recovery | Handle errors (Archetype 4) |
+| 8. Model Tier | Match task complexity |
+| 9. Parallel Ready | Concurrent execution safe |
+| 10. Observable | Traceable output |
 
 ### 8. Update Manifest
 
@@ -206,7 +221,6 @@ aiwg add-agent threat-modeler --to sdlc-complete --template complex
 
 ## References
 
-- @$AIWG_ROOT/agentic/code/addons/aiwg-utils/skills/devkit-create-agent/SKILL.md — Devkit equivalent (interactive design)
 - @$AIWG_ROOT/src/cli/handlers/scaffolding.ts — CLI handler implementation
 - @$AIWG_ROOT/docs/cli-reference.md — Full CLI reference
 - @$AIWG_ROOT/agentic/code/frameworks/sdlc-complete/agents/ — Example agent definitions

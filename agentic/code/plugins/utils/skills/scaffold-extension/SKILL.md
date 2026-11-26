@@ -88,6 +88,11 @@ Ask before generating:
 3. **Agents**: What specialist agents should be scaffolded? (e.g., `python-test-engineer`, `go-module-auditor`)
 4. **Rules**: What ecosystem-specific rules should be defined? (e.g., type safety, package management)
 5. **Templates**: What ecosystem-specific document templates are needed?
+6. **Compliance/domain**: What domain, requirements, or standards does it cover?
+   - Compliance examples: GDPR, HIPAA, SOX, PCI-DSS, FTC
+   - Domain examples: healthcare, fintech, government
+7. **Checklists**: What verification checklists are needed?
+8. **Dependencies**: Does it depend on other extensions?
 
 ### 4. Run Scaffolding
 
@@ -131,6 +136,10 @@ aiwg add-agent <name>-specialist --to <framework>/extensions/<name>
 # Create templates
 # <framework>/extensions/<name>/templates/<template>-template.md
 ```
+
+Offer to create the initial templates and verification checklists identified during design.
+Document any extension dependencies and activation instructions in the generated README;
+add domain-specific checklists under `checklists/` when needed.
 
 ### 7. Register with Parent Framework
 
@@ -215,7 +224,6 @@ aiwg scaffold-extension github-actions --to sdlc-complete \
 
 ## References
 
-- @$AIWG_ROOT/agentic/code/addons/aiwg-utils/skills/devkit-create-extension/SKILL.md — Devkit equivalent (interactive design)
 - @$AIWG_ROOT/src/cli/handlers/scaffolding.ts — CLI handler implementation
 - @$AIWG_ROOT/docs/cli-reference.md — Full CLI reference
 - @$AIWG_ROOT/agentic/code/frameworks/sdlc-complete/extensions/ — Existing extension examples
