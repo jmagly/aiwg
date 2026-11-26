@@ -35,6 +35,20 @@ Before empirical conclusions, re-open the pinned
 and [collation report](https://git.integrolabs.net/section9/research-papers/src/commit/144e35c2d6fa94171eed60dc4ba5b9d59398771d/documentation/analysis/node-collation-cross-reference-2026-10-19.md),
 then verify each relevant primary-source passage and its applicability.
 
+The 2026-11-16 comment on #3318 adds REF-3177 (MutMem) and REF-3181 (PSN) and
+points at corpus commit `7f92a62b99d62d14b9c3a4fe499087d654cf6234`. This
+offline task did not re-open those analyses, their protocols or the primary
+sources. Counts, attack rates and cost ratios in that comment are literature
+reports. They are limits on what this design may copy, and they are not
+deployment defaults. The comment reports that REF-3177's cited source
+repositories and pinned commits returned 404, and that its poisoning
+calibration reused the same 100 locked targets, so a low attack rate on that
+set does not estimate unseen attacks. It reports that REF-3181 admitted 96 of
+139 refactor proposals, replayed only three recent affected tasks, and rolled
+back after a greater-than-20% success drop, with embodied cost about 3.5× a
+comparator in a separate cohort. That drop, that replay width and that cost
+ratio do not transfer to coding tasks. Closed #4205 is not reopened here.
+
 ## Verified checkout owners
 
 These are source owners found by reading code, not inferred tracker status:
@@ -79,6 +93,21 @@ not additions to existing strict v1 JSON contracts.
 | C3 | Frozen vs updating vs shuffled-memory held-out experiment; measure earlier-task retention. | #3285 qualification fixtures, extending tools/eval patterns when the experiment is implemented; #3283 candidate evidence. | Add the H5 controls below to a future study, including no-memory. Existing placement baselines do not measure longitudinal learning, shuffled retrieval or retention. |
 | C4 | Always-loaded general rules with activation-loaded specifics. | #3282 placement/retrieval checks; #3283 bounded-pack recommendation; #3284 activation/discovery controls. | Reuse context packs and existing rule-binding/provider owners. Moving files is not demotion if startup imports still load them. Verify activation, rare obligations and next-session projection; layering benefit remains a hypothesis. |
 | C5 | Per-version prompt/memory size, contradictions and drift. | #3283 audit/cost and evidence reports; #3282 revision/receipt lineage; #3284 verify/report controls; #3285 comparative outcomes. | Record before/after bytes and estimated/measured tokens with estimator, contradiction cases and drift against the frozen version. Unknown live loading or semantic drift stays unknown, never zero. A smaller file alone cannot pass. |
+
+### Follow-up constraints from the 2026-11-16 comment
+
+These rows extend the same owner map. They do not add a command, schema,
+config key or signature field. Authorization, continuity, freshness and
+usefulness stay separate questions.
+
+| ID | Constraint | Owning issue(s) and existing extension point | Required evidence / remaining boundary |
+|---|---|---|---|
+| C6 | Separate authorized mutation, chain continuity and freshness from truth or usefulness. An authentic history can still hold an incorrect belief. | #3284 reviewer plus exact plan-digest confirmation authorizes the mutation. #3282 precondition digest/version and the maintenance receipt record continuity. Freshness is the owner snapshot compared with current records at preview. #3283 evidence and #3285 scores speak only to usefulness. | A matching receipt or reviewer name does not make the belief true or useful. Do not collapse authorization, continuity, freshness and usefulness into one pass. |
+| C7 | An external trusted head defines freshness. A self-contained chain does not make a replayed or forked branch current. | #3282 reads owner records and the snapshot digest under the maintenance directory lock before pending work is applied. #3284 `providerCopies.status` reports projection freshness (`current`, `stale`, `not-applicable`) and does not regenerate. | Idempotent resume of a finished plan digest returns that receipt and does not move the head. A new plan whose predecessor is older than the live records fails as stale. A valid receipt on a fork is not currency. No attestation service is added. |
+| C8 | Each add, demote, merge and retire reproduces against one fixed predecessor and independently checked evidence. Keep negative evidence. | #3282 requires target and precondition to name the same revision and checks that revision against current records. #3284 binds the external check to the candidate digest (C2). Tombstones keep id, predecessor digest, disposition, reason and reviewer. #3283 can mark a candidate `conflict` or `rejected` without writing the store. | Maintenance cannot purge. A later winning revision does not delete the tombstone, retained history or rejected candidate. Tombstones are reviewer-bound records, not a new signature scheme. |
+| C9 | Compare unconditional acceptance with maturity-aware gating. Localize faults in composed skills, and validate rollback on coding fixtures. Do not transfer embodied-environment results. | #3285 extends the H5 updating policy below. #3282 already distinguishes `retirementBasis` `age` and `review`, and already has a reviewed restore plan. Synthetic tool-selection fixtures stay local. | Maturity is a second predeclared gate on top of C2. REF-3181's greater-than-20% drop, three-task replay and embodied cost ratio are not deployment defaults. |
+| C10 | Future evaluation includes a stale predecessor, a replayed predecessor, concurrent conflicting updates, rejected evidence, incomplete writes and rollback recovery. | #3282 already rejects a stale precondition, refuses a second plan while the directory lock is held, journals a `partial` receipt with `resumedFrom`, and verifies restore. #3283 retains the rejected candidate. #3285 runs the vectors below as offline fixtures. | These cases score integrity only. They reuse existing errors and receipts. |
+| C11 | Report integrity conformance separately from downstream utility, retention, maintenance cost and negative transfer. | #3285 reporting, next to the H5 measures in this note. #3283 cost and evidence stay in the cost block. | The five blocks are not summed. An integrity pass is not a utility gain. A utility gain with a failed integrity vector is a failed run. |
 
 ## Delta review, versioning and rollback
 
@@ -167,6 +196,39 @@ zero score. Log seed, permutation and packet digests. The shuffled arm receives
 the paired checkpoint pool without gold/task labels and cannot write updates;
 this isolates relevance rather than testing a different updater policy.
 
+**Gating contrast.** The primary `updating` arm is maturity-aware: a delta is
+eligible only after the C2 check and a second predeclared condition, such as
+`retirementBasis: review` or a second independent fixture check on the same
+candidate bytes. A paired unconditional treatment accepts every C2-passing
+delta during adaptation, with the same seeds, item counts and ceilings.
+Report unconditional minus maturity-aware on held-out completion and on
+retention. Neither treatment may use a greater-than-20% success drop or a
+three-recent-task replay as its gate. In the synthetic tool-selection family,
+at least one composed-skill case has a single wrong component, and the report
+names that component. Rollback uses the existing restore-and-verify path on
+these coding fixtures. Embodied-environment results are not treated as
+evidence for that path.
+
+**Integrity vectors.** Run these with deterministic local fixtures before any
+model arm. A rejecting vector leaves the prior revision in place.
+
+| Vector | Expected existing behavior | Integrity result |
+|---|---|---|
+| stale predecessor | Precondition digest or version differs from current records (`Stale memory digest or version precondition`, or a stale owner snapshot). | Reject. No apply. |
+| replayed predecessor | A new plan names an older revision after a newer commit, or a fork presents an old receipt as the current head. | Reject as stale. The receipt does not establish currency. Idempotent resume of the same finished plan digest returns that receipt and does not apply again. |
+| concurrent conflicting updates | Another plan targets the same owner snapshot while the directory lock is held, or it is reviewed after the winner commits. | Lock refusal (`Concurrent maintenance plan owns the workspace lock`), or a stale snapshot on the loser. One operation per owner snapshot. |
+| rejected evidence | The independent check fails, or the recommendation status is `rejected`. | Store unchanged. Keep the rejected candidate and its evidence. |
+| incomplete write | Apply stops after a committed owner mutation. | `partial` receipt, pending keys explicit, resume from the same plan digest, then verify. |
+| rollback recovery | Reviewed `restore` against the current revision, then verify. | Source, tombstone and projection match the restored plan. A missing exact version stops the run. |
+
+**Separate reports.** Publish five blocks that cannot be added together:
+integrity conformance (pass or fail per vector above); downstream utility
+(the held-out completion contrasts); retention (`retention_delta_pp` and
+paired regressions); maintenance cost (tokens, latency, accepted and rejected
+deltas); negative transfer (updating minus shuffled-memory, and any earlier
+task that passed before adaptation and fails after). Negative transfer can
+occur while held-out utility rises. Integrity does not imply utility.
+
 **Sequence and isolation.** Run each arm/seed from a fresh temporary HOME and
 project (os.tmpdir + mkdtemp), fake local CLI/MCP/HTTP fixtures and reset caches.
 Pre-test earlier tasks at version zero, adapt on the adaptation split only,
@@ -230,13 +292,22 @@ study needs separately authorized collection and verified source passages.
 
 ## Acceptance and remaining questions
 
-- Design mapping: all five issue constraints are assigned above to #3282–#3285
-  with current mechanisms separated from proposed semantic/evaluation gates.
-- Experiment plan: H5 includes frozen/updating/shuffled-memory/no-memory arms,
-  held-out isolation, a longitudinal retention metric and falsifiable criteria.
+- Design mapping: C1–C5 assign the original issue constraints, and C6–C11
+  assign the 2026-11-16 authenticity, freshness, negative-evidence, gating,
+  fault-vector and separate-reporting constraints, to #3282–#3285. Current
+  mechanisms stay separate from proposed semantic and evaluation gates.
+  No new command, schema, config key or signature field is added.
+- Experiment plan: H5 keeps frozen, updating, shuffled-memory and no-memory
+  arms, held-out isolation, the longitudinal retention metric and falsifiable
+  criteria. It also compares unconditional and maturity-aware gating, lists
+  six offline integrity vectors, and splits integrity conformance from
+  utility, retention, maintenance cost and negative transfer.
 - Remaining empirical questions: does layering help after counting startup
   imports; what contradiction checks generalize beyond fixtures; what sample
   size supports the chosen retention margin; and how will #3315 expose the
   required paired records? None is claimed resolved by this design note.
-- Primary-source re-verification and experiment execution remain pending.
-  This deliverable creates neither a runtime updater nor measured evidence.
+  Cryptographic signatures on negative evidence are not proposed; whether a
+  later issue needs them is open.
+- Primary-source re-verification and experiment execution remain pending,
+  including REF-3177 and REF-3181. This deliverable creates neither a runtime
+  updater nor measured evidence.
