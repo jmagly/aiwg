@@ -1,0 +1,586 @@
+{
+  "version": 1,
+  "frozenAt": "2026-11-26T02:32:14.937Z",
+  "sourceRevision": "10625c1bd0a99a9af2c00bb2e6cefad702076504",
+  "harnessCommit": "654d5b0046e91d3bd4dc8a9691204978baf722ba",
+  "node": "v24.22.1",
+  "platform": "linux",
+  "architecture": "x64",
+  "snapshot": {
+    "path": "docs/reports/skill-retention-4239/snapshot.json",
+    "digest": "sha256:11d6b9b56d7b1895d534981b81a3c4d182c4f3ac054f4191e613c7eee20ad200"
+  },
+  "sourceFixture": {
+    "path": "test/fixtures/artifacts/skill-retention.json",
+    "digest": "sha256:11d6b9b56d7b1895d534981b81a3c4d182c4f3ac054f4191e613c7eee20ad200"
+  },
+  "harnessParsedSnapshotHash": "sha256:518c4693b45b25993751aaf5c0a2af36de8cf1001d6b7df3928318dd7400e50c",
+  "preregistration": {
+    "path": "docs/reports/skill-retention-4239/preregistration.md",
+    "digest": "sha256:ce966ef8256ae16d9d50179ba088fdf449e8eef8fbc1eb751cb0b65b6866e66d"
+  },
+  "sources": [
+    {
+      "path": "tools/eval/skill-retention.mjs",
+      "digest": "sha256:65ea6ab3eca3b45a95138005276752dd742eb765f6d394129fe6f100325bcc9f"
+    },
+    {
+      "path": "tools/eval/skill-retention-controls.mjs",
+      "digest": "sha256:505f764ced5638217fe6ca593cbd936c14ed9a4d38205626760de2bea046812e"
+    },
+    {
+      "path": "test/unit/tools/skill-retention.test.ts",
+      "digest": "sha256:c06a1a9e1421b29a159ca26e843b90bbe1bbfae132555b2f7fbd52bd5dd69336"
+    },
+    {
+      "path": "package.json",
+      "digest": "sha256:96c79807e67e5d5d355757a68ee0a75243b6879c4df037140ea44e2bc778bbf7"
+    },
+    {
+      "path": "package-lock.json",
+      "digest": "sha256:d34801f97d9fce7df2279a358d12dfdeb7f95fd6efba00e4ebe85b22761857cd"
+    },
+    {
+      "path": ".worker/offline-guard.mjs",
+      "digest": "sha256:dcf28e4854ce2cec501511398ba2c9281401f33dbd3ea4b1579b04aa56115c31"
+    },
+    {
+      "path": ".worker/run-local.py",
+      "digest": "sha256:4e5cbdaa8e46e81bd126df409128889750b3e8ef2246f597ad47c5f2d913e517"
+    }
+  ],
+  "trackedSourceTree": {
+    "count": 1484,
+    "digestOfJSON": "sha256:0481166892995a536b4e47814da0615228c52719ad1812684449697a09fbd882",
+    "ordering": "git ls-files src"
+  },
+  "builtRuntime": {
+    "path": "docs/reports/skill-retention-4239/runtime-manifest.json",
+    "digest": "sha256:d0df8a5f3aa0a5547d2e3b0356d60a0d8c03676f29bcfc736bc363f1321ac943",
+    "count": 5349
+  },
+  "protocol": {
+    "issue": 4239,
+    "scope": "synthetic offline pilot; no population inference",
+    "heldOut": "Queries and executable oracles are never provided to refinement.",
+    "bodyOnlyMeaning": "Rewrite descriptions using only incoming bodies; executable bodies remain frozen.",
+    "seed": 4239,
+    "streams": {
+      "natural-random": [
+        "sort-descending",
+        "yaml-format",
+        "sum-alternative",
+        "text-lower"
+      ],
+      "confusable": [
+        "yaml-format",
+        "text-lower",
+        "sort-descending",
+        "sum-alternative"
+      ]
+    },
+    "limit": 2,
+    "contextCharacters": 4096,
+    "executionSteps": 2,
+    "refinementCalls": 0,
+    "retries": 0,
+    "embeddings": 0,
+    "decision": "no-change"
+  },
+  "skills": [
+    {
+      "id": "json-format",
+      "name": "json-format",
+      "cohort": "old",
+      "originalDescription": "Format JSON documents.",
+      "bodyHash": "sha256:54c2223152b9845b2c4ea1a8530487d2692439c1507d7c27a8134f38575b7258",
+      "bodyOnly": [
+        "Format documents.",
+        "Serialize JSON values.",
+        "Does not emit YAML."
+      ],
+      "refined": [
+        "Serialize JSON values.",
+        "Does not emit YAML."
+      ]
+    },
+    {
+      "id": "text-upper",
+      "name": "text-upper",
+      "cohort": "old",
+      "originalDescription": "Transform text to uppercase.",
+      "bodyHash": "sha256:b1ae9738f317238177ae94ebbd1d4959da46e17261f99c01f9de348c48f8ea0f",
+      "bodyOnly": [
+        "Transform text.",
+        "Convert text to uppercase.",
+        "Does not lowercase text."
+      ],
+      "refined": [
+        "Convert text to uppercase.",
+        "Does not lowercase text."
+      ]
+    },
+    {
+      "id": "sort-ascending",
+      "name": "sort-ascending",
+      "cohort": "old",
+      "originalDescription": "Sort numbers in ascending order.",
+      "bodyHash": "sha256:ff1f4615a20a0b77eb031c146456729536cc82b5c71e6446becc44ea7269c3d9",
+      "bodyOnly": [
+        "Sort collections.",
+        "Order numbers ascending.",
+        "Does not order descending."
+      ],
+      "refined": [
+        "Order numbers ascending.",
+        "Does not order descending."
+      ]
+    },
+    {
+      "id": "sum-values",
+      "name": "sum-values",
+      "cohort": "old",
+      "originalDescription": "Calculate the sum of numbers.",
+      "bodyHash": "sha256:6cb90359388744d89993740921946b1245b68c0e8b1bc85067c1564574d82f97",
+      "bodyOnly": [
+        "Calculate numbers.",
+        "Sum numeric arrays.",
+        "Does not multiply values."
+      ],
+      "refined": [
+        "Sum numeric arrays.",
+        "Does not multiply values."
+      ]
+    },
+    {
+      "id": "yaml-format",
+      "name": "yaml-format",
+      "cohort": "new",
+      "originalDescription": "Format documents.",
+      "bodyHash": "sha256:8a60654fc3a29390722481ac54723f19ddf2de3c702d7ae2ab214cba7ef41290",
+      "bodyOnly": [
+        "Format documents.",
+        "Serialize scalar YAML values.",
+        "Does not emit JSON objects."
+      ],
+      "refined": [
+        "Serialize scalar YAML values.",
+        "Does not emit JSON objects."
+      ]
+    },
+    {
+      "id": "text-lower",
+      "name": "text-lower",
+      "cohort": "new",
+      "originalDescription": "Transform text.",
+      "bodyHash": "sha256:0d8f0edf84cb1692bbf20f3a61395828100df75da5dfd1b708053ad44a8d670a",
+      "bodyOnly": [
+        "Transform text.",
+        "Convert text to lowercase.",
+        "Does not uppercase text."
+      ],
+      "refined": [
+        "Convert text to lowercase.",
+        "Does not uppercase text."
+      ]
+    },
+    {
+      "id": "sort-descending",
+      "name": "sort-descending",
+      "cohort": "new",
+      "originalDescription": "Sort numbers.",
+      "bodyHash": "sha256:1426449cc7e590876f46ac07106bd00da166b05f41b6c848b97c37a94004add4",
+      "bodyOnly": [
+        "Sort collections.",
+        "Order numbers descending.",
+        "Does not order ascending."
+      ],
+      "refined": [
+        "Order numbers descending.",
+        "Does not order ascending."
+      ]
+    },
+    {
+      "id": "sum-alternative",
+      "name": "sum-alternative",
+      "cohort": "new",
+      "originalDescription": "Calculate the sum of numbers.",
+      "bodyHash": "sha256:6cb90359388744d89993740921946b1245b68c0e8b1bc85067c1564574d82f97",
+      "bodyOnly": [
+        "Calculate numbers.",
+        "Sum numeric arrays.",
+        "Does not multiply values."
+      ],
+      "refined": [
+        "Sum numeric arrays.",
+        "Does not multiply values."
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "old-json",
+      "query": "format JSON documents",
+      "required": [
+        "json-format"
+      ],
+      "steps": [
+        "json"
+      ],
+      "input": {
+        "x": 1
+      },
+      "expected": "{\"x\":1}",
+      "validationCases": [
+        {
+          "input": [
+            1
+          ],
+          "expected": "[1]"
+        },
+        {
+          "input": true,
+          "expected": "true"
+        }
+      ],
+      "alternatives": {},
+      "stratum": "old-only"
+    },
+    {
+      "id": "old-upper",
+      "query": "transform text uppercase",
+      "required": [
+        "text-upper"
+      ],
+      "steps": [
+        "upper"
+      ],
+      "input": "Alpha",
+      "expected": "ALPHA",
+      "validationCases": [
+        {
+          "input": "beta",
+          "expected": "BETA"
+        },
+        {
+          "input": "Xy",
+          "expected": "XY"
+        }
+      ],
+      "alternatives": {},
+      "stratum": "old-only"
+    },
+    {
+      "id": "old-sort",
+      "query": "sort numbers ascending",
+      "required": [
+        "sort-ascending"
+      ],
+      "steps": [
+        "asc"
+      ],
+      "input": [
+        3,
+        1,
+        2
+      ],
+      "expected": [
+        1,
+        2,
+        3
+      ],
+      "validationCases": [
+        {
+          "input": [
+            2,
+            -1
+          ],
+          "expected": [
+            -1,
+            2
+          ]
+        },
+        {
+          "input": [],
+          "expected": []
+        }
+      ],
+      "alternatives": {},
+      "stratum": "old-only"
+    },
+    {
+      "id": "old-sum",
+      "query": "calculate sum numbers",
+      "required": [
+        "sum-values"
+      ],
+      "steps": [
+        "sum"
+      ],
+      "input": [
+        1,
+        2
+      ],
+      "expected": 3,
+      "validationCases": [
+        {
+          "input": [
+            -3,
+            2
+          ],
+          "expected": -1
+        },
+        {
+          "input": [],
+          "expected": 0
+        }
+      ],
+      "alternatives": {
+        "sum-values": [
+          "sum-alternative"
+        ]
+      },
+      "stratum": "old-only"
+    },
+    {
+      "id": "new-yaml",
+      "query": "serialize scalar YAML values",
+      "required": [
+        "yaml-format"
+      ],
+      "steps": [
+        "yaml"
+      ],
+      "input": "alpha",
+      "expected": "value: alpha",
+      "validationCases": [
+        {
+          "input": 2,
+          "expected": "value: 2"
+        },
+        {
+          "input": "beta",
+          "expected": "value: beta"
+        }
+      ],
+      "alternatives": {},
+      "stratum": "new-only"
+    },
+    {
+      "id": "new-lower",
+      "query": "convert text lowercase",
+      "required": [
+        "text-lower"
+      ],
+      "steps": [
+        "lower"
+      ],
+      "input": "Alpha",
+      "expected": "alpha",
+      "validationCases": [
+        {
+          "input": "BETA",
+          "expected": "beta"
+        },
+        {
+          "input": "Xy",
+          "expected": "xy"
+        }
+      ],
+      "alternatives": {},
+      "stratum": "new-only"
+    },
+    {
+      "id": "new-sort",
+      "query": "order numbers descending",
+      "required": [
+        "sort-descending"
+      ],
+      "steps": [
+        "desc"
+      ],
+      "input": [
+        3,
+        1,
+        2
+      ],
+      "expected": [
+        3,
+        2,
+        1
+      ],
+      "validationCases": [
+        {
+          "input": [
+            2,
+            -1
+          ],
+          "expected": [
+            2,
+            -1
+          ]
+        },
+        {
+          "input": [],
+          "expected": []
+        }
+      ],
+      "alternatives": {},
+      "stratum": "new-only"
+    },
+    {
+      "id": "new-sum",
+      "query": "sum numeric arrays",
+      "required": [
+        "sum-alternative"
+      ],
+      "steps": [
+        "sum"
+      ],
+      "input": [
+        1,
+        2
+      ],
+      "expected": 3,
+      "validationCases": [
+        {
+          "input": [
+            -3,
+            2
+          ],
+          "expected": -1
+        },
+        {
+          "input": [],
+          "expected": 0
+        }
+      ],
+      "alternatives": {
+        "sum-alternative": [
+          "sum-values"
+        ]
+      },
+      "stratum": "new-only"
+    },
+    {
+      "id": "mixed-sort-json",
+      "query": "order numbers descending serialize JSON",
+      "required": [
+        "sort-descending",
+        "json-format"
+      ],
+      "steps": [
+        "desc",
+        "json"
+      ],
+      "input": [
+        1,
+        3,
+        2
+      ],
+      "expected": "[3,2,1]",
+      "validationCases": [
+        {
+          "input": [
+            1,
+            2
+          ],
+          "expected": "[2,1]"
+        },
+        {
+          "input": [],
+          "expected": "[]"
+        }
+      ],
+      "alternatives": {},
+      "stratum": "mixed"
+    },
+    {
+      "id": "mixed-lower-json",
+      "query": "convert text lowercase serialize JSON",
+      "required": [
+        "text-lower",
+        "json-format"
+      ],
+      "steps": [
+        "lower",
+        "json"
+      ],
+      "input": "Alpha",
+      "expected": "\"alpha\"",
+      "validationCases": [
+        {
+          "input": "B",
+          "expected": "\"b\""
+        },
+        {
+          "input": "A",
+          "expected": "\"a\""
+        }
+      ],
+      "alternatives": {},
+      "stratum": "mixed"
+    },
+    {
+      "id": "mixed-sum-json",
+      "query": "sum numeric arrays serialize JSON",
+      "required": [
+        "sum-alternative",
+        "json-format"
+      ],
+      "steps": [
+        "sum",
+        "json"
+      ],
+      "input": [
+        1,
+        2
+      ],
+      "expected": "3",
+      "validationCases": [
+        {
+          "input": [
+            -1
+          ],
+          "expected": "-1"
+        },
+        {
+          "input": [],
+          "expected": "0"
+        }
+      ],
+      "alternatives": {
+        "sum-alternative": [
+          "sum-values"
+        ]
+      },
+      "stratum": "mixed"
+    },
+    {
+      "id": "mixed-invalid",
+      "query": "convert text lowercase serialize JSON",
+      "required": [
+        "text-lower",
+        "json-format"
+      ],
+      "steps": [
+        "lower",
+        "json"
+      ],
+      "input": 42,
+      "expected": "\"42\"",
+      "validationCases": [
+        {
+          "input": "B",
+          "expected": "\"b\""
+        },
+        {
+          "input": "A",
+          "expected": "\"a\""
+        }
+      ],
+      "alternatives": {},
+      "stratum": "mixed"
+    }
+  ]
+}
