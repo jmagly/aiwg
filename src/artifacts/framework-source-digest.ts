@@ -31,9 +31,14 @@ export function frameworkSourceDigest(root: string, cache = true): string {
       if (child.name.startsWith('.') || child.isSymbolicLink()) continue;
       const file = path.join(dir, child.name);
       if (child.isDirectory()) walk(file, extensions);
-      else if (child.isFile() && extensions.some(ext => child.name.endsWith(ext))
-        // These development-only corpus files are excluded by package.files.
-        && !/^(package(?:-lock)?|tsconfig)\.json$/.test(child.name)) add(file);
+      else if (child.isFile() && extensions.some(ext => child.name.endsWith(ext))) {
+        const relative = path.relative(root, file).split(path.sep).join('/');
+        // Match package.files exclusions so packing does not invalidate the
+        // shipped index. Retain JSON inputs outside the raw report directory.
+        if (/^(package(?:-lock)?|tsconfig)\.json$/.test(child.name)
+          || (relative.startsWith('docs/reports/') && child.name.endsWith('.json'))) continue;
+        add(file);
+      }
     }
   };
   const add = (file: string, logicalPath?: string): void => {

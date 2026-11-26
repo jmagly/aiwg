@@ -11,8 +11,13 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
+import { createHash } from 'node:crypto';
 import { runSkill } from '../../../src/skills/run.js';
 import { recordTypeForEntry, stableRecordId } from '../../../src/artifacts/browser-export.js';
+import { frameworkSourceDigest } from '../../../src/artifacts/framework-source-digest.js';
+import { getGraphIndexDir } from '../../../src/artifacts/types.js';
+import { loadFortemiCoreMetadataEntries } from '../../../src/artifacts/fortemi-core-query-adapter.js';
+import { buildPrebuiltRelations } from '../../../src/artifacts/prebuilt-relations.js';
 import type { MetadataEntry } from '../../../src/artifacts/types.js';
 
 let tmpRoot: string;
@@ -112,6 +117,64 @@ afterEach(async () => {
 });
 
 describe('runSkill — project-root CWD invariant (#1227)', () => {
+  it('runs a shipped skill by name and ID after package.files removes raw report JSON', async () => {
+    process.env.XDG_DATA_HOME = path.join(tmpRoot, 'xdg');
+    await fs.writeFile(path.join(aiwgRoot, 'package.json'), JSON.stringify({ name: 'aiwg', version: '1.0.0' }));
+    for (const kind of ['frameworks', 'addons', 'extensions', 'agents', 'behaviors']) {
+      await fs.mkdir(path.join(aiwgRoot, 'agentic/code', kind), { recursive: true });
+    }
+    await buildFakeSkill("require('fs').appendFileSync('packed-runs.txt', process.argv[2] + '\\n');");
+    const reports = path.join(aiwgRoot, 'docs/reports');
+    await fs.mkdir(path.join(reports, 'nested'), { recursive: true });
+    await fs.writeFile(path.join(reports, 'raw.json'), '{"raw":true}');
+    await fs.writeFile(path.join(reports, 'nested/raw.json'), '{"raw":true}');
+    await fs.writeFile(path.join(reports, 'summary.md'), '# Shipped report');
+    const digest = frameworkSourceDigest(aiwgRoot, false);
+    const skillPath = 'agentic/code/addons/test-pack/skills/marker-skill/SKILL.md';
+    const id = stableRecordId('aiwg.skill', skillPath);
+    const exported = JSON.stringify({
+      schema_version: 'aiwg.fortemi.index.export.v2', source: { graph: 'framework' },
+      items: [{
+        id, type: 'aiwg.skill', name: 'marker-skill', title: 'Marker skill', text: '',
+        tags: [], facets: {}, relationships: [], updated_at: '1970-01-01T00:00:00.000Z',
+        source: { path: skillPath },
+        search: { type: 'skill', frontmatter: { aiwg_script: { entrypoint: 'scripts/run.cjs', runtime: 'node' } } },
+      }],
+    });
+    const prebuilt = path.join(aiwgRoot, 'prebuilt/fortemi-core/framework');
+    await fs.mkdir(prebuilt, { recursive: true });
+    await fs.writeFile(path.join(prebuilt, 'aiwg-fortemi-index-v2.json'), exported);
+    await fs.writeFile(path.join(prebuilt, 'manifest.json'), JSON.stringify({
+      schema_version: 'aiwg.fortemi.prebuilt.v1', backend: 'fortemi-core', graph: 'framework',
+      export_path: 'aiwg-fortemi-index-v2.json', export_schema_version: 'aiwg.fortemi.index.export.v2',
+      export_checksum: createHash('sha256').update(exported).digest('hex'), item_count: 1,
+      package_version: '1.0.0', source_digest: digest,
+    }));
+    const relations = path.join(aiwgRoot, 'prebuilt/framework-relations');
+    await fs.mkdir(relations, { recursive: true });
+    const tables = buildPrebuiltRelations(aiwgRoot, [{
+      path: skillPath, type: 'skill', name: 'marker-skill', title: 'Marker skill',
+      phase: '', tags: [], created: '', updated: '', checksum: '', summary: '', dependencies: [], dependents: [],
+      script: { entrypoint: 'scripts/run.cjs', runtime: 'node' },
+    }]);
+    for (const [file, text] of Object.entries(tables)) await fs.writeFile(path.join(relations, file), text);
+    // Simulate the top-level and recursive npm package exclusions.
+    await fs.unlink(path.join(reports, 'raw.json'));
+    await fs.unlink(path.join(reports, 'nested/raw.json'));
+    expect(frameworkSourceDigest(aiwgRoot, false)).toBe(digest);
+    expect(loadFortemiCoreMetadataEntries(projectDir, 'framework').entries).toHaveLength(1);
+    expect(await runSkill({ cwd: projectDir, name: 'marker-skill', args: ['name'] })).toBe(0);
+    expect(await runSkill({ cwd: projectDir, name: id, args: ['id'] })).toBe(0);
+    expect(await fs.readFile(path.join(projectDir, 'packed-runs.txt'), 'utf8')).toBe('name\nid\n');
+    await expect(fs.access(path.join(getGraphIndexDir(projectDir, 'framework'), 'metadata.json'))).rejects.toThrow();
+    // Packaged Markdown and JSON outside docs/reports still invalidate caches.
+    await fs.appendFile(path.join(reports, 'summary.md'), '\nChanged');
+    expect(frameworkSourceDigest(aiwgRoot, false)).not.toBe(digest);
+    await fs.writeFile(path.join(reports, 'summary.md'), '# Shipped report');
+    await fs.writeFile(path.join(aiwgRoot, 'docs/schema.json'), '{}');
+    expect(frameworkSourceDigest(aiwgRoot, false)).not.toBe(digest);
+  });
+
   it('runs the declared issue-audit script by name and stable ID (#4183)', async () => {
     const skillPath = 'agentic/code/frameworks/sdlc-complete/skills/issue-audit/SKILL.md';
     const script = { entrypoint: 'scripts/audit.mjs', runtime: 'node', cwd: 'project-root' as const };
