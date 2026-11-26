@@ -22,6 +22,29 @@ function fixture(model?: string) {
   return { owner, state, options, launch };
 }
 describe('T-OG-08 Ralph native tier resolution', () => {
+  it('launches an uncataloged provider with its default model and records that tier policy did not apply', async () => {
+    const f = fixture();
+    f.state.config.provider = 'stub';
+    await launchRalphCycle(f.owner, f.state, f.options);
+    const routing = JSON.parse(await readFile(join(root, 'routing.json'), 'utf8'));
+    expect(routing).toMatchObject({ tier_policy: 'unavailable', resolved_tier: null, resolved_model: null });
+    expect(routing.warnings[0]).toMatch(/provider stub; launching with the provider default model/);
+    expect(f.launch).toHaveBeenCalledWith(expect.objectContaining({ model: null }));
+  });
+  it('keeps an explicit pin for an uncataloged provider', async () => {
+    const f = fixture('custom-model');
+    f.state.config.provider = 'stub';
+    await launchRalphCycle(f.owner, f.state, f.options);
+    const routing = JSON.parse(await readFile(join(root, 'routing.json'), 'utf8'));
+    expect(routing).toMatchObject({ tier_policy: 'unavailable', resolved_model: 'custom-model', election: 'user' });
+    expect(f.launch).toHaveBeenCalledWith(expect.objectContaining({ model: 'custom-model' }));
+  });
+  it('still fails the cycle for every other resolver refusal', async () => {
+    const f = fixture();
+    vi.spyOn(selection, 'resolveDelegation').mockRejectedValue(new Error('Flagship workers require election: user'));
+    await expect(launchRalphCycle(f.owner, f.state, f.options)).rejects.toThrow(/Flagship/);
+    expect(f.launch).not.toHaveBeenCalled();
+  });
   it('asks the resolver, launches the resolved model and persists the common record', async () => {
     const f = fixture();
     const resolve = vi.spyOn(selection, 'resolveDelegation');

@@ -2816,6 +2816,23 @@
         "#2835",
         "docs/decision/d17-gate-binding-disposition.md"
       ]
+    },
+    {
+      "id": "DEC-DISCOVERYSTUDY-01",
+      "path": "test/fixtures/decision/discovery-study-manifest.json",
+      "origin": "repository-authored",
+      "author": "Repository maintainers",
+      "date": "2026-11-25",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "unversioned-json",
+      "digest": "sha256:280c2e3de60ee45a557671a6db8028c4c664450bf97d4c52191f321ebc07e8e1",
+      "expectedOutcome": "Preregistered selective-routing study manifest validates against DiscoveryStudyManifest.v1 before holdout access.",
+      "links": [
+        "JEV-16",
+        "#2621",
+        "docs/decision/discovery-shadow-study.md"
+      ]
     }
   ]
 }
