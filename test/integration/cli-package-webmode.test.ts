@@ -232,6 +232,8 @@ describe('@aiwg/cli packaged web distribution', () => {
       'agentic/code/addons/aiwg-hooks/hooks/aiwg-prompt-discovery.cjs',
       'agentic/code/addons/aiwg-utils/rules/anti-laziness.md',
       'agentic/code/addons/aiwg-utils/rules/anti-laziness.core.md',
+      // External-plugin context bridges load this rubric; model defaults ship in dist/src/models (#2644).
+      'agentic/code/addons/aiwg-utils/templates/context/delegation-rubric.md',
       'agentic/code/addons/composition-engine/lib/runtime.mjs',
       'agentic/code/addons/composition-engine/lib/validator.mjs',
       'agentic/code/addons/composition-engine/schemas/flow-graph.schema.json',

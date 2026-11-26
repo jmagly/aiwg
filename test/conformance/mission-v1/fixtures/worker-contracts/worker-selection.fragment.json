@@ -3,6 +3,15 @@
   "type": "object",
   "additionalProperties": false,
   "properties": {
+    "mode": {
+      "enum": ["default", "advisory", "off"],
+      "description": "Prompt delegation policy. Omission is advisory until the topology measurement gate passes. Off disables automatic delegation guidance, not explicit user requests."
+    },
+    "returnBudgetTokens": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Maximum condensed worker return tokens; omitted guidance uses 2000."
+    },
     "strategy": {
       "enum": ["cost-effective", "balanced", "quality"],
       "description": "Rank eligible tuples by observed cost class ascending, configured order, or observed cost class descending. Ties retain configured order. When omitted, preserve legacy configured order."

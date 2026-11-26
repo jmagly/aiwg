@@ -29,7 +29,7 @@ Core meta-utility rules for agent coordination, context management, and platform
 **Full rule**: @$AIWG_ROOT/agentic/code/addons/aiwg-utils/rules/vague-discretion.md
 
 #### subagent-scoping
-**Summary**: Each subagent gets ONE focused task with minimal context.
+**Summary**: Delegate bounded work by mode to the cheapest capable worker; keep coupled work local and verify condensed returns.
 **Full rule**: @$AIWG_ROOT/agentic/code/addons/aiwg-utils/rules/subagent-scoping.md
 
 #### instruction-comprehension
@@ -41,7 +41,7 @@ Core meta-utility rules for agent coordination, context management, and platform
 **Full rule**: @$AIWG_ROOT/agentic/code/addons/aiwg-utils/rules/research-before-decision.md
 
 #### escalation-discipline
-**Summary**: Agents must summarize before moving above their declared default model tier, confirm Tier 3 explicitly, and never auto-escalate unattended bots to premium tiers.
+**Summary**: Choose the cheapest capable worker tier; summarize escalation, confirm premium and require flagship election.
 **Full rule**: @$AIWG_ROOT/agentic/code/addons/aiwg-utils/rules/escalation-discipline.md
 
 #### tool-quota

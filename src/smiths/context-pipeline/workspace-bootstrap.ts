@@ -43,6 +43,19 @@ export function buildRuleStartupBootstrapBlock(): string {
   return wrapProviderBootstrap(PROSE_LOADING);
 }
 
+/** Compact shared adapter when the full per-harness discovery/rule hooks are resident. */
+export function buildCompactRuleStartupBootstrapBlock(): string {
+  return [
+    PROVIDER_BOOTSTRAP_START, '# Provider workspace bootstrap',
+    "On a new task, first run discovery for the request: `aiwg discover --stdin <<'AIWG_REQUEST'` before any other tool call or answer; literal lines, then `AIWG_REQUEST`.",
+    'After discovery, read and follow [WORKSPACE.md](./WORKSPACE.md), then [AIWG.md](./AIWG.md).',
+    'Plain Markdown links are not claimed to auto-load.',
+    'AIWG rules deployed to this project are binding. Platform capability and safety constraints remain absolute.',
+    '`aiwg show <type> <name> --body`; no raw mirrors/templates.',
+    PROVIDER_BOOTSTRAP_END,
+  ].join('\n');
+}
+
 export function buildProviderBootstrapBlock(provider: Platform | string): string {
   const definition = getProviderDefinition(provider);
   const contract = definition?.context;

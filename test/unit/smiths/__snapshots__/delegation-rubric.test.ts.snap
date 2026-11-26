@@ -1,0 +1,79 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`delegation template > renders advisory in at most 15 lines 1`] = `
+"### Delegation
+Consider delegation (advisory; balanced; ceiling standard): bounded read-heavy, verbose, independent/verification work → cheapest capable worker.
+Extraction \`aiwg-model-explorer\`/economy; coding/review \`aiwg-model-coding-worker\`/standard; high-consequence \`aiwg-model-reasoning-worker\`/premium.
+Keep local: trivial lookups, coupled edits, serial, user back-and-forth.
+Return ≤ 800 tokens: pointers, confidence, open questions. Verify centrally; never concatenate.
+No auto-flagship; session model ≠ worker tier. Escalate one step on failed checks/low confidence.
+See: \`aiwg show rule subagent-scoping\`."
+`;
+
+exports[`delegation template > renders default in at most 15 lines 1`] = `
+"### Delegation
+Delegate by default (default; balanced; ceiling standard): bounded read-heavy, verbose, independent/verification work → cheapest capable worker.
+Extraction \`aiwg-model-explorer\`/economy; coding/review \`aiwg-model-coding-worker\`/standard; high-consequence \`aiwg-model-reasoning-worker\`/premium.
+Keep local: trivial lookups, coupled edits, serial, user back-and-forth.
+Return ≤ 800 tokens: pointers, confidence, open questions. Verify centrally; never concatenate.
+No auto-flagship; session model ≠ worker tier. Escalate one step on failed checks/low confidence.
+See: \`aiwg show rule subagent-scoping\`."
+`;
+
+exports[`delegation template > renders off in at most 15 lines 1`] = `
+"### Delegation
+Automatic delegation is off; keep work local unless the user explicitly requests delegation (off; balanced; ceiling standard): bounded read-heavy, verbose, independent/verification work → cheapest capable worker.
+Extraction \`aiwg-model-explorer\`/economy; coding/review \`aiwg-model-coding-worker\`/standard; high-consequence \`aiwg-model-reasoning-worker\`/premium.
+Keep local: trivial lookups, coupled edits, serial, user back-and-forth.
+Return ≤ 800 tokens: pointers, confidence, open questions. Verify centrally; never concatenate.
+No auto-flagship; session model ≠ worker tier. Escalate one step on failed checks/low confidence.
+See: \`aiwg show rule subagent-scoping\`."
+`;
+
+exports[`delegation template > states the claude support class without a live claim 1`] = `
+[
+  "**Provider behavior (claude)**: native custom subagents can select the deployed model-worker wrapper. Verify the resolved model when provider or account policy may substitute it. Tier enforcement (generated wrapper defaults): pinned; effort: pinned via effort (high/medium/low by wrapper). Use AIWG wrappers or an explicit invocation model. Unpinned general-purpose agents inherit; CLAUDE_CODE_SUBAGENT_MODEL supplies a fallback and CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1 can override pins. Explicit operator pins are preserved where supported. This is not a live resolved-model audit; provider/account policy may substitute models.",
+]
+`;
+
+exports[`delegation template > states the codex support class without a live claim 1`] = `
+[
+  "**Provider behavior (codex)**: native custom subagents can select the deployed model-worker wrapper. Verify the resolved model when provider or account policy may substitute it. Tier enforcement (generated wrapper defaults): pinned; effort: pinned via model_reasoning_effort (high/medium/low by wrapper). Native custom subagents carry explicit catalog model selectors. Explicit operator pins are preserved where supported. This is not a live resolved-model audit; provider/account policy may substitute models.",
+]
+`;
+
+exports[`delegation template > states the devin support class without a live claim 1`] = `
+[
+  "**Provider behavior (devin)**: portable subagent model selection is unsupported. Apply the decomposition rubric in the primary agent and do not claim wrapper pinning or parallel delegation. Tier enforcement (generated wrapper defaults): inherited; effort: not enforced per wrapper. Portable wrapper model selection is unsupported; the main UI session controls selection. Explicit operator pins are preserved where supported. This is not a live resolved-model audit; provider/account policy may substitute models.",
+]
+`;
+
+exports[`delegation template > states the grok-build support class without a live claim 1`] = `
+[
+  "**Provider behavior (grok-build)**: native per-worker model enforcement is pending (#2577); do not claim model pinning from reference wrappers. Tier enforcement (generated wrapper defaults): inherited; effort: not enforced per wrapper. Grok Build 1.0.77: frontmatter model is ignored; agents inherit the session model. Select worker models with CLI -m; role/tier intent is informational. Explicit operator pins are preserved where supported. This is not a live resolved-model audit; provider/account policy may substitute models.",
+]
+`;
+
+exports[`delegation template > states the grokbot support class without a live claim 1`] = `
+[
+  "**Provider behavior (grokbot)**: delegation is available, but model selection is global/run-scoped. Use the wrapper rubric for task selection while reporting that heterogeneous per-worker pinning is not enforced. Tier enforcement (generated wrapper defaults): global-only; effort: not enforced per wrapper. Grok Bot model: unavailable; effort: unavailable (no verified native setting in the provider catalog). No verified AIWG-owned per-worker model setting is available. Explicit operator pins are preserved where supported. This is not a live resolved-model audit; provider/account policy may substitute models.",
+]
+`;
+
+exports[`delegation template > states the hermes support class without a live claim 1`] = `
+[
+  "**Provider behavior (hermes)**: delegation is available, but model selection is global/run-scoped. Use the wrapper rubric for task selection while reporting that heterogeneous per-worker pinning is not enforced. Tier enforcement (generated wrapper defaults): global-only; effort: not enforced per wrapper. Hermes config.yaml: delegation.model / delegation.effort. All delegated workers share the provider delegation configuration. Explicit operator pins are preserved where supported. This is not a live resolved-model audit; provider/account policy may substitute models.",
+]
+`;
+
+exports[`delegation template > states the muse support class without a live claim 1`] = `
+[
+  "**Provider behavior (muse)**: delegation and per-worker model selection are unverified. Apply the rubric only where the active provider exposes those capabilities, and state any fallback explicitly. Tier enforcement (generated wrapper defaults): global-only; effort: not enforced per wrapper. Muse --model / --reasoning-effort; $XDG_CONFIG_HOME/muse/settings.json model supplies the model fallback. Session --model or settings.json model controls selection; per-agent pins are unverified. Explicit operator pins are preserved where supported. This is not a live resolved-model audit; provider/account policy may substitute models.",
+]
+`;
+
+exports[`delegation template > states the warp support class without a live claim 1`] = `
+[
+  "**Provider behavior (warp)**: delegation is available, but model selection is global/run-scoped. Use the wrapper rubric for task selection while reporting that heterogeneous per-worker pinning is not enforced. Tier enforcement (generated wrapper defaults): global-only; effort: not enforced per wrapper. Warp agent run --model <MODEL_ID> (run/profile-wide); effort: unavailable. Model selection follows the Warp run/profile. Explicit operator pins are preserved where supported. This is not a live resolved-model audit; provider/account policy may substitute models.",
+]
+`;

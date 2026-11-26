@@ -62,9 +62,12 @@ export class ConfigLoader {
       || findPackageRoot(dirname(fileURLToPath(import.meta.url)));
     if (!aiwgHome) throw new Error('Failed to load AIWG default config: could not locate the running AIWG package root');
     const userConfigDir = process.env.AIWG_CONFIG || resolve(homedir(), '.config/aiwg');
+    const corpusDefault = resolve(aiwgHome, 'agentic/code/frameworks/sdlc-complete/config/models-v2.json');
+    // The slim CLI ships runtime defaults without creating a bundled-corpus directory.
+    const runtimeDefault = resolve(aiwgHome, 'dist/src/models/models-v2.json');
 
     this.locations = {
-      aiwgDefault: resolve(aiwgHome, 'agentic/code/frameworks/sdlc-complete/config/models-v2.json'),
+      aiwgDefault: !existsSync(corpusDefault) && existsSync(runtimeDefault) ? runtimeDefault : corpusDefault,
       userConfig: resolve(userConfigDir, 'models.json'),
       projectConfig: resolve(projectPath || process.cwd(), 'models.json'),
     };

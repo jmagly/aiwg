@@ -85,8 +85,15 @@ export async function buildCliPackage({ outputDir = defaultOutputDir } = {}) {
     path.join(outputDir, 'agentic', 'code', 'providers'),
     { recursive: true },
   );
-  // Context and provider hooks need their package-owned runtime even without the corpus.
+  // Keep runtime defaults outside agentic/code/frameworks: that directory signals
+  // a bundled corpus to setup, which must still refuse in the lightweight CLI.
+  await cp(
+    path.join(repoRoot, 'agentic/code/frameworks/sdlc-complete/config/models-v2.json'),
+    path.join(outputDir, 'dist/src/models/models-v2.json'),
+  );
+  // External-plugin context bridges need the rubric template at deployment time.
   for (const source of cli.files.filter(file => file.startsWith('agentic/code/addons/aiwg-utils/rules/')
+    || file === 'agentic/code/addons/aiwg-utils/templates/context/delegation-rubric.md'
     || file.startsWith('agentic/code/addons/aiwg-hooks/'))) {
     await mkdir(path.dirname(path.join(outputDir, source)), { recursive: true });
     await cp(path.join(repoRoot, source), path.join(outputDir, source), { recursive: true });

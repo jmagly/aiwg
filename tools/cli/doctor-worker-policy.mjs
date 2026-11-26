@@ -14,6 +14,10 @@ export async function collectWorkerPolicyDiagnostics(projectDir, config, { requi
       message: `Review models.json and parallelism in .aiwg/aiwg.config: ${error.message}` }];
   }
   const diagnostics = workerWiringDiagnostics(config?.parallelism, policy);
+  const { workerSelectionPolicyWarnings } = await importImpl(import.meta.url, 'models/worker-tier-selection.js');
+  for (const message of workerSelectionPolicyWarnings(policy)) diagnostics.push({
+    code: 'OG_MODEL_UNAPPROVED', pointer: '/defaults/workerSelection/maxAutoTier', message, blocking: false,
+  });
   if (!config?.parallelism?.worker_dispatch) return diagnostics;
   const records = await inspectRecordedWorkerQualifications({ cwd: projectDir, policy,
     parallelism: config.parallelism, includeInputs: true, diagnostics }).catch(() => []);
