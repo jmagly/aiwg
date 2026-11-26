@@ -10,9 +10,11 @@ and `schemas/ci-environment.schema.json`, with unique identities under
 `apiVersion: cicd.aiwg.io/v1`. Catalog registration lives in
 `schemas/catalog/domains/cicd-complete.json` at the AIWG repository root.
 
-Consumers are pipeline-design agents and provider extensions. Execution agents,
-renderers and capabilities are planned (#4423–#4425); these schemas establish
-contracts before those consumers are implemented. Generated plugin schema copies
+Consumers are the cicd-complete agents and skills (`ci-architect`,
+`ci-renderer`, `ci-pipeline-design`, `ci-render`, `ci-drift-check`), the
+capability library, and the provider extensions `cicd-gitea-actions` and
+`cicd-github-actions`. Rendering is agent-interpreted; no consumer executes
+pipelines. Generated plugin schema copies
 are projections, verified byte-for-byte by the fixture suite and plugin-copy lint.
 There is no independent TypeScript or provider-specific contract in this change.
 
