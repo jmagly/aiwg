@@ -42,3 +42,8 @@ cicd-complete`. OpsExtension remains ops-only. Jobs reference OpsCapability name
 GatePack references identify `gates.aiwg.io/v1alpha1` packs. Referenced capabilities,
 environments and gates must be resolved by consumers; schema validation checks shape.
 See [schema ownership and compatibility](docs/ci-schema-contracts.md).
+
+## User guides
+
+- [Quickstart: assess, design, render and operate a pipeline](docs/quickstart.md)
+- [Overview: concepts, bundles and execution boundaries](docs/overview.md)

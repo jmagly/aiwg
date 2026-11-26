@@ -609,6 +609,8 @@
     "addons/voice-framework/writing-workflows",
     "blog/2026-10-aiwg-october-2026-report",
     "frameworks/cicd-complete",
+    "frameworks/cicd-complete/overview",
+    "frameworks/cicd-complete/quickstart",
     "frameworks/cicd-complete/ci-schema-contracts",
     "frameworks/cicd-complete/phases",
     "frameworks/cicd-complete/phases/assess",
@@ -4659,6 +4661,20 @@
       "summary": "End-user CI/CD lifecycle and governed pipeline/environment contracts",
       "collapsed": true,
       "parent": "frameworks"
+    },
+    {
+      "id": "frameworks/cicd-complete/overview",
+      "title": "CI/CD Complete overview",
+      "summary": "Concepts, provider extensions, ownership and execution boundaries for project CI/CD.",
+      "file": "frameworks/cicd-complete/overview.md",
+      "parent": "frameworks/cicd-complete"
+    },
+    {
+      "id": "frameworks/cicd-complete/quickstart",
+      "title": "CI/CD Complete quickstart",
+      "summary": "Prompt-led walkthroughs for assessment, gated delivery, rendering, triage and migration.",
+      "file": "frameworks/cicd-complete/quickstart.md",
+      "parent": "frameworks/cicd-complete"
     },
     {
       "id": "frameworks/cicd-complete/ci-schema-contracts",
