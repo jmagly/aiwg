@@ -306,6 +306,7 @@
     "!agentic/**/tsconfig.json",
     "prebuilt/",
     "docs/",
+    "!docs/reports/*.json",
     "!docs/.public/",
     "templates/",
     "man/",
