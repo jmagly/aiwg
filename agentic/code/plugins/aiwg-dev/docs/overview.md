@@ -26,16 +26,19 @@ aiwg use aiwg-dev
 | `dev-doctor` | Full repository health — structure, orphans, placement violations, TypeScript, tests, circular calls |
 | `link-check` | `@file` references in distributable source — catches forbidden `.claude/` refs, bare AIWG-core refs, non-normalized `.aiwg/` refs |
 
-### Scaffolding Skills (Devkit)
+### Scaffolding Skill Aliases (Devkit)
+
+The canonical aiwg-utils skills own guided design and post-creation guidance.
+Load one with `aiwg show skill <canonical> --body`; devkit names remain compatibility aliases.
 
 | Skill | What It Creates |
 |-------|----------------|
-| `devkit-create-addon` | New addon with `manifest.json`, `README.md`, and directory structure |
-| `devkit-create-extension` | New ops-complete extension |
-| `devkit-create-framework` | New framework scaffold |
-| `devkit-create-agent` | New agent definition with correct YAML frontmatter |
-| `devkit-create-command` | New command definition registered in `src/extensions/commands/definitions.ts` |
-| `devkit-create-skill` | New skill with `SKILL.md` in the correct location |
+| `devkit-create-addon` | Alias of `scaffold-addon` — Create a standalone addon. |
+| `devkit-create-extension` | Alias of `scaffold-extension` — Create an extension inside a parent framework. |
+| `devkit-create-framework` | Alias of `scaffold-framework` — Create a complete lifecycle framework. |
+| `devkit-create-agent` | Alias of `add-agent` — Create an agent inside an addon or framework. |
+| `devkit-create-command` | Alias of `add-command` — Create a command inside an addon or framework. |
+| `devkit-create-skill` | Alias of `add-skill` — Create a skill inside an addon or framework. |
 | `devkit-validate` | Run all validation checks on the current working directory |
 | `devkit-test` | Run the test suite with development-appropriate flags |
 

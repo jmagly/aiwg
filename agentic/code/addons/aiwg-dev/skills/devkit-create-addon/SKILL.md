@@ -2,92 +2,20 @@
 namespace: aiwg
 name: devkit-create-addon
 platforms: [all]
-description: Create a new AIWG addon with AI-guided setup
+description: Alias of scaffold-addon — Create a standalone addon.
 ---
 
-# Create AIWG Addon
+# Devkit Create Addon
 
-Create a new standalone addon with AI assistance.
-
-## Usage
-
-```
-/devkit-create-addon <name> [--interactive]
-```
-
-## Arguments
-
-| Argument | Required | Description |
-|----------|----------|-------------|
-| name | Yes | Addon name (kebab-case recommended) |
-
-## Options
-
-| Option | Description |
-|--------|-------------|
-| --interactive | Enable interactive mode with guided questions |
-
-## What This Creates
-
-```
-agentic/code/addons/<name>/
-├── manifest.json      # Addon configuration
-├── README.md          # Documentation
-├── agents/            # Agent definitions
-├── commands/          # Slash commands
-└── skills/            # Auto-triggered skills
-```
-
-## Interactive Mode
-
-When `--interactive` is specified, I will ask:
-
-1. **Purpose**: What is the primary purpose of this addon?
-2. **Capabilities**: What specific capabilities should it provide?
-3. **Initial agents**: Should I create any starter agents?
-4. **Initial commands**: Should I create any starter commands?
-5. **Core status**: Should this be a core addon (auto-installed)?
-
-## Examples
+This skill is an alias of the canonical `scaffold-addon` skill in aiwg-utils.
+Load and follow its instructions, including guided design and post-creation guidance:
 
 ```bash
-# Quick creation
-/devkit-create-addon security-scanner
-
-# Interactive guided creation
-/devkit-create-addon code-metrics --interactive
+aiwg show skill scaffold-addon --body
 ```
 
-## Execution
-
-1. **Validate name**: Ensure name follows kebab-case convention
-2. **Check existence**: Verify addon doesn't already exist
-3. **Gather info**: In interactive mode, ask clarifying questions
-4. **Generate manifest**: Create manifest.json with appropriate fields
-5. **Create structure**: Build directory structure
-6. **Generate README**: Create documentation with usage instructions
-7. **Optionally create components**: If interactive, offer to create initial agents/commands
-8. **Report success**: Show created files and next steps
-
-## CLI Equivalent
-
-For non-interactive creation, you can also use:
+The canonical skill runs this CLI command from the root of an AIWG checkout:
 
 ```bash
-aiwg scaffold-addon <name> --description "..." --author "..."
+aiwg scaffold-addon <name>
 ```
-
-## Related Commands
-
-- `/devkit-create-agent` - Add agent to addon
-- `/devkit-create-command` - Add command to addon
-- `/devkit-create-skill` - Add skill to addon
-- `/devkit-validate` - Validate addon structure
-
-## References
-
-- @$AIWG_ROOT/agentic/code/addons/aiwg-dev/README.md — aiwg-dev addon overview
-- @$AIWG_ROOT/docs/extensions/overview.md — Extension system architecture
-- @$AIWG_ROOT/docs/extensions/creating-extensions.md — Guide to building custom extensions
-- @$AIWG_ROOT/docs/cli-reference.md — CLI reference including scaffold-addon command
-- @$AIWG_ROOT/agentic/code/addons/aiwg-utils/rules/god-session.md — Scope rules for addon design

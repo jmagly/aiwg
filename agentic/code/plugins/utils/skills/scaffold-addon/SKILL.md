@@ -85,6 +85,7 @@ Ask before generating:
 5. **Initial agents**: Should starter agent files be scaffolded?
 6. **Initial skills**: Should starter skill directories be scaffolded?
 7. **Initial rules**: Should starter rule files be scaffolded?
+8. **Initial commands**: Should starter commands be scaffolded?
 
 ### 4. Run Scaffolding
 
@@ -122,6 +123,9 @@ After scaffold, offer to create starter components:
 ```bash
 # Add a starter agent
 aiwg add-agent <role> --to <name>
+
+# Add a starter command
+aiwg add-command <action> --to <name>
 
 # Add a starter skill
 aiwg add-skill <capability> --to <name>
@@ -170,9 +174,10 @@ Next Steps:
   2. Update manifest.json (description, author, core flag)
   3. Add agents:    aiwg add-agent <name> --to <addon>
   4. Add skills:    aiwg add-skill <name> --to <addon>
-  5. Add rules:     create <addon>/rules/<rule-id>.md
-  6. Deploy:        aiwg use <addon>
-  7. Validate:      aiwg validate-metadata
+  5. Add commands:  aiwg add-command <action> --to <addon>
+  6. Add rules:     create <addon>/rules/<rule-id>.md
+  7. Deploy:        aiwg use <addon>
+  8. Validate:      aiwg validate-metadata
 ```
 
 ## Examples
@@ -205,7 +210,6 @@ aiwg scaffold-addon cost-tracking --description "Token usage and cost monitoring
 
 ## References
 
-- @$AIWG_ROOT/agentic/code/addons/aiwg-utils/skills/devkit-create-addon/SKILL.md — Devkit equivalent (interactive design)
 - @$AIWG_ROOT/src/cli/handlers/scaffolding.ts — CLI handler implementation
 - @$AIWG_ROOT/docs/cli-reference.md — Full CLI reference
 - @$AIWG_ROOT/agentic/code/addons/ — Existing addon examples

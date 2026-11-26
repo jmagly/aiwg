@@ -40,12 +40,12 @@ Install it where you develop or customize AIWG. Projects that only use deployed 
 |-------|---------|
 | `dev-mode-init` | Switch the AIWG CLI to dev mode (local checkout), rebuild, deploy the toolkit, and run a health check |
 | `dev-doctor` | Development-focused health check of the AIWG repository structure |
-| `devkit-create-addon` | Guided creation of a new addon |
-| `devkit-create-agent` | Guided creation of a new agent |
-| `devkit-create-command` | Guided creation of a new slash command |
-| `devkit-create-extension` | Guided creation of a new extension |
-| `devkit-create-framework` | Guided creation of a new framework (wraps `scaffold-framework`) |
-| `devkit-create-skill` | Guided creation of a new skill (wraps `add-skill`) |
+| `devkit-create-addon` | Alias of `scaffold-addon` — Create a standalone addon. |
+| `devkit-create-agent` | Alias of `add-agent` — Create an agent inside an addon or framework. |
+| `devkit-create-command` | Alias of `add-command` — Create a command inside an addon or framework. |
+| `devkit-create-extension` | Alias of `scaffold-extension` — Create an extension inside a parent framework. |
+| `devkit-create-framework` | Alias of `scaffold-framework` — Create a complete lifecycle framework. |
+| `devkit-create-skill` | Alias of `add-skill` — Create a skill inside an addon or framework. |
 | `devkit-validate` | Validate addon, framework, or extension structure and manifest |
 | `devkit-test` | Test an AIWG package for structure, functionality, and deployment readiness |
 | `validate-component` | Check a single skill, agent, or command for completeness and correctness |

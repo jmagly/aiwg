@@ -75,10 +75,22 @@ aiwg add-skill <name> --to <target>
 
 ### 5. Customize SKILL.md
 
-The generated file needs these sections populated:
+The generated file needs these sections populated. Include required frontmatter:
+
+- `name`: kebab-case skill slug
+- `description`: non-empty purpose used for natural language matching; Codex rejects skills without it
+- `version`: semver string (for example, `1.0.0`)
+- `priority`: `critical`, `high`, `medium`, or `low`, used by corpus gap reports and backlog tooling
+
+Use clear conversational triggers, specific execution steps, and realistic input/output examples.
+Skills suit conversational capabilities and cross-cutting concerns; use a command when explicit invocation is needed.
 
 ```markdown
 ---
+name: <skill-name>
+description: <one-sentence purpose>
+version: 1.0.0
+priority: medium
 platforms: [all]
 ---
 
@@ -214,7 +226,6 @@ aiwg add-skill requirement-tracer --to sdlc-complete
 
 ## References
 
-- @$AIWG_ROOT/agentic/code/addons/aiwg-utils/skills/devkit-create-skill/SKILL.md — Devkit equivalent (interactive design)
 - @$AIWG_ROOT/src/cli/handlers/scaffolding.ts — CLI handler implementation
 - @$AIWG_ROOT/docs/cli-reference.md — Full CLI reference
 - @$AIWG_ROOT/agentic/code/addons/aiwg-utils/skills/ — Example skill definitions
