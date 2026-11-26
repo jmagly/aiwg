@@ -1,0 +1,522 @@
+{
+  "protocol": {
+    "issue": 4239,
+    "scope": "synthetic offline pilot; no population inference",
+    "heldOut": "Queries and executable oracles are never provided to refinement.",
+    "bodyOnlyMeaning": "Rewrite descriptions using only incoming bodies; executable bodies remain frozen.",
+    "seed": 4239,
+    "streams": {
+      "natural-random": [
+        "sort-descending",
+        "yaml-format",
+        "sum-alternative",
+        "text-lower"
+      ],
+      "confusable": [
+        "yaml-format",
+        "text-lower",
+        "sort-descending",
+        "sum-alternative"
+      ]
+    },
+    "limit": 2,
+    "contextCharacters": 4096,
+    "executionSteps": 2,
+    "refinementCalls": 0,
+    "retries": 0,
+    "embeddings": 0,
+    "decision": "no-change"
+  },
+  "skills": [
+    {
+      "id": "json-format",
+      "name": "json-format",
+      "cohort": "old",
+      "description": "Format JSON documents.",
+      "body": "// Format documents.\n// Serialize JSON values.\n// Does not emit YAML.\nexport const operation = \"json\";\nexport default input => JSON.stringify(input);\n",
+      "bodyHash": "54c2223152b9845b2c4ea1a8530487d2692439c1507d7c27a8134f38575b7258",
+      "bodyOnly": [
+        "Format documents.",
+        "Serialize JSON values.",
+        "Does not emit YAML."
+      ],
+      "refined": [
+        "Serialize JSON values.",
+        "Does not emit YAML."
+      ]
+    },
+    {
+      "id": "text-upper",
+      "name": "text-upper",
+      "cohort": "old",
+      "description": "Transform text to uppercase.",
+      "body": "// Transform text.\n// Convert text to uppercase.\n// Does not lowercase text.\nexport const operation = \"upper\";\nexport default input => input.toUpperCase();\n",
+      "bodyHash": "b1ae9738f317238177ae94ebbd1d4959da46e17261f99c01f9de348c48f8ea0f",
+      "bodyOnly": [
+        "Transform text.",
+        "Convert text to uppercase.",
+        "Does not lowercase text."
+      ],
+      "refined": [
+        "Convert text to uppercase.",
+        "Does not lowercase text."
+      ]
+    },
+    {
+      "id": "sort-ascending",
+      "name": "sort-ascending",
+      "cohort": "old",
+      "description": "Sort numbers in ascending order.",
+      "body": "// Sort collections.\n// Order numbers ascending.\n// Does not order descending.\nexport const operation = \"asc\";\nexport default input => [...input].sort((a,b) => a-b);\n",
+      "bodyHash": "ff1f4615a20a0b77eb031c146456729536cc82b5c71e6446becc44ea7269c3d9",
+      "bodyOnly": [
+        "Sort collections.",
+        "Order numbers ascending.",
+        "Does not order descending."
+      ],
+      "refined": [
+        "Order numbers ascending.",
+        "Does not order descending."
+      ]
+    },
+    {
+      "id": "sum-values",
+      "name": "sum-values",
+      "cohort": "old",
+      "description": "Calculate the sum of numbers.",
+      "body": "// Calculate numbers.\n// Sum numeric arrays.\n// Does not multiply values.\nexport const operation = \"sum\";\nexport default input => input.reduce((a,b) => a+b,0);\n",
+      "bodyHash": "6cb90359388744d89993740921946b1245b68c0e8b1bc85067c1564574d82f97",
+      "bodyOnly": [
+        "Calculate numbers.",
+        "Sum numeric arrays.",
+        "Does not multiply values."
+      ],
+      "refined": [
+        "Sum numeric arrays.",
+        "Does not multiply values."
+      ]
+    },
+    {
+      "id": "yaml-format",
+      "name": "yaml-format",
+      "cohort": "new",
+      "description": "Format documents.",
+      "body": "// Format documents.\n// Serialize scalar YAML values.\n// Does not emit JSON objects.\nexport const operation = \"yaml\";\nexport default input => 'value: '+String(input);\n",
+      "bodyHash": "8a60654fc3a29390722481ac54723f19ddf2de3c702d7ae2ab214cba7ef41290",
+      "bodyOnly": [
+        "Format documents.",
+        "Serialize scalar YAML values.",
+        "Does not emit JSON objects."
+      ],
+      "refined": [
+        "Serialize scalar YAML values.",
+        "Does not emit JSON objects."
+      ]
+    },
+    {
+      "id": "text-lower",
+      "name": "text-lower",
+      "cohort": "new",
+      "description": "Transform text.",
+      "body": "// Transform text.\n// Convert text to lowercase.\n// Does not uppercase text.\nexport const operation = \"lower\";\nexport default input => input.toLowerCase();\n",
+      "bodyHash": "0d8f0edf84cb1692bbf20f3a61395828100df75da5dfd1b708053ad44a8d670a",
+      "bodyOnly": [
+        "Transform text.",
+        "Convert text to lowercase.",
+        "Does not uppercase text."
+      ],
+      "refined": [
+        "Convert text to lowercase.",
+        "Does not uppercase text."
+      ]
+    },
+    {
+      "id": "sort-descending",
+      "name": "sort-descending",
+      "cohort": "new",
+      "description": "Sort numbers.",
+      "body": "// Sort collections.\n// Order numbers descending.\n// Does not order ascending.\nexport const operation = \"desc\";\nexport default input => [...input].sort((a,b) => b-a);\n",
+      "bodyHash": "1426449cc7e590876f46ac07106bd00da166b05f41b6c848b97c37a94004add4",
+      "bodyOnly": [
+        "Sort collections.",
+        "Order numbers descending.",
+        "Does not order ascending."
+      ],
+      "refined": [
+        "Order numbers descending.",
+        "Does not order ascending."
+      ]
+    },
+    {
+      "id": "sum-alternative",
+      "name": "sum-alternative",
+      "cohort": "new",
+      "description": "Calculate the sum of numbers.",
+      "body": "// Calculate numbers.\n// Sum numeric arrays.\n// Does not multiply values.\nexport const operation = \"sum\";\nexport default input => input.reduce((a,b) => a+b,0);\n",
+      "bodyHash": "6cb90359388744d89993740921946b1245b68c0e8b1bc85067c1564574d82f97",
+      "bodyOnly": [
+        "Calculate numbers.",
+        "Sum numeric arrays.",
+        "Does not multiply values."
+      ],
+      "refined": [
+        "Sum numeric arrays.",
+        "Does not multiply values."
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "old-json",
+      "query": "format JSON documents",
+      "required": [
+        "json-format"
+      ],
+      "steps": [
+        "json"
+      ],
+      "input": {
+        "x": 1
+      },
+      "expected": "{\"x\":1}",
+      "validationCases": [
+        {
+          "input": [
+            1
+          ],
+          "expected": "[1]"
+        },
+        {
+          "input": true,
+          "expected": "true"
+        }
+      ],
+      "alternatives": {}
+    },
+    {
+      "id": "old-upper",
+      "query": "transform text uppercase",
+      "required": [
+        "text-upper"
+      ],
+      "steps": [
+        "upper"
+      ],
+      "input": "Alpha",
+      "expected": "ALPHA",
+      "validationCases": [
+        {
+          "input": "beta",
+          "expected": "BETA"
+        },
+        {
+          "input": "Xy",
+          "expected": "XY"
+        }
+      ],
+      "alternatives": {}
+    },
+    {
+      "id": "old-sort",
+      "query": "sort numbers ascending",
+      "required": [
+        "sort-ascending"
+      ],
+      "steps": [
+        "asc"
+      ],
+      "input": [
+        3,
+        1,
+        2
+      ],
+      "expected": [
+        1,
+        2,
+        3
+      ],
+      "validationCases": [
+        {
+          "input": [
+            2,
+            -1
+          ],
+          "expected": [
+            -1,
+            2
+          ]
+        },
+        {
+          "input": [],
+          "expected": []
+        }
+      ],
+      "alternatives": {}
+    },
+    {
+      "id": "old-sum",
+      "query": "calculate sum numbers",
+      "required": [
+        "sum-values"
+      ],
+      "steps": [
+        "sum"
+      ],
+      "input": [
+        1,
+        2
+      ],
+      "expected": 3,
+      "validationCases": [
+        {
+          "input": [
+            -3,
+            2
+          ],
+          "expected": -1
+        },
+        {
+          "input": [],
+          "expected": 0
+        }
+      ],
+      "alternatives": {
+        "sum-values": [
+          "sum-alternative"
+        ]
+      }
+    },
+    {
+      "id": "new-yaml",
+      "query": "serialize scalar YAML values",
+      "required": [
+        "yaml-format"
+      ],
+      "steps": [
+        "yaml"
+      ],
+      "input": "alpha",
+      "expected": "value: alpha",
+      "validationCases": [
+        {
+          "input": 2,
+          "expected": "value: 2"
+        },
+        {
+          "input": "beta",
+          "expected": "value: beta"
+        }
+      ],
+      "alternatives": {}
+    },
+    {
+      "id": "new-lower",
+      "query": "convert text lowercase",
+      "required": [
+        "text-lower"
+      ],
+      "steps": [
+        "lower"
+      ],
+      "input": "Alpha",
+      "expected": "alpha",
+      "validationCases": [
+        {
+          "input": "BETA",
+          "expected": "beta"
+        },
+        {
+          "input": "Xy",
+          "expected": "xy"
+        }
+      ],
+      "alternatives": {}
+    },
+    {
+      "id": "new-sort",
+      "query": "order numbers descending",
+      "required": [
+        "sort-descending"
+      ],
+      "steps": [
+        "desc"
+      ],
+      "input": [
+        3,
+        1,
+        2
+      ],
+      "expected": [
+        3,
+        2,
+        1
+      ],
+      "validationCases": [
+        {
+          "input": [
+            2,
+            -1
+          ],
+          "expected": [
+            2,
+            -1
+          ]
+        },
+        {
+          "input": [],
+          "expected": []
+        }
+      ],
+      "alternatives": {}
+    },
+    {
+      "id": "new-sum",
+      "query": "sum numeric arrays",
+      "required": [
+        "sum-alternative"
+      ],
+      "steps": [
+        "sum"
+      ],
+      "input": [
+        1,
+        2
+      ],
+      "expected": 3,
+      "validationCases": [
+        {
+          "input": [
+            -3,
+            2
+          ],
+          "expected": -1
+        },
+        {
+          "input": [],
+          "expected": 0
+        }
+      ],
+      "alternatives": {
+        "sum-alternative": [
+          "sum-values"
+        ]
+      }
+    },
+    {
+      "id": "mixed-sort-json",
+      "query": "order numbers descending serialize JSON",
+      "required": [
+        "sort-descending",
+        "json-format"
+      ],
+      "steps": [
+        "desc",
+        "json"
+      ],
+      "input": [
+        1,
+        3,
+        2
+      ],
+      "expected": "[3,2,1]",
+      "validationCases": [
+        {
+          "input": [
+            1,
+            2
+          ],
+          "expected": "[2,1]"
+        },
+        {
+          "input": [],
+          "expected": "[]"
+        }
+      ],
+      "alternatives": {}
+    },
+    {
+      "id": "mixed-lower-json",
+      "query": "convert text lowercase serialize JSON",
+      "required": [
+        "text-lower",
+        "json-format"
+      ],
+      "steps": [
+        "lower",
+        "json"
+      ],
+      "input": "Alpha",
+      "expected": "\"alpha\"",
+      "validationCases": [
+        {
+          "input": "B",
+          "expected": "\"b\""
+        },
+        {
+          "input": "A",
+          "expected": "\"a\""
+        }
+      ],
+      "alternatives": {}
+    },
+    {
+      "id": "mixed-sum-json",
+      "query": "sum numeric arrays serialize JSON",
+      "required": [
+        "sum-alternative",
+        "json-format"
+      ],
+      "steps": [
+        "sum",
+        "json"
+      ],
+      "input": [
+        1,
+        2
+      ],
+      "expected": "3",
+      "validationCases": [
+        {
+          "input": [
+            -1
+          ],
+          "expected": "-1"
+        },
+        {
+          "input": [],
+          "expected": "0"
+        }
+      ],
+      "alternatives": {
+        "sum-alternative": [
+          "sum-values"
+        ]
+      }
+    },
+    {
+      "id": "mixed-invalid",
+      "query": "convert text lowercase serialize JSON",
+      "required": [
+        "text-lower",
+        "json-format"
+      ],
+      "steps": [
+        "lower",
+        "json"
+      ],
+      "input": 42,
+      "expected": "\"42\"",
+      "validationCases": [
+        {
+          "input": "B",
+          "expected": "\"b\""
+        },
+        {
+          "input": "A",
+          "expected": "\"a\""
+        }
+      ],
+      "alternatives": {}
+    }
+  ]
+}
