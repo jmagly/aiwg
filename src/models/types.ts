@@ -22,9 +22,12 @@ export type RuntimeModelTier = 0 | 1 | 2 | 3 | 4;
 export interface ModelRouteRequest extends FlagshipAuthority {
   /** Explicit requested tier; max-quality is a compatibility alias for flagship. */
   requestedTier?: ModelTier;
-  /** Agent or workflow name, used for diagnostics only. */
+  /** Agent or workflow name for role assignments, overrides and diagnostics. */
   agentName?: string;
-  /** Current/default runtime tier for the session. Defaults to 1. */
+  /** Worker role/task guidance from defaults.workerSelection. */
+  role?: string;
+  task?: string;
+  /** Current/default runtime tier; otherwise resolved from worker role guidance. */
   defaultTier?: RuntimeModelTier;
   /** Existing answer, deterministic tool, or cache is sufficient. */
   deterministic?: boolean;
@@ -38,7 +41,7 @@ export interface ModelRouteRequest extends FlagshipAuthority {
   requestedPremium?: boolean;
   /** Unattended bot/session policy. */
   unattended?: boolean;
-  /** Highest tier allowed without confirmation. Defaults to 2 for supervised, 1 for unattended. */
+  /** Invocation ceiling override; otherwise resolved from defaults.workerSelection. */
   maxAutoTier?: RuntimeModelTier;
   /** Invocation or project policy has already authorized premium routing. */
   premiumAuthorized?: boolean;

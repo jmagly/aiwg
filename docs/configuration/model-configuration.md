@@ -30,6 +30,13 @@ Configure prompt policy in project-root `models.json`, under
 work, and `off` keeps work local unless explicitly requested. The condensed return
 budget defaults to 2000 tokens (`returnBudgetTokens`).
 
+For advisory guidance, set this in project-root `models.json`; change `mode` to
+`"off"` to keep work local unless delegation is explicitly requested:
+
+```json
+{ "defaults": { "workerSelection": { "mode": "advisory", "returnBudgetTokens": 2000 } } }
+```
+
 ```bash
 aiwg config get --project defaults.workerSelection --origins
 aiwg regenerate
@@ -49,6 +56,16 @@ highest first. These are cost proxies, not measured quality claims. Use existing
 A project can narrow a user ceiling; widening is rejected before writing.
 Premium still requires authorization, and flagship always requires user election;
 a flagship session never makes workers flagship.
+
+Native router, Ralph and MC defaults share `resolveDelegationDefaults()` through
+the delegation resolver. `resolveModelTier()` loads builtin → user → project
+policy; synchronous `routeModelTier()` accepts the same merged `ConfigLoader`
+result. Without a loaded config it uses builtin role guidance (coding/standard)
+for supervised and unattended work. Explicit invocation tiers and ceilings remain
+supported. Strategy ranking keeps the existing eligible-worker semantics above.
+MC resolves workers before estimating spend. `SONNET_CACHE_USD` is a labelled
+standard-tier cache-cost estimate coefficient, not a model selector; estimates
+use each worker's resolved tier.
 
 Bounded extraction uses `aiwg-model-explorer` / economy, implementation and routine
 review use `aiwg-model-coding-worker` / standard, oracle checks use

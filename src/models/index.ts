@@ -54,7 +54,7 @@ export type { ConfigLocations } from './config-loader.js';
 export { ModelResolver } from './resolver.js';
 
 // Export provider-neutral runtime tier routing primitive
-export { routeModelTier } from './router.js';
+export { routeModelTier, resolveModelTier } from './router.js';
 
 export {
   discoverGrokBuildModels,

@@ -86,7 +86,8 @@ vi.mock('js-yaml', () => ({
   load: vi.fn(() => sampleMatrix),
 }));
 
-vi.mock('../../../../src/config/aiwg-config.js', () => ({
+vi.mock('../../../../src/config/aiwg-config.js', async importOriginal => ({
+  ...await importOriginal<typeof import('../../../../src/config/aiwg-config.js')>(),
   getProjectDir: vi.fn((ctx: { cwd?: string }) => ctx.cwd || process.cwd()),
   readAiwgConfig: vi.fn().mockResolvedValue(null),
   writeAiwgConfig: vi.fn().mockResolvedValue(undefined),
