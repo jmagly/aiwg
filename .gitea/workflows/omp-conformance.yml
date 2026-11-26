@@ -56,6 +56,11 @@ jobs:
           chmod 700 "$OMP_BINARY"
       - name: Native parser, resource, context and RPC gate without credentials
         run: node tools/providers/omp-conformance.mjs --binary /tmp/aiwg-omp-conformance --require --output artifacts/omp-native-conformance.json
+      - name: Build CLI implementation for provider translators
+        # Built before the MCP lifecycle gate: omp-teams resolves workers through
+        # src/models/delegation via importImpl, which needs the compiled dist/
+        # (#2648). The precedence probe also loads compiled model wrappers (#2649).
+        run: npm run build:cli
       - name: Native MCP lifecycle and loopback-model contracts
         run: node tools/providers/omp-mcp-conformance.mjs /tmp/aiwg-omp-conformance artifacts/omp-mcp-conformance.json
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6  # v2 (ci/digests.txt)
@@ -69,10 +74,6 @@ jobs:
           git -C /tmp/aiwg-omp-source checkout --detach 5964a0f7649275bcde818f20073193fd032451f2
           bun install --cwd /tmp/aiwg-omp-source --ignore-scripts --frozen-lockfile
           node tools/providers/omp-conformance-api.mjs --source /tmp/aiwg-omp-source --require --output artifacts/omp-api-conformance.json
-      - name: Build CLI implementation for provider translators
-        # The precedence probe deploys agents through the provider translators,
-        # which load the compiled model-wrapper modules from dist/ (#2649).
-        run: npm run build:cli
       - name: Native discovery precedence and conditional rule matching
         run: node tools/providers/omp-precedence-conformance.mjs --binary /tmp/aiwg-omp-conformance --source /tmp/aiwg-omp-source --output artifacts/omp-precedence-conformance.json
       - name: Retain versioned evidence including explicit unverified checks
