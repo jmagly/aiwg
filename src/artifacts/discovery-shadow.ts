@@ -83,6 +83,8 @@ export interface DiscoveryShadowHost {
   authorize(request: Omit<DiscoveryShadowRequest, 'signal'>): boolean;
   /** Store the complete result only under the host's normal D10 scope/lifecycle policy. */
   record(receipt: DiscoveryShadowReceipt): void;
+  /** Trusted monitoring verdict; retrieval/model content cannot supply health. */
+  health?: () => { drift: boolean; quality: boolean; latency: boolean; cost: boolean };
   clock?: () => number;
 }
 export interface DiscoveryShadowReceipt {
@@ -127,6 +129,12 @@ export class DiscoveryShadowRoute {
   /** Return metadata via the governed sink. Caller results always retain baseline order. */
   async observe(query: string, baseline: readonly DiscoveryCandidate[]): Promise<void> {
     const p = this.policy;
+    if (!this.disabled && this.host.health) {
+      try {
+        const health = this.host.health();
+        if (!health || ['drift', 'quality', 'latency', 'cost'].some(key => health[key as keyof typeof health] !== false)) this.disable();
+      } catch { this.disable(); }
+    }
     const gate = discoveryAmbiguity(query, baseline, p.ambiguity);
     const selected = gate.reason === 'invalid-input' ? [] : baseline.slice(0, p.ambiguity.maximumCandidates);
     const projection = {
@@ -227,3 +235,4 @@ export class DiscoveryShadowRoute {
 }
 
 export { DiscoveryShadowEvaluator, type DiscoveryShadowEvaluatorConfig } from './discovery-shadow-evaluator.js';
+export * from './discovery-shadow-study.js';

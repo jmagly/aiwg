@@ -1,0 +1,340 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aiwg.io/schemas/decision/DiscoveryStudyManifest.v1.schema.json",
+  "title": "Discovery Study Manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "state",
+    "registeredAt",
+    "dataset",
+    "pins",
+    "thresholds",
+    "digest"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "decision-discovery-study-manifest/v1"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "state": {
+      "enum": [
+        "draft",
+        "registered"
+      ]
+    },
+    "registeredAt": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "date-time"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "dataset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "digest",
+        "splitMethod",
+        "tuning",
+        "calibration",
+        "holdout"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "splitMethod": {
+          "enum": [
+            "source",
+            "time"
+          ]
+        },
+        "tuning": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "calibration": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "holdout": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        }
+      }
+    },
+    "pins": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "definition",
+        "binding",
+        "calibration",
+        "pricing",
+        "ambiguityPolicy",
+        "model"
+      ],
+      "properties": {
+        "definition": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "version",
+            "digest"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "version": {
+              "type": "string",
+              "minLength": 1
+            },
+            "digest": {
+              "type": "string",
+              "pattern": "^sha256:[a-f0-9]{64}$"
+            }
+          }
+        },
+        "binding": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "version",
+            "digest"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "version": {
+              "type": "string",
+              "minLength": 1
+            },
+            "digest": {
+              "type": "string",
+              "pattern": "^sha256:[a-f0-9]{64}$"
+            }
+          }
+        },
+        "calibration": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "pricing": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "ambiguityPolicy": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "model": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "thresholds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "minimumTotal",
+        "minimumPerSlice",
+        "powerRule",
+        "confidenceInterval",
+        "overallNonInferiorityMargin",
+        "ambiguityMetric",
+        "minimumAmbiguityImprovement",
+        "historicalBaseline",
+        "positiveTotalEconomics",
+        "minimumTokenSavings",
+        "minimumCostSavingsUsd",
+        "maximumP95LatencyMs",
+        "maximumSelectiveRisk"
+      ],
+      "properties": {
+        "minimumTotal": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "minimumPerSlice": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "exact-name",
+            "high-margin",
+            "low-margin",
+            "cross-type",
+            "hard-negative",
+            "no-match"
+          ],
+          "properties": {
+            "exact-name": {
+              "type": "integer",
+              "minimum": 2
+            },
+            "high-margin": {
+              "type": "integer",
+              "minimum": 2
+            },
+            "low-margin": {
+              "type": "integer",
+              "minimum": 2
+            },
+            "cross-type": {
+              "type": "integer",
+              "minimum": 2
+            },
+            "hard-negative": {
+              "type": "integer",
+              "minimum": 2
+            },
+            "no-match": {
+              "type": "integer",
+              "minimum": 2
+            }
+          }
+        },
+        "powerRule": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "confidenceInterval": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "method",
+            "level",
+            "seed",
+            "resamples"
+          ],
+          "properties": {
+            "method": {
+              "const": "paired-bootstrap"
+            },
+            "level": {
+              "type": "number",
+              "exclusiveMinimum": 0.5,
+              "exclusiveMaximum": 1
+            },
+            "seed": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "resamples": {
+              "type": "integer",
+              "minimum": 200,
+              "maximum": 1000000
+            }
+          }
+        },
+        "overallNonInferiorityMargin": {
+          "type": "number",
+          "minimum": -1,
+          "maximum": 0
+        },
+        "ambiguityMetric": {
+          "const": "mrr"
+        },
+        "minimumAmbiguityImprovement": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1
+        },
+        "historicalBaseline": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "hitAt3",
+            "mrr"
+          ],
+          "properties": {
+            "hitAt3": {
+              "const": 1
+            },
+            "mrr": {
+              "const": 0.9875
+            }
+          }
+        },
+        "positiveTotalEconomics": {
+          "const": true
+        },
+        "minimumTokenSavings": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "minimumCostSavingsUsd": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "maximumP95LatencyMs": {
+          "type": "number",
+          "minimum": 0
+        },
+        "maximumSelectiveRisk": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "const": "registered"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "registeredAt": {
+            "type": "string"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "registeredAt": {
+            "type": "null"
+          }
+        }
+      }
+    }
+  ]
+}

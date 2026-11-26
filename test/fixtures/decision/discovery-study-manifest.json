@@ -1,0 +1,59 @@
+{
+  "id": "synthetic-only",
+  "state": "draft",
+  "registeredAt": null,
+  "dataset": {
+    "id": "synthetic",
+    "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "splitMethod": "source",
+    "tuning": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "calibration": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "holdout": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+  },
+  "pins": {
+    "definition": {
+      "id": "synthetic",
+      "version": "1",
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "binding": {
+      "id": "synthetic",
+      "version": "1",
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "calibration": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "pricing": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "ambiguityPolicy": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "model": "jev-fixture"
+  },
+  "thresholds": {
+    "minimumTotal": 120,
+    "minimumPerSlice": {
+      "exact-name": 20,
+      "high-margin": 20,
+      "low-margin": 20,
+      "cross-type": 20,
+      "hard-negative": 20,
+      "no-match": 20
+    },
+    "powerRule": null,
+    "confidenceInterval": {
+      "method": "paired-bootstrap",
+      "level": 0.95,
+      "seed": 27,
+      "resamples": 2000
+    },
+    "overallNonInferiorityMargin": -0.01,
+    "ambiguityMetric": "mrr",
+    "minimumAmbiguityImprovement": 0.02,
+    "historicalBaseline": {
+      "hitAt3": 1,
+      "mrr": 0.9875
+    },
+    "positiveTotalEconomics": true,
+    "minimumTokenSavings": 1,
+    "minimumCostSavingsUsd": 0.001,
+    "maximumP95LatencyMs": 1000,
+    "maximumSelectiveRisk": 0.01
+  }
+}
