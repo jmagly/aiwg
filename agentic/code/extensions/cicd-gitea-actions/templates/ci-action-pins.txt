@@ -1,0 +1,5 @@
+# kind name pin resolved-version date rationale
+# Offline baseline: repository ci/digests.txt; review compatibility before installation.
+action https://github.com/actions/checkout 34e114876b0b11c390a56381ad16ebd13914f8d5 v4.3.1 2026-11-25 initial renderer baseline (#4428)
+action https://github.com/actions/cache 704facf57e6136b1bc63b828d79edcd491f0ee84 v3.3.2 2026-11-25 initial renderer baseline (#4428)
+action https://github.com/actions/upload-artifact c24449f33cd45d4826c6702db7e49f7cdb9b551d v3.2.1-node20 2026-11-25 initial renderer baseline (#4428)

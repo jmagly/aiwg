@@ -30,7 +30,10 @@ cannot be loaded. These are mandatory operating instructions; rule-side
    capability inputs and gate parameters. Resolve provider targets explicitly.
 2. Locate the installed provider WorkflowExtension extending `cicd-complete`
    and its rendering templates. Record identity/version and compatibility.
-   Extensions arrive in #4428: if missing, report the prerequisite and stop.
+   First-wave sources: `@$AIWG_ROOT/agentic/code/extensions/cicd-gitea-actions/`
+   and `@$AIWG_ROOT/agentic/code/extensions/cicd-github-actions/`. Discover
+   `cicd-gitea-actions-workflow` or `cicd-github-actions-workflow`; read their
+   README, provider rule and template. If missing, report the prerequisite and stop.
    Do not fabricate templates or claim a working render from a design alone.
 3. Render through those templates into an artifact preview, never directly into
    live workflow paths. Record input/template/output digests, versions, exact
@@ -77,7 +80,7 @@ Source/spec references; extension and template versions; deterministic render re
 
 ## Example
 
-“Render my CI pipeline for GitHub Actions” yields a preview and scoped installation checkpoint when the provider extension is available, or a missing-template report until #4428 lands.
+“Render my CI pipeline for GitHub Actions” yields a preview and scoped installation checkpoint when the provider extension is available, or a missing-template report when the extension is absent.
 
 ## Artifact handling
 

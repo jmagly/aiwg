@@ -11,7 +11,7 @@ export const GRAPH_EVAL_SEEDS = [3319, 4239, 1819] as const;
 type Strategy = 'lexical' | 'graph' | GraphControl;
 export interface DiscoveryGraphMatrixReport {
   schema: 'aiwg.discovery-eval-report.v1';
-  historical_80_query_partition: 'not identified';
+  historical_80_query_partition: string;
   seeds: number[];
   hardware: { platform: string; arch: string; cpu_model: string; node: string };
   graph: { nodes: number; edges: number; communities: number; supplied_co_use_pairs: number; supplied_similarity_pairs: number };
@@ -42,6 +42,7 @@ export async function measureDiscoveryGraphMatrix(options: {
   graphRank: (query: DiscoveryRelevanceQuery, limit: number) => Promise<RankedDiscoveryItem[]>;
   metrics: (records: DiscoveryRelevanceQuery[], results: RankedDiscoveryItem[][]) => DiscoveryEvalMetrics;
   latencyCeilingMs?: number; storageCeilingRatio?: number; rssCeilingBytes?: number;
+  historical80QueryPartition?: string;
 }): Promise<DiscoveryGraphMatrixReport> {
   const index = loadGraphIndexFile<ArtifactIndex>(options.cwd, 'metadata.json', 'framework');
   if (!index) throw new Error('Offline graph evaluation requires a cached local framework index');
@@ -118,7 +119,9 @@ export async function measureDiscoveryGraphMatrix(options: {
   budgets.passed = budgets.missed.length === 0;
   const input = index.experimentalGraph;
   const limitations = [
-    'Historical 80-query partition not identified; the current rows are not a held-out evaluation.',
+    options.historical80QueryPartition
+      ? 'Historical fixture recovered from pinned history; evaluation against the current corpus is development evidence, not held-out evidence.'
+      : 'Historical 80-query partition not identified; the current rows are not a held-out evaluation.',
     'In-house Leiden prototype uses deterministic modularity moves/refinement/aggregation; equivalence to a reference library is unverified.',
     'Context bytes measure UTF-8 retrieval JSON, not task completion. No reviewed downstream task fixture was supplied.',
     'Storage measures the serialized candidate representation plus lexical index, not a deployed graph store.',
@@ -132,7 +135,7 @@ export async function measureDiscoveryGraphMatrix(options: {
   if (runs.some(run => run.seed !== null && run.changed_edges === 0)) limitations.push('At least one control left topology unchanged; inspect changed_edges before interpreting comparisons.');
   if (!budgets.passed) limitations.push(`Budget missed: ${budgets.missed.join(', ')}.`);
   return {
-    schema: 'aiwg.discovery-eval-report.v1', historical_80_query_partition: 'not identified', seeds: [...GRAPH_EVAL_SEEDS],
+    schema: 'aiwg.discovery-eval-report.v1', historical_80_query_partition: options.historical80QueryPartition ?? 'not identified', seeds: [...GRAPH_EVAL_SEEDS],
     hardware: { platform: os.platform(), arch: os.arch(), cpu_model: os.cpus()[0]?.model ?? 'unknown', node: process.version },
     graph: { nodes: graph.nodes.length, edges: graph.edges.length, communities: graph.communities.length,
       supplied_co_use_pairs: input?.coUse?.pairs.length ?? 0, supplied_similarity_pairs: input?.similarities?.length ?? 0 },

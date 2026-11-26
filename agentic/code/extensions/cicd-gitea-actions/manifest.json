@@ -1,0 +1,28 @@
+{
+  "id": "cicd-gitea-actions",
+  "type": "addon",
+  "name": "Gitea Actions CI/CD Extension",
+  "version": "1.0.0",
+  "description": "Provider templates and safety mappings for gitea-actions CIPipeline targets",
+  "core": false,
+  "autoInstall": false,
+  "requires": [
+    "cicd-complete"
+  ],
+  "entry": {
+    "rules": "rules/",
+    "templates": "templates/",
+    "capabilities": "capabilities/"
+  },
+  "provides": {
+    "rules": [
+      "cicd-gitea-actions-safety"
+    ],
+    "templates": [
+      "cicd-gitea-actions-workflow"
+    ],
+    "capabilities": [
+      "cicd-gitea-runner-labels"
+    ]
+  }
+}

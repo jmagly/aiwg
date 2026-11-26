@@ -1,0 +1,11 @@
+apiVersion: workflow.aiwg.io/v1
+kind: WorkflowExtension
+metadata:
+  name: cicd-github-actions
+  labels:
+    domain: cicd
+spec:
+  extends: cicd-complete
+  description: "Agent-interpreted Github Actions rendering for user pipelines"
+  version: "1.0.0"
+  capabilities: auto-discover

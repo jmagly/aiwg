@@ -109,3 +109,21 @@ a graph quality improvement.
 Report the capability selected, any choice or approval needed, the outcome, and
 the evidence used to verify it. Keep command transcripts out of the user
 response unless they help diagnose a failure or the user asks for them.
+
+## Research acceptance replay (#3319)
+
+The original 80-query fixture has now been recovered byte-for-byte from
+`5e8940b81`, rather than inferred from the expanded 145 rows. Run the isolated,
+CPU-only research replay and its synthetic downstream configuration tasks with:
+
+```bash
+nice -n 19 node --import tsx tools/benchmarks/discovery-research.mjs
+```
+
+Results default to `.worker/evidence/discovery-research.json`. The generic
+`eval-discovery --strategy graph` matrix above still uses its supplied fixture;
+it does not identify a historical partition automatically. The research replay
+records the pinned provenance explicitly. See the
+[design note](../architecture/discovery-graph-research.md) and
+[measured results](../reports/discovery-graph-research-2026-11-25.md) for budgets,
+source-preserving document controls, failed gates and interpretation limits.

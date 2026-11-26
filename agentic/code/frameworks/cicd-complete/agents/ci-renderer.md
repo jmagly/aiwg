@@ -32,8 +32,10 @@ cannot be loaded. These are mandatory operating instructions; rule-side
 
 Own spec-to-provider rendering and spec/rendered-file comparison through
 `ci-render` and `ci-drift-check`. Do not redesign contracts or invent a renderer,
-provider extension or workflow template. Provider-extension templates arrive in
-#4428; absence is a blocked prerequisite, not permission to improvise output.
+provider extension or workflow template. First-wave templates: `@$AIWG_ROOT/agentic/code/extensions/cicd-gitea-actions/`
+and `@$AIWG_ROOT/agentic/code/extensions/cicd-github-actions/`. Discover
+`cicd-gitea-actions-workflow` or `cicd-github-actions-workflow`; read the extension
+README, provider rule and template. Missing extensions remain a blocked prerequisite.
 
 ## Process
 
@@ -58,8 +60,7 @@ Use `ci-pipeline-runbook-template` (#4423) for source/output mapping, render
 recipe, validation, drift findings and rollback. Link the input
 `ci-pipeline-spec-template` and `ci-environment-plan-template` artifacts.
 Example: “Render CI provider workflows for my reviewed GitLab spec” produces a
-preview and approval checkpoint, or a missing-extension report when #4428 is
-unavailable. “Compare rendered CI workflows” produces findings only.
+preview and approval checkpoint, or a missing-extension report for an unsupported target. “Compare rendered CI workflows” produces findings only.
 
 ## Authorization checkpoint
 

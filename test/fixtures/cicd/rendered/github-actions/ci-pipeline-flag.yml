@@ -1,0 +1,79 @@
+# Inert golden preview; never installed as AIWG CI.
+# Recipe: agentic/code/extensions/cicd-github-actions/templates/cicd-github-actions-workflow.md v1.0.0
+# Source: test/fixtures/cicd/valid/ci-pipeline-flag.json + ci-environment.json
+# Requires reviewed project adapters/bindings and provisioned Node 24 runtime.
+# Adds the default health gate; Gitea projection is a test target override only.
+name: ci-flag
+'on':
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  ci-publish:
+    runs-on:
+      - self-hosted
+      - linux
+      - ci-runner
+    if: ${{ github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/')) }}
+    environment:
+      name: ci-production
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          persist-credentials: false
+      - name: Verify environment protection and approval
+        env:
+          CI_BINDINGS: ci/bindings.json
+          CI_ENVIRONMENT: ci-production
+          CI_PROTECTION: '{"required_reviewers":2,"branch_restrictions":["main","release/*"]}'
+        run: node ci/approval.mjs
+      - name: Invoke docker-push
+        env:
+          CI_BINDINGS: ci/bindings.json
+          CI_CAPABILITY: docker-push
+          CI_INPUTS: '{}'
+          CI_RETRY: '{"max_attempts":1}'
+          CI_ENVIRONMENT: ci-production
+          CI_TOKEN: ${{ secrets.CI_TOKEN }}
+        run: node ci/capability.mjs
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ci-publish-${{ github.sha }}
+          path: ci-evidence/
+          retention-days: 7
+          if-no-files-found: error
+  ci-release-rollout:
+    if: ${{ github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/')) }}
+    runs-on:
+      - self-hosted
+      - linux
+      - ci-runner
+    needs:
+      - ci-publish
+    environment:
+      name: ci-production
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          persist-credentials: false
+      - name: Verify environment protection and approval
+        env:
+          CI_BINDINGS: ci/bindings.json
+          CI_ENVIRONMENT: ci-production
+          CI_PROTECTION: '{"required_reviewers":2,"branch_restrictions":["main","release/*"]}'
+        run: node ci/approval.mjs
+      - name: Execute gated flag ramp and verified rollback
+        env:
+          CI_BINDINGS: ci/bindings.json
+          CI_ENVIRONMENT: ci-production
+          CI_CAPABILITY: progressive-rollout
+          CI_ROLLOUT: '{"strategy":"flag","steps":[{"percentage":5,"pause":"10m"},{"percentage":100}],"rollback":{"on":["gate-failure"],"capability":"ci-deploy-handoff"}}'
+          CI_HEALTH_GATE: aiwg:cicd-complete/progressive-rollout-health
+          CI_TOKEN: ${{ secrets.CI_TOKEN }}
+        run: node ci/rollout.mjs
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ci-release-rollout-${{ github.sha }}
+          path: ci-evidence/
+          retention-days: 7
+          if-no-files-found: error

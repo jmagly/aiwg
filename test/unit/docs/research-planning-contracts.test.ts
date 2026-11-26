@@ -50,6 +50,21 @@ describe('research and planning contracts', () => {
       /ground.truth/i, /confidence interval/i, /stop/i, /no updates during evaluation/i]) expect(plan).toMatch(requirement);
   });
 
+  it('maps the 2026-11-16 follow-ups onto the same owners and H5 plan (#3318)', () => {
+    const doc = read('docs/decision/memory-update-controls.md');
+    const map = doc.split('## Constraint-to-owner map')[1]?.split('\n## ')[0] ?? '';
+    for (const id of ['C6', 'C7', 'C8', 'C9', 'C10', 'C11']) expect(map).toMatch(new RegExp(`\\| ${id} \\|`));
+    for (const phrase of ['trusted head', 'negative evidence', 'maturity-aware', 'integrity conformance',
+      'REF-3177', 'REF-3181', 'not deployment defaults']) expect(doc.toLowerCase()).toContain(phrase.toLowerCase());
+    const plan = doc.split('## H5 experiment plan (proposed)')[1]?.split('\n## ')[0] ?? '';
+    for (const phrase of ['unconditional', 'stale predecessor', 'replayed predecessor', 'concurrent conflicting updates',
+      'rejected evidence', 'incomplete write', 'rollback recovery', 'negative transfer']) {
+      expect(plan.toLowerCase()).toContain(phrase.toLowerCase());
+    }
+    expect(plan).toContain('retention_delta_pp');
+    expect(plan).toContain('| shuffled-memory |');
+  });
+
   it('separates research claims from observations and keeps edits versioned and reversible (#3318)', () => {
     const doc = read('docs/decision/memory-update-controls.md');
     for (const requirement of [/whole-prompt rewrites/i, /rollback/i, /precondition/,
