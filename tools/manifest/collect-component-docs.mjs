@@ -14,6 +14,7 @@
  *
  * Options:
  *   --dry-run          Show what would be copied/added without writing anything
+ *   --check            Like --dry-run, but exit 1 if any collected doc differs from its source (#4420)
  *   --verbose          Print every file checked, not just changes
  *   --allow-unresolved Copy files whose relative links cannot be rewritten
  *
@@ -35,7 +36,9 @@ const MANIFEST_PATH = path.join(DOCS, '_manifest.json');
 const AGENTIC = path.join(ROOT, 'agentic', 'code');
 
 const args = process.argv.slice(2);
-const DRY_RUN = args.includes('--dry-run');
+const CHECK = args.includes('--check');
+const DRY_RUN = args.includes('--dry-run') || CHECK;
+const staleCollected = [];
 const VERBOSE = args.includes('--verbose');
 // Collect a file whose links cannot be re-expressed in the destination tree.
 // Off by default: the docsite build runs with strictLinks, so a silent break
@@ -525,7 +528,8 @@ function main() {
         verbose(`  copied: ${kind}/${name}/${relPath}`);
         copied++;
       } else {
-        log(`  [copy] ${src} → docs/${kind}/${name}/${relPath}`);
+        if (CHECK && (!fs.existsSync(dest) || fs.readFileSync(dest, 'utf8') !== content)) staleCollected.push(`docs/${kind}/${name}/${relPath}`);
+        if (!CHECK) log(`  [copy] ${src} → docs/${kind}/${name}/${relPath}`);
         copied++;
       }
 
@@ -559,6 +563,11 @@ function main() {
   }
 
   log(`\nDone: ${copied} files ${DRY_RUN ? 'would be ' : ''}copied, ${skipped} sections already present.`);
+  if (CHECK && staleCollected.length > 0) {
+    console.error(`\n${staleCollected.length} collected doc(s) differ from their source; edit the source under agentic/code and run npm run docs:collect:`);
+    for (const file of staleCollected) console.error(`  ${file}`);
+    process.exitCode = 1;
+  }
   if (rewritten > 0) log(`Rewrote relative links in ${rewritten} file(s) for the collected layout.`);
   if (sourceLinked > 0) log(`Pointed ${sourceLinked} link(s) at the canonical source — the docsite does not publish those targets.`);
 

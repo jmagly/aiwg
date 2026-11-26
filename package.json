@@ -56,6 +56,7 @@
     "docs:audience:audit": "node tools/docs/audit-audiences.mjs",
     "docs:discoverability:audit": "node tools/docs/audit-discoverability.mjs",
     "docs:collect:dry": "node tools/manifest/collect-component-docs.mjs --dry-run",
+    "docs:collect:check": "node tools/manifest/collect-component-docs.mjs --check",
     "release:fortemi-index": "tsx tools/release/build-fortemi-core-indices.mjs",
     "release:reproducibility": "node tools/release/reproducibility-replay.mjs",
     "audit:socket-release": "node tools/release/socket-post-publish-audit.mjs",
