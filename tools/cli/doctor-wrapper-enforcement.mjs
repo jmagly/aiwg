@@ -5,7 +5,8 @@ import { pathToFileURL } from 'node:url';
 import { importImpl } from '../_resolve-impl.mjs';
 import { readWrapperSettings } from './doctor-wrapper-settings.mjs';
 
-export async function collectWrapperEnforcement({ projectDir, config, packageRoot, provider: selectedProvider }) {
+export async function collectWrapperEnforcement({ projectDir, config, packageRoot, provider: selectedProvider,
+  flagshipAllowlist = [] }) {
   const { wrapperEnforcementReport, deployedWrapperEnforcement, wrapperModelRisks, wrapperControls, GLOBAL_WRAPPER_SETTINGS } =
     await importImpl(import.meta.url, 'models/wrapper-enforcement.js');
   const { readModelWrapperArtifacts } = await importImpl(import.meta.url, 'models/wrapper-deployment.js');
@@ -51,7 +52,7 @@ export async function collectWrapperEnforcement({ projectDir, config, packageRoo
         const electedTier = override?.['model-tier'] ?? defaults.tier;
         const electedModel = catalog.providers[provider]?.tiers?.[electedTier === 'max-quality' ? 'flagship' : electedTier]?.id;
         const artifact = { ...settings, model: string(fields?.[controls.model ?? 'model']),
-          effort: string(fields?.[controls.effort]), agentName: wrapper.name,
+          effort: string(fields?.[controls.effort]), agentName: wrapper.name, flagshipAllowlist,
         };
         const resolvedModel = deployedWrapperEnforcement(provider, artifact).effectiveModel;
         if (resolvedModel && (override?.['model-override'] === resolvedModel || electedModel === resolvedModel)) {

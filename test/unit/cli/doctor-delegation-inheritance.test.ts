@@ -94,6 +94,25 @@ describe('delegation flagship inheritance (#2649)', () => {
       .toContainEqual(expect.objectContaining({ artifact: 'allowed', id: 'delegation.flagship-inheritance' }));
   });
 
+  it('applies exact allowlist exemptions across the combined wrapper, agent and skill audit', async () => {
+    // @ts-expect-error shipped JavaScript module
+    const { collectDoctorModelChecks } = await import('../../../tools/cli/doctor-delegation-inheritance.mjs');
+    const names = ['aiwg-model-coding-worker', 'allowed-agent', 'allowed-skill'];
+    for (const name of names.slice(0, 2)) {
+      await put(`.claude/agents/${name}.md`, '---\nmodel: claude-fable-5-1\n---\n');
+    }
+    await put('.claude/skills/allowed-skill/SKILL.md', '---\nmodel: claude-fable-5-1\n---\n');
+    const options = { projectDir: project, config: { providers: ['claude'] }, packageRoot };
+    const risks = async (flagshipAllowlist: string[]) =>
+      (await collectDoctorModelChecks({ ...options, flagshipAllowlist }))
+        .filter((row: any) => row.id === 'delegation.flagship-inheritance');
+    expect(await risks(names)).toEqual([]);
+    expect(await risks(['aiwg-model-*', 'allowed-*'])).toHaveLength(3);
+    expect(await risks(['allowed-agent', 'allowed-skill'])).toEqual([
+      expect.objectContaining({ wrapper: 'aiwg-model-coding-worker' }),
+    ]);
+  });
+
   it('honors a safe fallback but detects the forced Claude flagship override', async () => {
     await put('.claude/settings.json', '{"model":"claude-fable-5-1","env":{"CLAUDE_CODE_SUBAGENT_MODEL":"claude-sonnet-5-5"}}');
     await put('.claude/agents/ordinary.md', '---\nmodel: inherit\n---\nWork.\n');

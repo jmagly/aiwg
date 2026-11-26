@@ -158,6 +158,7 @@ Harnesses differ in what they can enforce, so when `aiwg doctor` reports `global
 | Claude Code | Pinned agents and skills | Agent/skill frontmatter `model`; agent invocation `model` overrides frontmatter, then `CLAUDE_CODE_SUBAGENT_MODEL`, then the parent session. `CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1` overrides agent pins. Use AIWG wrappers or an explicit invocation model instead of unpinned `general-purpose`. |
 | Codex | Pinned custom agents; skills inherit | `.codex/agents/*.toml`: `model` and `model_reasoning_effort`; omission inherits. Unknown explicit model IDs are preserved rather than reclassified as coding. |
 | Hermes | Global-only; per-worker tier not enforceable | `~/.hermes/config.yaml` (or `$HERMES_HOME/config.yaml`): `delegation.model` / `delegation.effort`. Select one cost-effective standard model supported by the configured backend; the catalog has no concrete standard binding. |
+| Muse | Global-only; per-worker tier not enforceable | Session `--model` / `--reasoning-effort`; `$XDG_CONFIG_HOME/muse/settings.json` (default `~/.config/muse/settings.json`): `model` fallback. Per-agent pins are unverified. |
 | Warp | Run/profile selection; per-worker tier not enforceable | `warp agent run --model <MODEL_ID>`; effort unavailable. Select one cost-effective standard model available to that run; `profile-selected` is not a concrete model. |
 | Grokbot | Global-only; per-worker tier not enforceable | No verified native delegation-model setting or concrete standard binding in the bundled catalog; AIWG reports this gap rather than supplying a setting name. |
 | Windsurf / Devin Desktop | Inherited; per-worker tier not enforceable | No supported portable native model field; the UI session selects the model. |
@@ -171,7 +172,7 @@ may be flagship. A recorded safe fallback clears that inheritance risk.
 `commandHint.modelTier` expresses dispatch intent and is not itself a native
 skill model pin. Claude's subagent fallback does not select an inline skill's
 model. Existing operator `models.json` overrides exempt only matching resolved
-models; the shared `flagshipAllowlist` API exempts exact names, never globs.
+models; the shared `flagshipAllowlist` API exempts exact agent, wrapper, and skill names, never globs.
 This audit observes files, not live subagent model resolution. It never sets
 `CLAUDE_CODE_SUBAGENT_MODEL`; any optional fallback configuration must use
 `update-config` with operator consent.
