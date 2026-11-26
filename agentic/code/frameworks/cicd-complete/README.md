@@ -17,9 +17,17 @@ This end-user framework is separate from AIWG's repository CI and release toolin
 The package ships the kernel [cicd-quickref](skills/cicd-quickref/SKILL.md),
 [CIPipeline](schemas/ci-pipeline.schema.json) and
 [CIEnvironment](schemas/ci-environment.schema.json) draft-07 schemas.
-Agents are planned (#4423); execution skills are planned (#4424);
-templates and capabilities are planned (#4425). Phase gates describe acceptance
-criteria; this scaffold does not execute pipelines or render provider files yet.
+It also ships five agents (`ci-architect`, `ci-renderer`, `ci-doctor`,
+`ci-release-engineer`, `supply-chain-guard`), eleven lifecycle skills, seven
+templates, phase guides with gate criteria, a CI capability library with the
+provider-neutral flag capabilities, and three gate packs. Provider recipes live in
+the `cicd-gitea-actions` and `cicd-github-actions` extensions.
+
+What each layer does: the schemas give **structural validation**; the agents and
+provider recipes produce **rendered workflow files** for you to review; nothing in
+this framework **executes** pipelines, and rendered files reference capability
+adapters and bindings that your project must supply and review before use. See
+the [quickstart](docs/quickstart.md) and [overview](docs/overview.md).
 
 ```bash
 aiwg use cicd-complete
@@ -42,3 +50,8 @@ cicd-complete`. OpsExtension remains ops-only. Jobs reference OpsCapability name
 GatePack references identify `gates.aiwg.io/v1alpha1` packs. Referenced capabilities,
 environments and gates must be resolved by consumers; schema validation checks shape.
 See [schema ownership and compatibility](docs/ci-schema-contracts.md).
+
+## User guides
+
+- [Quickstart: assess, design, render and operate a pipeline](docs/quickstart.md)
+- [Overview: concepts, bundles and execution boundaries](docs/overview.md)

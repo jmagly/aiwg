@@ -6,10 +6,12 @@
     "dest": "docs/frameworks/cicd-complete",
     "files": [
       "ci-schema-contracts.md",
+      "overview.md",
       "phases/assess.md",
       "phases/design.md",
       "phases/implement.md",
-      "phases/operate.md"
+      "phases/operate.md",
+      "quickstart.md"
     ]
   },
   {
