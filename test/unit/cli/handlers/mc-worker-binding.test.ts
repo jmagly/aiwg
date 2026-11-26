@@ -8,6 +8,7 @@ import { createMcAdmissionScheduler, createMcFlowAdapter, mcHandler } from '../.
 import { resolveParallelism, workerConfigDigest } from '../../../../src/config/aiwg-config.js';
 import { bindManagedAdmissionPolicy, FileAdmissionStore, managedProjectAdmissionPolicy, projectAdmissionAuthority } from '../../../../src/serve/shared-host-scheduler.js';
 import { revalidateWorkerInvocationPlan, resolveWorkerInvocation } from '../../../../src/serve/worker-invocation.js';
+import * as invocationResolver from '../../../../src/serve/worker-invocation.js';
 import { managedMcWorkerFixture } from '../../../fixtures/managed-mc-worker.js';
 
 const mocks = vi.hoisted(() => ({ inputs: vi.fn(), config: vi.fn(), launch: vi.fn(), cancel: vi.fn() }));
@@ -232,7 +233,9 @@ describe('T-OG-08 Flow project owner binding', () => {
 
   it('retains uncertain Flow capacity and spent usage after the execution owner returns', async () => {
     const { prepareNode, request } = await fixture();
+    const resolve = vi.spyOn(invocationResolver, 'resolveWorkerInvocation');
     const invokeNode = vi.fn(async (_request: unknown, context: any) => {
+      expect(context.prepared.routing).toMatchObject({ orchestrator: 'flow', resolved_tier: 'standard', resolved_model: f.plan.selected!.model });
       context.bindExecution({ pid: 2147483602, startedAt: 'synthetic-boot:123:1001' });
       return { outputs: { result: 'synthetic' }, usage: { tokens: 7, costUsd: null }, managedEvidence: {
         health: health({ state: 'completed', termination: 'uncertain' }),
@@ -243,6 +246,7 @@ describe('T-OG-08 Flow project owner binding', () => {
     const adapter = await createMcFlowAdapter({ args: [], rawArgs: [], cwd: root, frameworkRoot }, { prepareNode, invokeNode });
     await expect(adapter.invokeNode(request)).rejects.toMatchObject({ usage: { tokens: 7, costUsd: null } });
     expect(invokeNode).toHaveBeenCalledOnce();
+    expect(resolve).toHaveBeenCalledWith(f.snapshot, expect.objectContaining({ role: f.intent.role }), f.drivers);
     expect(store.read().records[f.intent.requestId]).toMatchObject({ state: 'uncertain', reservedSlots: 1 });
   });
 

@@ -72,3 +72,6 @@ wrapper defaults without overriding exact operator pins; document user-facing
 selection examples and migration; measure task outcomes/cost before claiming
 strategy quality gains. No rules, context generation, wrappers, measurement,
 provider probing, or launch machinery changes belong to this foundation.
+
+Native and qualified orchestration wiring is documented separately in
+[Orchestration worker selection (#2648)](orchestration-worker-selection.md).

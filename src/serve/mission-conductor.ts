@@ -24,6 +24,7 @@
  */
 
 import { routeMission } from './agent-router.js';
+import { routeCycleWorker, type CycleSelection, type RoutedWorkerInvocation } from './cycle-delegation.js';
 import type { ExecutorRegistration } from './executor-registry.js';
 import { StackAdapterRegistry } from './stack-adapters.js';
 import type { GraphExecutionMetadata, GraphRunIdentity } from '../flow/graph-metadata.js';
@@ -35,7 +36,7 @@ import type { WorkerResult, WorkerDirectResult } from '../mission-protocol/types
 export { summarizeMissionLedger } from './mission-summary.js';
 
 /** A single worker cycle within a Mission — runs on exactly one stack. */
-export interface WorkerCycle {
+export interface WorkerCycle extends CycleSelection {
   id: string;
   /** Which stack runs this worker (resolved to a `runtime:<name>` filter). */
   runtime: string;
@@ -118,7 +119,7 @@ export interface MissionLedger {
 export type RunWorker = (
   cycle: WorkerCycle,
   executor: ExecutorRegistration,
-  invocation: { runtimeCapability: string; primitive: string; describe: string },
+  invocation: RoutedWorkerInvocation,
 ) => { output?: string; cost?: number; workerResult?: CycleResult['workerResult'] }
   | Promise<{ output?: string; cost?: number; workerResult?: CycleResult['workerResult'] }>;
 
@@ -126,6 +127,7 @@ export type RunWorker = (
 export type ScoreOutput = (result: CycleResult) => number;
 
 export interface ConductorOptions {
+  cwd?: string;
   adapters?: StackAdapterRegistry;
   /** Worker execution seam (default: plan-only, no execution). */
   runWorker?: RunWorker;
@@ -151,7 +153,7 @@ export class MissionConductor {
   private scorerId: string | null;
   private effectLedger?: EffectLedger;
 
-  constructor(opts: ConductorOptions = {}) {
+  constructor(private readonly opts: ConductorOptions = {}) {
     this.adapters = opts.adapters ?? new StackAdapterRegistry();
     this.runWorker = opts.runWorker;
     this.scoreOutput = opts.scoreOutput;
@@ -313,7 +315,8 @@ export class MissionConductor {
           if (recovered) reason = `file effect ${intent.effectId} completed; worker replay skipped`;
         }
         if (!recovered) {
-          const ran = await this.runWorker(cycle, executor, invocation);
+          const selected = await routeCycleWorker(cycle, invocation, ledger.activityLog, this.opts.cwd);
+          const ran = await this.runWorker(cycle, executor, selected);
           output = ran.output;
           workerResult = ran.workerResult === undefined ? undefined : structuredClone(ran.workerResult);
           cost = ran.cost ?? 0;

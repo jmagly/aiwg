@@ -33,6 +33,26 @@ function offline(owner) {
 function output() { return ['log', 'warn', 'error'].flatMap(method => console[method].mock.calls.flat()).join('\n'); }
 
 describe('external loop dispatch resilience', () => {
+  it('uses tier policy without inventing a user election when no model is pinned', async () => {
+    const root = temporary('unpinned-model-');
+    const owner = new Orchestrator(root); offline(owner);
+    const launch = vi.spyOn(owner.sessionLauncher, 'launch').mockImplementation(async invocation => {
+      writeFileSync(invocation.stdoutPath, JSON.stringify({ ralph_external_completion: true, success: true, reason: 'Synthetic task completed' }));
+      writeFileSync(invocation.stderrPath, '');
+      return { exitCode: 0, timedOut: false };
+    });
+    const result = await owner.execute({ ...options, model: undefined });
+    expect(result.success, output()).toBe(true);
+    const state = owner.stateManager.load();
+    expect(state.config).not.toHaveProperty('model');
+    expect(state.config).not.toHaveProperty('modelElection');
+    expect(launch).toHaveBeenCalledOnce();
+    const routing = JSON.parse(readFileSync(join(owner.stateManager.getStateDir(), 'outputs', 'routing.json'), 'utf8'));
+    expect(routing).toMatchObject({ requested_tier: null, resolved_tier: 'standard', election: null });
+    expect(routing.resolved_model).toMatch(/^gpt-/);
+    for (const [invocation] of launch.mock.calls) expect(invocation.model).toBe(routing.resolved_model);
+  });
+
   it('runs two Codex workers with the real collector and partial snapshots', async () => {
     fakeCodex(CodexAdapter);
     const root = temporary('codex-loop-');
@@ -132,10 +152,17 @@ describe('external loop dispatch resilience', () => {
     }
     cpSync(join(source, 'dist/src'), join(packed, 'dist/src'), { recursive: true,
       filter: path => path === join(source, 'dist/src') || isCliPackageFile(relative(source, path), manifest.files) });
-    const capabilities = 'agentic/code/providers/model-capabilities.v1.json';
-    expect(manifest.files).toContain('agentic/');
-    mkdirSync(dirname(join(packed, capabilities)), { recursive: true });
-    copyFileSync(join(source, capabilities), join(packed, capabilities));
+    // Routing loads the shared config validator, including its runtime HITL schema.
+    for (const file of ['agentic/code/providers/model-capabilities.v1.json',
+      'agentic/code/providers/model-catalog.v1.json',
+      'agentic/code/frameworks/sdlc-complete/config/models-v2.json',
+      'schemas/models/provider-model-capabilities.v1.schema.json',
+      'schemas/models/model-catalog.v1.schema.json',
+      'vscode-extension/schemas/aiwg.config.v1.json']) {
+      expect(isCliPackageFile(file, manifest.files), file).toBe(true);
+      mkdirSync(dirname(join(packed, file)), { recursive: true });
+      copyFileSync(join(source, file), join(packed, file));
+    }
     symlinkSync(join(source, 'node_modules'), join(packed, 'node_modules'), 'dir');
     expect(existsSync(join(packed, 'src'))).toBe(false);
     const root = temporary('packed-workspace-');

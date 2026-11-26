@@ -2827,6 +2827,16 @@
       "migrationReason": "Compatibility fixture or test remains to prove legacy reads and mixed-version behavior."
     },
     {
+      "path": "test/unit/serve/cycle-delegation.test.ts",
+      "owner": "test/unit",
+      "role": "fixture-or-test",
+      "currentVersion": "unversioned",
+      "statusVocabulary": [],
+      "serialization": "typescript/javascript",
+      "migrationAction": "retain",
+      "migrationReason": "Compatibility fixture or test remains to prove legacy reads and mixed-version behavior."
+    },
+    {
       "path": "test/unit/serve/executor-registry.test.ts",
       "owner": "test/unit",
       "role": "fixture-or-test",

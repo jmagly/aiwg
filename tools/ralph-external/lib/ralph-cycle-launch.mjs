@@ -2,9 +2,11 @@
 import { CheckpointManager } from '../checkpoint-manager.mjs';
 import { prepareNativeAttempt, finishNativeAttempt, persistCycleAttempt } from './session-attempt.mjs';
 import { prepareGroupCycle, launchGroupCycle } from './ralph-group-cycle.mjs';
+import { routeRalphWorker } from './ralph-delegation.mjs';
 
 export async function launchRalphCycle(owner, state, { prompt, systemPrompt, outputPaths, iterationDir, timeoutMs }) {
-  const options = { prompt, model: state.config.model, budget: state.config.budgetPerIteration,
+  const routing = state.config.groupWorker ? undefined : await routeRalphWorker(owner, state, iterationDir, state.objective ?? prompt);
+  const options = { prompt, model: routing?.resolved_model, budget: state.config.budgetPerIteration,
     systemPrompt, mcpConfig: state.config.mcpConfig, thinking: state.config.thinking, tools: state.config.tools,
     workingDir: state.config.workingDir, stdoutPath: outputPaths.stdout, stderrPath: outputPaths.stderr,
     outputDir: iterationDir, timeoutMs, verbose: state.config.verbose };

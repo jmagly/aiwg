@@ -94,7 +94,9 @@ export async function resolveMcWorker(ctx: HandlerContext, session: Pick<Session
     throw new Error(`Managed worker is ineligible: ${plan.diagnostics.map(item => item.message).join('; ')}`);
   }
   if (parentKind === 'mission' && plan.invocation.transport !== 'shell') throw new Error('Managed Ralph capture requires a qualified shell transport');
-  return { dispatch, intent, brief, plan };
+  const { workerRoutingRecord } = await import('../../models/worker-routing-record.js');
+  mission.workerRouting = workerRoutingRecord(parentKind === 'flow' ? 'flow' : 'mc', mission.id, plan, inputs.snapshot, mission.workerTier);
+  return { dispatch, intent, brief, plan, routing: mission.workerRouting };
 }
 
 /** Flow adapters use the same eligibility, project authority and allowance owner. */
@@ -119,7 +121,7 @@ export async function createMcFlowAdapter(ctx: HandlerContext, bindings: {
       }, 'flow');
       if (!worker || worker.intent.taskId !== request.node.id) throw new Error('Flow task authority differs from node identity');
       const selected = worker.plan.selected!;
-      return { invocation: worker.plan.invocation, plan: worker.plan, brief: worker.brief,
+      return { invocation: worker.plan.invocation, plan: worker.plan, brief: worker.brief, routing: worker.routing,
         admission: { requestId: worker.dispatch.requestId, orchestratorId: request.runId,
           environment: process.env.AIWG_ENVIRONMENT ?? 'default', provider: selected.inferenceProvider, runtimeKind: 'host',
           priority: 10, submittedAt: new Date().toISOString(), queueTimeoutMs: (cfg.parallelism!.admission?.queueTimeoutSeconds ?? 300) * 1000,

@@ -38,7 +38,7 @@ describe('T-OG-03/08/13 native Ralph continuation', () => {
 
   function fixture(provider: string) {
     const stateManager = new StateManager(root);
-    const state = stateManager.initialize({ provider, maxIterations: 3 });
+    const state = stateManager.initialize({ provider, model: 'synthetic/model', maxIterations: 3 });
     const adapter = createProvider(provider);
     const owner = { stateManager, providerAdapter: adapter, projectRoot: root, sessionLauncher: { launch: vi.fn() } };
     const options = { model: 'sonnet', budget: 1, workingDir: root, outputDir: root };

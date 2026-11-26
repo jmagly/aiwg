@@ -101,7 +101,9 @@ export class StateManager {
       config: {
         provider: config.provider || 'claude',
         ...(config.groupWorker ? { groupWorker: config.groupWorker } : {}),
-        model: config.model || 'opus',
+        ...(config.model === undefined ? {} : { model: config.model }),
+        ...(config.workerTier === undefined ? {} : { workerTier: config.workerTier }),
+        ...(config.modelElection === undefined ? {} : { modelElection: config.modelElection }),
         budgetPerIteration: config.budgetPerIteration || 2.0,
         budgetLimits: config.budgetLimits || {},
         explorationQuota: config.explorationQuota || { enabled: false },

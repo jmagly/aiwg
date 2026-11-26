@@ -44,7 +44,9 @@ Non-triggers (route elsewhere):
 
 1. **State the completion criterion measurably** (per the `vague-discretion` rule). "good enough" is not a criterion; "all tests pass and CI green", "score ≥ 85", "every flagged finding verified" are. If the user's goal is vague, extract a checkable criterion first.
 
-2. **Right-size + decompose.** Break the goal into independently-verifiable worker cycles (`subagent-scoping`). Decide single-stack vs cross-stack:
+2. **Right-size + decompose.** Assign each work unit a wrapper, role and requested tier through `resolveDelegation()` (`src/models/delegation.ts`); external work uses `aiwg models resolve` before launch. Exploration uses `aiwg-model-explorer` (efficiency/economy); verification uses `aiwg-model-verifier` (coding/standard). Keep specialist frontmatter requirements. Apply `defaults.workerSelection` strategy and ceiling, stop blocked work units, and require `election: user` for flagship. Record the common routing record (`requested_tier`, `resolved_tier`, `resolved_model`, wrapper, role, strategy, ceiling and election) per worker in the activity-log. Never inherit the session model.
+
+   **Decompose.** Break the goal into independently-verifiable worker cycles (`subagent-scoping`). Decide single-stack vs cross-stack:
    - **Single-stack** (default): workers run on the current stack. Use this stack's native primitive for in-session fan-out where available; otherwise AIWG's external loop.
    - **Cross-stack** (#1546): when the operator wants heterogeneous stacks (e.g. Claude conductor → Codex workers), dispatch worker cycles to executors advertising the target `stack:<name>` capability via AIWG's `serve` executor-registry. The conductor stays AIWG-owned.
 

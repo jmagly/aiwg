@@ -10,6 +10,7 @@
  */
 
 import { routeMission } from './agent-router.js';
+import { routeCycleWorker, type RoutedWorkerInvocation } from './cycle-delegation.js';
 import type { ExecutorRegistration } from './executor-registry.js';
 import type { CycleResult, MissionLedger, MissionPlan, WorkerCycle } from './mission-conductor.js';
 import { StackAdapterRegistry } from './stack-adapters.js';
@@ -129,7 +130,7 @@ export interface FleetRunResult {
 export type RunFleetWorker = (
   cycle: FleetWorkerCycle,
   executor: ExecutorRegistration,
-  invocation: { runtimeCapability: string; primitive: string; describe: string },
+  invocation: RoutedWorkerInvocation,
   lineage: FleetLineage,
 ) => FleetRunResult | Promise<FleetRunResult>;
 
@@ -173,6 +174,7 @@ export interface FleetLedgerStore {
 }
 
 export interface FleetConductorOptions {
+  cwd?: string;
   adapters?: StackAdapterRegistry;
   runWorker: RunFleetWorker;
   scoreOutput?: (result: FleetCycleResult) => number;
@@ -287,7 +289,7 @@ export class FleetMissionConductor {
   /** Prevent concurrent child completions from committing snapshots out of order. */
   private persistQueue: Promise<void> = Promise.resolve();
 
-  constructor(options: FleetConductorOptions) {
+  constructor(private readonly options: FleetConductorOptions) {
     this.adapters = options.adapters ?? new StackAdapterRegistry();
     this.runWorker = options.runWorker;
     this.scoreOutput = options.scoreOutput ?? ((result) => result.output?.length ?? 0);
@@ -378,7 +380,8 @@ export class FleetMissionConductor {
     await Promise.all(admitted.map(async ({ cycle, executor, invocation, lineage }) => {
       let result: FleetCycleResult;
       try {
-        const ran = await this.runWorker(cycle, executor, invocation, lineage);
+        const selected = await routeCycleWorker(cycle, invocation, ledger.activityLog, this.options.cwd);
+        const ran = await this.runWorker(cycle, executor, selected, lineage);
         const collapsed = collapseEvents(ran.events);
         const latest = collapsed.latest;
         const observedState = latest?.observedState ?? 'unknown';

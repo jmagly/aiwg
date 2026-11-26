@@ -75,7 +75,7 @@ import { createProvider, ensureProvidersRegistered } from './lib/provider-adapte
  * @property {string} objective - Task objective
  * @property {string} completionCriteria - Completion criteria
  * @property {number} [maxIterations=5] - Maximum external iterations
- * @property {string} [model='opus'] - Claude model
+ * @property {string} [model] - Explicit operator model pin; otherwise use tier policy
  * @property {number} [budgetPerIteration=2.0] - Budget per iteration USD
  * @property {Object} [budgetLimits] - Hard cumulative LFD budget ceilings
  * @property {Object} [explorationQuota] - Flat-cycle structural-variation control
@@ -218,7 +218,7 @@ export class Orchestrator {
           completionCriteria: config.completionCriteria,
           loopId: config.loopId || config.groupWorker?.managedIntent?.parent?.id || process.env.RALPH_LOOP_ID,
           maxIterations: config.maxIterations || 5,
-          model: config.model || 'opus',
+          model: config.model,
           budgetPerIteration: config.budgetPerIteration || 2.0,
           budgetLimits: config.budgetLimits || {},
           explorationQuota: config.explorationQuota || { enabled: false },
@@ -252,7 +252,7 @@ export class Orchestrator {
       provider: providerName,
       loopId: this.registeredLoopId ?? config.loopId ?? config.groupWorker?.managedIntent?.parent?.id,
       groupWorker: config.groupWorker,
-      model: config.model || 'opus',
+      model: config.model, workerTier: config.workerTier, modelElection: config.model ? 'user' : undefined,
       budgetPerIteration: config.budgetPerIteration || 2.0,
       budgetLimits: config.budgetLimits || {},
       explorationQuota: config.explorationQuota || { enabled: false },

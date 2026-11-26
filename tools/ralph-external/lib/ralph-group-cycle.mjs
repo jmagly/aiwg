@@ -85,6 +85,8 @@ export async function prepareGroupCycle(owner, state, options) {
   await inspectWorkerPath(request.brief, 'output');
   await writeFile(request.brief, JSON.stringify(brief), { mode: 0o600, flag: 'wx' });
   const plan = await resolveWorkerInvocation(inputs.snapshot, request, inputs.drivers);
+  const { workerRoutingRecord } = await importImpl(import.meta.url, 'models/worker-routing-record.js');
+  if (plan.selected) await writeFile(join(options.outputDir, 'routing.json'), JSON.stringify(workerRoutingRecord('ralph', intent.taskId, plan, inputs.snapshot, state.config.workerTier, request.authority)) + '\n');
   const bindings = managedAttemptBindings(plan);
   const original = previous?.originalBindings ?? bindings;
   const attempt = { attemptId, previousAttemptId: previous?.attemptId ?? null, requestId,
