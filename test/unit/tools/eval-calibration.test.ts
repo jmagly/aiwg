@@ -198,5 +198,78 @@ describe('offline criterion calibration', () => {
     expect(() => calibrate(changed, report.pilot!.records)).toThrow(/commitment/);
     const drift = structuredClone(report.pilot!.records); drift[0].modelResponse += 'drift';
     expect(() => calibrate(study, drift)).toThrow(/output/);
+    expect(result.recommendation).toMatch(/#3315's claim gate stays blocked/);
+    expect(result.claim_gate.reasons.join(' ')).toMatch(/Reliability claim refused: two blinded human annotators/);
+    expect(result.status).toBe('insufficient-evidence');
+    const { calibrationMarkdown } = await api();
+    expect(calibrationMarkdown(result)).toMatch(/Q1–Q6 are non-executable/);
+    expect(calibrationMarkdown(result)).toMatch(/cost USD: 0/);
+  });
+
+  it('keeps rubric-design examples and the development family out of the held-out estimate', async () => {
+    const { calibrate, makeBundles } = await api();
+    const { study, vote, records } = await sample();
+    const bundles = makeBundles(records, study);
+    const dev = bundles.find(b => b.split === 'dev')!;
+    const held = bundles.find(b => b.split === 'held-out')!;
+    const { config_digest: _hash, prompt_digest: _prompt, ...base } = study.evaluators[0];
+    const config = { ...base, id: 'design', treatment: 'calibration' as const, examples: [dev.id] };
+    study.evaluators = [{ ...config, config_digest: digest(config), prompt_digest: digest(config.prompt) }];
+    const labeled = (bundle: typeof dev, execution: string, label: string) => ({ ...vote, episode_id: bundle.id, bundle_digest: bundle.digest, evaluator_id: 'design', config_digest: digest(config), execution_id: execution, label });
+    study.votes = [labeled(dev, 'design-example', 'MET'), labeled(held, 'held-vote', 'UNMET')];
+    const human = (bundle: typeof dev, annotator: string, label: string) => ({ episode_id: bundle.id, bundle_digest: bundle.digest, criterion_id: 'Q1', criterion_version: '1', annotator, blinded: true as const, label, evidence: ['output'], rationale: 'synthetic only' });
+    study.humans = [human(dev, 'a', 'UNMET'), human(dev, 'b', 'UNMET'), human(held, 'a', 'MET'), human(held, 'b', 'MET')];
+    study.adjudications = [dev, held].map(bundle => ({ episode_id: bundle.id, bundle_digest: bundle.digest, criterion_id: 'Q1', criterion_version: '1', adjudicator: 'c', label: bundle.id === dev.id ? 'UNMET' : 'MET', evidence: ['output'], rationale: 'synthetic only' }));
+    const result = calibrate(study, records);
+    expect(result.candidates[0].criteria.Q1).toMatchObject({ original: 256, retained: 1, missing: 255, metrics: { n: 1, fn: 1, fp: 0 } });
+    expect(result.candidates[0].scores).toHaveLength(256);
+    expect(result.candidates[0].scores.some(score => score.episode_id === dev.id)).toBe(false);
+    expect(result.raw_votes).toHaveLength(2);
+    expect(result.total_cost_usd).toBeCloseTo(0.02);
+    expect(result.claim_gate.reasons.join(' ')).toMatch(/thresholds are not predeclared/);
+    const pilotHeldCorpus = new Set(records.filter(row => row.pilot!.family === 'corpus-verification' && row.pilot!.split === 'held-out').map(row => row.testCaseId));
+    expect(pilotHeldCorpus.size).toBeGreaterThan(0);
+    const reclassified = bundles.filter(bundle => pilotHeldCorpus.has(bundle.task_id));
+    expect(reclassified.every(bundle => bundle.split === 'dev')).toBe(true);
+    expect(result.candidates[0].scores.some(score => reclassified.some(bundle => bundle.id === score.episode_id))).toBe(false);
+    expect(new Set(bundles.filter(bundle => bundle.split === 'dev').map(bundle => bundle.family))).toEqual(new Set(['corpus-verification']));
+    expect(new Set(bundles.filter(bundle => bundle.split === 'held-out').map(bundle => bundle.family))).toEqual(new Set(['coding-repair', 'security-testing']));
+  });
+
+  it('partitions executable authority from non-executable Q1–Q6 and refuses reliability without human labels', async () => {
+    const { EXECUTABLE_AUTHORITY, nonExecutableCriteria } = await import('../../../tools/eval/src/calibration-authority.js');
+    const dataset = JSON.parse(await readFile('tools/eval/datasets/composition-pilot.json', 'utf8'));
+    const checkIds = [...new Set(dataset.tasks.flatMap((task: { pilot: { checks: { id: string }[] } }) => task.pilot.checks.map(check => check.id)))].sort();
+    expect(checkIds).toEqual(['coding', 'corpus', 'security']);
+    expect(EXECUTABLE_AUTHORITY.map(check => check.id).sort()).toEqual(checkIds);
+    expect(EXECUTABLE_AUTHORITY.every(check => check.keepsAuthority)).toBe(true);
+    const qualitative = nonExecutableCriteria((await fixture()).criteria);
+    expect(qualitative.map(criterion => criterion.id)).toEqual(['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6']);
+    expect(qualitative.every(criterion => criterion.version === '1' && criterion.decidableFromExecutableChecks === false)).toBe(true);
+    expect(checkIds.some(id => qualitative.some(criterion => criterion.id === id))).toBe(false);
+  });
+
+  it('keeps unknown cost unknown and retains partial, failed and abstained votes while aggregating', async () => {
+    const { calibrate, scoreCriteria, sumAccounting } = await api();
+    const { study, vote, records, bundle } = await sample();
+    const criteria = study.criteria;
+    const aggregated = scoreCriteria(criteria, { Q1: 'UNMET', Q2: 'CANNOT_ASSESS', Q3: 'HALF', Q4: 'PARTIAL', Q5: 'NOT_APPLICABLE', Q6: 'MISSING' });
+    expect(aggregated).toMatchObject({ score: 0.25, retained_count: 2, applicable_count: 5, excluded: { CANNOT_ASSESS: 1, PARTIAL: 1, NOT_APPLICABLE: 1, MISSING: 1, PROVIDER_ERROR: 0 } });
+    const failed = { ...vote, status: 'provider-error' as const, label: null, cost_usd: 'unknown' as const, tokens: 'unknown' as const, latency_ms: 'unknown' as const, execution_id: 'failed', raw_response: 'timeout', raw_digest: digest('timeout') };
+    const partial = { ...vote, status: 'partial' as const, label: null, cost_usd: 0.027, execution_id: 'partial', retry_of: 'failed', raw_response: '{', raw_digest: digest('{'), critical_flags: ['truncated-response'] };
+    study.votes = [failed, partial];
+    const result = calibrate(study, records);
+    expect(sumAccounting([0.027, 'unknown'])).toBe('unknown');
+    expect(sumAccounting([0.027, 0])).toBeCloseTo(0.027);
+    expect(result.total_cost_usd).toBe('unknown');
+    expect(result.candidates[0].cost_usd).toBe('unknown');
+    expect(result.candidates[0].total_tokens).toBe('unknown');
+    expect(result.raw_votes.map(row => row.status)).toEqual(['provider-error', 'partial']);
+    expect(result.raw_votes[1].critical_flags).toEqual(['truncated-response']);
+    expect(result.candidates[0].criteria.Q1).toMatchObject({ provider_errors: 1, partials: 1, retained: 0, metrics: { n: 0, exact: null } });
+    expect(result.candidates[0].scores.find(score => score.episode_id === bundle.id)!.excluded).toMatchObject({ PARTIAL: 1, PROVIDER_ERROR: 0 });
+    expect(result.status).toBe('insufficient-evidence');
+    expect(result.claim_gate.state).toBe('BLOCKED');
+    expect(result.recommendation).toMatch(/No reliability claim/);
   });
 });

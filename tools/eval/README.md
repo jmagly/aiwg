@@ -218,8 +218,10 @@ revision, review changes to the manifest and referenced file digests explicitly;
 the runner never rewrites its commitments.
 
 The offline pilot also emits the frozen criterion-calibration recommendation for
-#4240. It makes no empirical reliability claim: judge and human labels remain
-NOT RUN and the claim gate remains BLOCKED. See
+#4240. Corpus, coding and security checks keep authority. Q1–Q6 are
+non-executable. The report makes no empirical reliability claim: judge and human
+labels remain NOT RUN, acceptance thresholds are not predeclared, and the claim
+gate remains BLOCKED. See
 [criterion calibration](../../docs/decision/criterion-calibration.md) for the
 versioned rubric, family split, receipt bindings, abstention denominators,
 statistics, annotation protocol and limitations.
