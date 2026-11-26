@@ -11,7 +11,7 @@
  * overridden via env for specific CI needs:
  *
  *   AIWG_PACK_PACKED_BUDGET_KB    — default 23000 (22.46 MiB)
- *   AIWG_PACK_UNPACKED_BUDGET_KB  — default 86000 (83.98 MiB; raised from 85000 for the cicd-complete framework, #4421)
+ *   AIWG_PACK_UNPACKED_BUDGET_KB  — default 88000 (85.94 MiB; raised from 86000 with the 18 MB prebuilt index limit, see docs/reports/package-budget-2026-10.md)
  *   AIWG_PACK_FILES_BUDGET        — default 8800 (file count)
  *
  * The package intentionally ships a prebuilt Fortemi Core framework discovery
@@ -27,7 +27,7 @@ import { importImpl } from '../_resolve-impl.mjs';
 const { boundedExecSync } = await importImpl(import.meta.url, 'process/bounded-child-process.mjs');
 
 const PACKED_BUDGET_KB = parseIntEnv('AIWG_PACK_PACKED_BUDGET_KB', 23_000);
-const UNPACKED_BUDGET_KB = parseIntEnv('AIWG_PACK_UNPACKED_BUDGET_KB', 86_000);
+const UNPACKED_BUDGET_KB = parseIntEnv('AIWG_PACK_UNPACKED_BUDGET_KB', 88_000);
 // Preserve the offline corpus, docs, compiled modules and runtime tools.
 // Measurements and headroom: docs/reports/package-budget-2026-10.md.
 const FILES_BUDGET = parseIntEnv('AIWG_PACK_FILES_BUDGET', 8_800);

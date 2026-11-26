@@ -127,3 +127,18 @@ Measured on main c3e1020bf (`node tools/cli/check-install-size.mjs --verbose`):
 
 The new limit leaves about 1.4 MiB of headroom, similar to the previous amendment. Any further growth still needs review.
 
+
+## Amendment — 2026-11-26 (2026.11.10: cicd-complete and feature flags)
+
+Main CI `ci:fortemi-index` failed the prebuilt export limit after the cicd-complete framework landed (#4441, #4442, #4458; 59 index items, about 387 KB, normal per-item size, no duplicates). The release still adds the cicd user guide (#4486) and the feature-flags epic (#4431: sdlc-complete changes plus a new `launchdarkly` addon). The operator chose to raise the limits rather than block those merges on index compaction, which is tracked separately.
+
+Measured with the corpus-digest fix in the same change (`ci:fortemi-index` passes end to end, 4,273 items):
+
+| Metric | Value | Old limit | New limit |
+|---|---|---|---|
+| `prebuilt/fortemi-core/framework/aiwg-fortemi-index-v2.json` | 16,139,501 B (main a2f4f4080 + fix; the later docs-only guide adds little) | 16,000,000 B | 18,000,000 B |
+| Unpacked package | 83.73 MiB (≈85,740 KiB) | 86,000 KiB | 88,000 KiB |
+| Packed package | 20,068 KiB | 23,000 KiB | unchanged |
+| Files | 8,519 | 8,800 | unchanged |
+
+Headroom after this change is about 1.86 MB for the index and about 2.2 MiB unpacked. It is shared by the feature-flags epic and anything else in 2026.11.10. Per-item bytes are dominated by `search`, `relationships` and `skos_concepts` (about 60% of the export), so compaction should target those fields. Any further growth still needs review.
