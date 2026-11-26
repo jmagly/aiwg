@@ -1,3 +1,4 @@
+import { parseArgs, stringFlag, csvFlag, type ParsedArgs } from './args.js';
 import { LocalIssueProviderCore, localIssueRoot } from './index.js';
 import type { LocalIssueFilter } from './types.js';
 
@@ -63,11 +64,6 @@ export function planQuestionLabelUpdate(input: QuestionLabelPlanInput): Question
     keepLabel: false,
     reason: 'already-clear',
   };
-}
-
-interface ParsedArgs {
-  positional: string[];
-  flags: Map<string, string | boolean>;
 }
 
 export async function auditLocalIssuesCli(args: string[], cwd = process.cwd()): Promise<void> {
@@ -142,46 +138,10 @@ function requireLocalProvider(args: ParsedArgs, command: string): void {
   }
 }
 
-function parseArgs(args: string[]): ParsedArgs {
-  const positional: string[] = [];
-  const flags = new Map<string, string | boolean>();
-  for (let i = 0; i < args.length; i++) {
-    const arg = args[i];
-    if (!arg.startsWith('--')) {
-      positional.push(arg);
-      continue;
-    }
-    const [rawKey, inline] = arg.slice(2).split(/=(.*)/s).filter((part) => part !== undefined);
-    if (inline !== undefined && inline !== '') {
-      flags.set(rawKey, inline);
-      continue;
-    }
-    const next = args[i + 1];
-    if (next && !next.startsWith('--')) {
-      flags.set(rawKey, next);
-      i++;
-    } else {
-      flags.set(rawKey, true);
-    }
-  }
-  return { positional, flags };
-}
-
-function stringFlag(args: ParsedArgs, name: string): string | undefined {
-  const value = args.flags.get(name);
-  if (value === undefined || value === true) return undefined;
-  return String(value);
-}
-
 function numberFlag(args: ParsedArgs, name: string): number | undefined {
   const value = stringFlag(args, name);
   if (!value) return undefined;
   const parsed = Number.parseInt(value, 10);
   if (!Number.isInteger(parsed) || parsed < 1) throw new Error(`--${name} must be a positive integer`);
   return parsed;
-}
-
-function csvFlag(args: ParsedArgs, name: string): string[] {
-  const value = stringFlag(args, name);
-  return value ? value.split(',').map((item) => item.trim()).filter(Boolean) : [];
 }
