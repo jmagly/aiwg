@@ -138,7 +138,7 @@ This extends the eval dataset/result contracts; it does not change the six-task
 synthetic benchmark above or supply model effectiveness evidence.
 
 Run `node --import tsx tools/eval/src/index.ts offline-fixture --output markdown`
-from the repository root. See [the eval README](../../../tools/eval/README.md)
+from the repository root. See [the eval README](https://github.com/jmagly/aiwg/blob/main/tools/eval/README.md)
 and [schema brief](../../contracts/eval-pilot.v1.md). Reports retain failures and
 partials, blinded executable-adjudication records, pinned resources, held-out
 paired bootstrap intervals and success per total tokens. Human evaluation is

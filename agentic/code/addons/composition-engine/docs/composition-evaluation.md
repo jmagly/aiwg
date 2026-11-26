@@ -127,3 +127,19 @@ The shipped summary intentionally reports `BLOCKED`. Opening the gate requires:
 Until then, public text must not claim that composition graphs, strict LCM, or
 adaptive stopping are inherently smarter, faster, cheaper, more accurate, or
 more usable.
+
+## Offline H1/H2 pilot
+
+The existing eval runner now has an offline fixture pilot with 48 frozen tasks,
+12 development / 36 held-out, H1 configuration arms and H2 control structures.
+H2 uses this addon's FlowGraph runtime through a local fixture adapter, including
+conditional routes, a constrained join and a weakened-join negative control.
+This extends the eval dataset/result contracts; it does not change the six-task
+synthetic benchmark above or supply model effectiveness evidence.
+
+Run `node --import tsx tools/eval/src/index.ts offline-fixture --output markdown`
+from the repository root. See [the eval README](../../../../../tools/eval/README.md)
+and [schema brief](../../../../../docs/contracts/eval-pilot.v1.md). Reports retain failures and
+partials, blinded executable-adjudication records, pinned resources, held-out
+paired bootstrap intervals and success per total tokens. Human evaluation is
+`NOT RUN`, H3-H6 are deferred, and the empirical claim gate stays `BLOCKED`.
