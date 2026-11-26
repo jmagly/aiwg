@@ -1,0 +1,7 @@
+{
+  "kind": "source",
+  "facts": {
+    "timeout": 31,
+    "audit": false
+  }
+}

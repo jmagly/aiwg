@@ -1,0 +1,8 @@
+{
+  "kind": "source",
+  "facts": {
+    "runtime": "node24",
+    "port": 8100,
+    "audit": true
+  }
+}

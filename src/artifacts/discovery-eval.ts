@@ -31,7 +31,7 @@ export interface DiscoveryRelevanceQuery {
 export interface RankedDiscoveryItem { id: string; type: string; name: string; score: number }
 export interface DiscoveryEvalMetrics {
   query_count: number; hit_at_1: number; hit_at_3: number; hit_at_5: number; mrr: number; ndcg_at_10: number;
-  per_type_recall_at_3: Record<string, number>; hard_negative_intrusion_at_5: number;
+  per_type_recall_at_3: Record<string, number | null>; hard_negative_intrusion_at_5: number;
 }
 
 export interface DiscoveryEvalReport {
@@ -151,7 +151,7 @@ function prototypeRank(entries: MetadataEntry[], query: string, strategy: Exclud
     .map(({ entry, score }) => ({ id: identity(entry), type: entry.type, name: entry.name ?? entry.title, score: round(score) }));
 }
 
-async function currentRank(cwd: string, query: DiscoveryRelevanceQuery, backend: DiscoveryEvalBackend, limit: number, experimentalGraph = false): Promise<RankedDiscoveryItem[]> {
+export async function currentRank(cwd: string, query: DiscoveryRelevanceQuery, backend: DiscoveryEvalBackend, limit: number, experimentalGraph = false): Promise<RankedDiscoveryItem[]> {
   const output: string[] = []; const original = console.log;
   console.log = (...args: unknown[]) => output.push(args.map(String).join(' '));
   try {
@@ -194,10 +194,11 @@ export function calculateDiscoveryMetrics(records: DiscoveryRelevanceQuery[], re
     return rank < 0 ? null : rank + 1;
   });
   const hit = (k: number) => ranks.filter((rank) => rank !== null && rank <= k).length / records.length;
-  const perType: Record<string, number> = {};
+  const perType: Record<string, number | null> = {};
   for (const type of OPERATIONAL_DISCOVERY_TYPES) {
     const selected = records.map((record, index) => ({ record, index })).filter(({ record }) => record.target_type === type);
-    perType[type] = round(selected.filter(({ index }) => ranks[index] !== null && ranks[index]! <= 3).length / selected.length);
+    perType[type] = selected.length
+      ? round(selected.filter(({ index }) => ranks[index] !== null && ranks[index]! <= 3).length / selected.length) : null;
   }
   return {
     query_count: records.length, hit_at_1: round(hit(1)), hit_at_3: round(hit(3)), hit_at_5: round(hit(5)),
@@ -338,10 +339,10 @@ export function formatDiscoveryEvalSummary(report: DiscoveryEvalReport): string 
     `Hard-negative@5       ${m.hard_negative_intrusion_at_5.toFixed(4)}`, `p50 latency           ${report.performance.p50_latency_ms.toFixed(3)} ms`,
     `p95 latency           ${report.performance.p95_latency_ms.toFixed(3)} ms`, `Index bytes           ${report.performance.index_bytes}`,
     `Peak resident memory  ${report.performance.peak_resident_memory_bytes}`, '', 'Per-type Hit@3:',
-    ...Object.entries(m.per_type_recall_at_3).map(([type, value]) => `  ${type.padEnd(10)} ${value.toFixed(4)}`), '',
+    ...Object.entries(m.per_type_recall_at_3).map(([type, value]) => `  ${type.padEnd(10)} ${value === null ? 'n/a' : value.toFixed(4)}`), '',
     `Decision: ${report.adoption_gate.decision}`,
     ...(report.experimental_graph ? [
-      'Historical 80-query partition: not identified',
+      `Historical 80-query partition: ${report.experimental_graph.historical_80_query_partition}`,
       `Graph storage ratio: ${report.experimental_graph.measurements.storage_ratio.toFixed(3)}`,
       `Incremental RSS bytes: ${report.experimental_graph.measurements.incremental_rss_bytes}`,
       `Graph construction: ${report.experimental_graph.measurements.construction_ms} ms`,
