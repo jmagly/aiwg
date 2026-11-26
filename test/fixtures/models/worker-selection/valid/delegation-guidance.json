@@ -1,0 +1,8 @@
+{
+  "defaults": {
+    "workerSelection": {
+      "mode": "advisory",
+      "returnBudgetTokens": 2000
+    }
+  }
+}

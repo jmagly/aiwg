@@ -17,15 +17,47 @@ Provider compilation reports one of `native`, `compiled`, `inherited`,
 `global-only`, `informational`, or `unsupported`. An unsupported field is
 omitted rather than copied into an artifact that ignores it. See [wrapper enforcement](wrapper-tier-enforcement.md) for the per-provider artifact contract.
 
-Generated bootstrap context also presents a bounded delegation rubric. For
-independent work, orchestrators prefer `aiwg-model-efficiency-worker` for
-discovery and focused low-cost tasks, `aiwg-model-coding-worker` for
-implementation and tests, and `aiwg-model-reasoning-worker` for architecture
-or high-consequence analysis. This complements model routing: routing resolves
-the role to provider policy, while the delegation rubric decides whether the
-work should leave the primary context at all. Trivial, tightly coupled, serial,
-or shared-state-sensitive work stays with the primary agent, which always owns
-integration and final validation.
+Generated context always emits a compact delegation rubric from
+`agentic/code/addons/aiwg-utils/templates/context/delegation-rubric.md`, including
+projects without `.aiwg/aiwg.config`. `AIWG_HIDE_PARALLELISM_IN_CONTEXT=1` suppresses
+it. Regenerate migrates `AIWG-PARALLELISM-CAP` markers to `AIWG-DELEGATION` without
+duplicating the block. The AGENTS.md bridge mirrors the compact policy.
+
+Configure prompt policy in project-root `models.json`, under
+`defaults.workerSelection` (builtin → user → project), **not** a top-level
+`delegation` block. `mode` is `advisory` until the topology measurement gate passes;
+`default` delegates bounded read-heavy, verbose, independent and verification
+work, and `off` keeps work local unless explicitly requested. The condensed return
+budget defaults to 2000 tokens (`returnBudgetTokens`).
+
+```bash
+aiwg config get --project defaults.workerSelection --origins
+aiwg regenerate
+```
+
+Project `config set/reset` rejects all model-owned defaults, including the new
+policy keys. Edit `models.json` through the existing reviewed worker policy
+proposal/apply path documented in `aiwg config --help`; remove an override to
+restore its inherited value. Reads through `config get --origins` remain available.
+
+The cheapest-capable guidance defaults to `cost-effective`, with premium as the
+guidance ceiling; legacy resolver omission retains configured ordering and adds
+no ceiling (#4407 compatibility). Set strategy and ceiling explicitly to enforce
+them. `balanced` retains configured order; `quality` ranks eligible pricing classes
+highest first. These are cost proxies, not measured quality claims. Use existing
+`roleGuidance` and `taskClasses` for tier floors and per-task role adjustments.
+A project can narrow a user ceiling; widening is rejected before writing.
+Premium still requires authorization, and flagship always requires user election;
+a flagship session never makes workers flagship.
+
+Bounded extraction uses `aiwg-model-explorer` / economy, implementation and routine
+review use `aiwg-model-coding-worker` / standard, oracle checks use
+`aiwg-model-verifier` / standard, and high-consequence reasoning uses
+`aiwg-model-reasoning-worker` / premium. Keep trivial lookups, coupled edits, serial
+dependencies and user back-and-forth local. See `subagent-scoping` Rule 4a for the
+brief contract, condensed return and central verification requirements. Provider
+notes distinguish native per-agent selection, global-only controls, pending Grok
+Build enforcement and unverified/unsupported surfaces; they are not live audits.
 
 The versioned schemas are under `schemas/models/`. The compatibility input
 `max-quality` normalizes to canonical `flagship`.
@@ -45,7 +77,7 @@ alias for `flagship`. Verified IDs (2026-10-27):
 Flagship catalog entries carry `selection: user-elected` and steward labels them
 **user-elected only**. Routing `requestedTier: flagship` (runtime Tier 4) requires
 `election: user` or an exact `agentName` hit in `flagshipAllowlist`, supplied by the
-caller from delegation config. Premium authorization, complexity, high impact and
+caller from explicit worker election/allowlist authority. Premium authorization, complexity, high impact and
 unattended operation grant no flagship election. Unelected requests cap at premium;
 compilation rejects unelected flagship bindings/overrides. Explicit worker bindings
 in project `models.json` and `aiwg.config` still win: this project's coding role stays on Sol.
@@ -145,7 +177,7 @@ provider-neutral; already-pinned ids, `inherit`, and explicit `sonnet[1m]` /
 
 ## How AIWG applies model choices per harness
 
-You set model choices once, in AIWG: the role ladder and `models.json` above, the `delegation` settings, and per-task overrides. AIWG then does the per-harness work:
+You set model choices once, in AIWG: the role ladder and `models.json` above, the `defaults.workerSelection` settings, and per-task overrides. AIWG then does the per-harness work:
 
 - **Deploying wrappers.** `aiwg use` compiles each worker wrapper (efficiency, coding, reasoning, verifier, explorer) into the harness's own agent format, and pins the model and effort wherever that harness can enforce a per-agent choice.
 - **Resolving a worker.** `aiwg models resolve` picks the model for a role and task from the catalog and your policy, and renders the exact launch command for the harness, so you never assemble harness flags yourself.

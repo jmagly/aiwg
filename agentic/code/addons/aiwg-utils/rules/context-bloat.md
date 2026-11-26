@@ -113,6 +113,8 @@ This causes:
 - Earlier, relevant parts of context displaced by later irrelevant additions
 - Hallucination risk increases as the agent pattern-matches against noise
 
+Delegate bounded independent reads and verification according to `subagent-scoping` Rule 4a (“Delegate by default”), including its mode, cheapest-capable selection and keep-local exits. Coupled work may stay with one focused worker; the orchestrator verifies condensed returns centrally.
+
 ## Mandatory Rules
 
 ### Rule 1: Pass File Paths, Not File Contents (When Agent Will Read Itself)

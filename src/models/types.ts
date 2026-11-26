@@ -261,6 +261,9 @@ export interface WorkerRoleGuidance {
   allowNotApplicableEffort?: boolean;
 }
 export interface WorkerSelectionPolicy {
+  /** Prompt delegation policy; advisory until the topology measurement gate passes. */
+  mode?: 'default' | 'advisory' | 'off';
+  returnBudgetTokens?: number;
   /** Ranking among eligible tuples; ties retain configured order. */
   strategy?: 'cost-effective' | 'balanced' | 'quality';
   /** Automatic selection ceiling across roles; max-quality aliases flagship. */

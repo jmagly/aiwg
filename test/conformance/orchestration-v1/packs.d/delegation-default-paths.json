@@ -1,0 +1,8 @@
+{
+  "T-OG-01": [
+    "test/unit/models/config-loader-default-paths.test.ts"
+  ],
+  "T-OG-13": [
+    "test/unit/ralph-external/orchestrator-model-routing.test.ts"
+  ]
+}

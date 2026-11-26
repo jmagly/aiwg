@@ -894,3 +894,9 @@ The manifest digest is refreshed; exact-match tests remain unchanged. The
 schema brief, compatibility notes, and projection checks are documented in
 `docs/models/worker-selection.md`. This does not add a delegation root or change
 Mission protocol definitions; rules/context/wrappers/measurement are deferred.
+
+#2644–#2646 follow-up: workerSelection additively accepts optional `mode` and
+`returnBudgetTokens` for prompt policy and condensed returns. Omission remains
+advisory / 2000 tokens; strategy and ceiling omission retain #4407 resolver
+compatibility. Fragment and manifest digest are amended together; exact-match
+checks are unchanged. No new config root or Mission definition is introduced.
