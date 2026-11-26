@@ -14,6 +14,7 @@ import type { McpProfile } from '../mcp/profiles.js';
 import { assertValidWorkerPayload } from '../mission-protocol/codecs.js';
 import type { WorkerResolvedInvocation, WorkerEffectiveHealth } from '../mission-protocol/types.js';
 import type { WorkerPolicyDiagnostic } from '../models/types.js';
+import { WorkerQualificationEnvironmentError } from '../models/worker-qualification-environment.js';
 import { qualificationDigest } from '../models/qualification-digest.mjs';
 import { prepareWorkerInvocation, WorkerShellArtifactsError, type WorkerInvocationQualification } from './worker-invocation-preparation.js';
 export { prepareWorkerInvocation, mcpToolSchemaDigest, type WorkerInvocationQualification, type WorkerInstallationRequest } from './worker-invocation-preparation.js';
@@ -414,6 +415,7 @@ export async function resolveWorkerInvocation(snapshot: WorkerPlanSnapshot, requ
 export function workerInvocationDiagnostic(error: unknown, pointer: string,
   fallback: WorkerPolicyDiagnostic['code'] = 'OG_CONFIG_REFERENCE'): WorkerPolicyDiagnostic {
   if (error instanceof WorkerQualificationPolicyError) return { code: error.code, pointer: error.pointer, message: error.message };
+  if (error instanceof WorkerQualificationEnvironmentError) return { code: error.code, pointer: error.pointer, message: error.message };
   if (error instanceof WorkerRoleEffortError) return { code: error.code, pointer: error.pointer, message: error.message };
   if (error instanceof WorkerPathScopeError || error instanceof WorkerRequestArgumentError || error instanceof WorkerShellArtifactsError) {
     return { code: error.code, pointer: error.pointer, message: error.message };
@@ -441,6 +443,7 @@ export function workerInvocationDiagnostic(error: unknown, pointer: string,
     OG_HOST_ATTRIBUTION: 'Host capacity includes unattributed workers. Inspect aiwg doctor --resources --json before retrying.',
     OG_HOST_CAPACITY: 'Worker capacity is exhausted. Inspect aiwg doctor --resources --json before retrying.',
     OG_ADAPTER_UNQUALIFIED: 'The installation or invocation could not be revalidated. Run aiwg doctor --probe-workers --qualify to qualify this workspace.',
+    OG_ENVIRONMENT_MISMATCH: 'Launch with the same environment as worker qualification, or re-qualify from the launch environment.',
     OG_POLICY_RELAXATION: 'The request would relax the resolved worker policy.',
     OG_BUDGET_UNMEASURABLE: 'The requested worker budget cannot be enforced.',
   };

@@ -481,7 +481,7 @@ describe('routeModelTier', () => {
   });
 
   it('keeps unattended bots within max auto tier', () => {
-    const decision = routeModelTier({ unattended: true, complex: true });
+    const decision = routeModelTier({ unattended: true, complex: true, maxAutoTier: 1 });
     expect(decision.tier).toBe(2);
     expect(decision.requiresConfirmation).toBe(true);
     expect(decision.source).toBe('policy');

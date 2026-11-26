@@ -47,10 +47,11 @@ Queue a mission onto a session. Does NOT execute — use 'aiwg mc run' to launch
   --mode pty-orchestrator       PTY-orchestrator mode (requires --target-agent)
   --target-agent <id>           Required for --mode pty-orchestrator
   --worker-dispatch <path>      Prepared managed worker dispatch JSON (queues only)
+  --worker-tier <tier>          Requested worker tier under defaults.workerSelection
   --expected-updated-at <time>  Reject stale state with exit 3
   --request-id <id>             Idempotent dispatch key`,
 
-  run: `Usage: aiwg mc run [<session-id>] [--accept-cost]
+  run: `Usage: aiwg mc run [<session-id>] [--accept-cost] [--dry-run --json]
 
 Drain queued missions in a session by launching each as a ralph loop. Missions
 without --completion criteria are skipped with a warning.

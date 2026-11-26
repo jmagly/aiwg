@@ -5310,6 +5310,11 @@ version, the command reports `needs-rebuild` instead of silently falling back.
 through the configured decision-offload checkpoint. It can use the configured
 external service and return a fallback for the calling model to handle.
 
+Confidence does not transfer across wording; do not use it as a calibrated
+probability of correctness. The default threshold stays at 0.8 as a routing
+policy. Validate unfamiliar wording and consequential answers independently;
+see the [wording-shift decision and recalibration plan](../decision/jev-confidence-wording-shift.md).
+
 ```bash
 aiwg decision ask --question "Is this change ready?" --yes-no --json
 aiwg decision ask --question "Choose a route" --choices fast,review,defer --context-file context.txt --json

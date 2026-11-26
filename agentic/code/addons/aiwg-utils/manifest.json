@@ -181,6 +181,7 @@
     "commit-message",
     "agent-handoff",
     "checkpoint-handoff",
+    "context/delegation-rubric",
     "stakeholder-status-report",
     "security-finding",
     "code-review-findings",

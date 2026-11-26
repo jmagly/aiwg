@@ -77,5 +77,5 @@ process.exitCode = result.exitCode;`);
     try { return { code: 0, ...await exec(process.execPath, [modelEntry, ...args], { cwd: project, env, timeout: 60_000 }) }; }
     catch (error: any) { return { code: error.code, stdout: error.stdout ?? '', stderr: error.stderr ?? '' }; }
   };
-  return { root, installed, project, config, run, resolve };
+  return { root, installed, project, config, env, run, resolve };
 }

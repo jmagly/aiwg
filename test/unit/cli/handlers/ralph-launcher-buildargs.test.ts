@@ -17,6 +17,7 @@ describe('ralph-launcher buildArgs', () => {
   it('emits LFD hard budget and exploration quota flags with correct flag→value adjacency', () => {
     const args = buildArgs({
       objective: 'Budgeted loop',
+      workerTier: 'economy',
       completionCriteria: 'tests pass',
       maxIterations: 5,
       maxTotalTokens: 5000,
@@ -29,6 +30,7 @@ describe('ralph-launcher buildArgs', () => {
     });
 
     // Adjacency, not just membership (audit T1): a pairing regression must fail.
+    expectFlagValue(args, '--worker-tier', 'economy');
     expectFlagValue(args, '--max-total-tokens', '5000');
     expectFlagValue(args, '--max-output-tokens', '1200');
     expectFlagValue(args, '--max-tool-calls', '20');
@@ -47,6 +49,7 @@ describe('ralph-launcher buildArgs', () => {
       '--max-total-tokens', '--max-output-tokens', '--max-tool-calls',
       '--max-total-cost', '--max-wall-clock-minutes', '--exploration-quota',
       '--budget-stop-policy',
+      '--worker-tier', '--model',
     ]) {
       expect(args, `${flag} absent when unset`).not.toContain(flag);
     }

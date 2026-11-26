@@ -1,7 +1,7 @@
 ---
 enforcement: high
 activation: bound
-summary: "Summarize the need before using a model above the declared default tier; obtain explicit human confirmation for Tier 3."
+summary: "Use the cheapest capable worker tier; summarize escalation, confirm premium and require flagship election."
 bound_to:
   agents: [fleet-quiet-bot, fleet-business-bot, concierge, aiwg-model-efficiency-worker, aiwg-model-coding-worker, aiwg-model-reasoning-worker, aiwg-steward]
   skills: [steward]
@@ -35,7 +35,12 @@ Use this vocabulary when an agent, workspace, or fleet policy defines model tier
 | 2 | Capable work model for debugging, multi-step reasoning, code, or nuanced analysis | Requires summary before use when above default |
 | 3 | Premium/supervised model for high-impact, expensive, or ambiguous work | Requires explicit human confirmation |
 
-If no tier declaration exists, assume the current model is the agent's default tier and treat any request to use a stronger or more expensive model as escalation.
+If no tier is declared, use the cheapest capable tier under the merged `defaults.workerSelection.strategy` (`cost-effective` guidance default) and `maxAutoTier`; role floors and task mappings remain in `roleGuidance` / `taskClasses`. See `subagent-scoping` Rule 4a, “Delegate by default”. Never derive a worker tier from the session model. Strategies do not authorize premium spend or bypass eligibility.
+
+### Flagship election
+AIWG never auto-escalates to flagship (Tier 4). Flagship requires explicit user election or an explicitly authorized capability allowlist. A flagship session elects the session only, not its workers.
+
+Worked example: a flagship session delegates bounded inventory to `aiwg-model-explorer` at economy and implementation to `aiwg-model-coding-worker` at standard. No flagship workers are selected; a failed standard verification may justify a summarized premium request, never a jump to flagship.
 
 ## Mandatory Rules
 

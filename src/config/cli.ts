@@ -262,21 +262,13 @@ async function projectConfigGet(key: string, args: string[]): Promise<void> {
   const { readAiwgConfig, getProjectDir } = await import('./aiwg-config.js');
   const projectDir = getProjectDir(undefined, args);
   const cfg = await readAiwgConfig(projectDir);
-  if (!cfg) {
-    throw new AiwgError({
-      code: 'ERR_NO_PROJECT_CONFIG',
-      message: 'No project AIWG config found at the resolved artifact root.',
-      hint: 'Run `aiwg init`, then ask your AIWG agent to set up repo/tracker/delivery policy.',
-      exitCode: EXIT_CODES.CONFIG,
-    });
-  }
 
   // Model preferences keep their existing file owner. Inspection uses the same
   // merged policy and pre-merge origins as worker resolution, never aiwg.config.
   if (key === 'defaults.workerSelection' || key.startsWith('defaults.workerSelection.')) {
     const { ConfigLoader } = await import('../models/config-loader.js');
     const loader = new ConfigLoader(projectDir);
-    const models = await loader.load(cfg.parallelism);
+    const models = await loader.load(cfg?.parallelism);
     const value = getDottedPath(models as unknown as Record<string, unknown>, key);
     const pointer = `/${key.split('.').join('/')}`;
     const origins = Object.fromEntries(Object.entries(models.workerPolicyOrigins ?? {})
@@ -285,6 +277,14 @@ async function projectConfigGet(key: string, args: string[]): Promise<void> {
       ? JSON.stringify({ value: value ?? null, origins, digests: loader.getInputDigests() }, null, 2)
       : value === undefined ? '(not set)' : JSON.stringify(value, null, 2));
     return;
+  }
+  if (!cfg) {
+    throw new AiwgError({
+      code: 'ERR_NO_PROJECT_CONFIG',
+      message: 'No project AIWG config found at the resolved artifact root.',
+      hint: 'Run `aiwg init`, then ask your AIWG agent to set up repo/tracker/delivery policy.',
+      exitCode: EXIT_CODES.CONFIG,
+    });
   }
   const value = getDottedPath(cfg as unknown as Record<string, unknown>, key);
   if (value === undefined) {
@@ -298,14 +298,8 @@ async function projectConfigGet(key: string, args: string[]): Promise<void> {
 
 async function projectConfigSet(key: string, raw: string, args: string[], quiet = false): Promise<void> {
   assertSafeConfigPath(key);
-  if (key === 'defaults' || key.startsWith('defaults.')) {
-    throw new AiwgError({
-      code: 'ERR_INVALID_KEY',
-      message: `Project model preferences '${key}' belong in models.json, not aiwg.config.`,
-      hint: 'Edit project-root models.json to change defaults, including defaults.workerSelection.',
-      exitCode: EXIT_CODES.USAGE,
-    });
-  }
+  const { assertProjectConfigOwnership } = await import('./worker-selection-cli.js');
+  assertProjectConfigOwnership(key);
   const {
     readAiwgConfig,
     writeAiwgConfig,
@@ -700,6 +694,8 @@ async function projectConfigReset(key: string | undefined, args: string[]): Prom
     });
   }
   assertSafeConfigPath(key);
+  const { assertProjectConfigOwnership } = await import('./worker-selection-cli.js');
+  assertProjectConfigOwnership(key);
 
   const projectDir = getProjectDir(undefined, args);
   const cfg = await readAiwgConfig(projectDir);

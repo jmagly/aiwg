@@ -174,14 +174,14 @@ describe('OMP team native dispatch', () => {
     const factory = () => ({ connect: async () => {}, close: async () => {}, prompt: async (prompt: string) => { const nativeAgent = JSON.parse(prompt.match(/using agent ("[^"]+")/)![1]); const taskId = JSON.parse(prompt.match(/and name ("[^"]+")/)![1]); return { success: true, text: 'Complete', events: [{ type: 'tool_execution_start', toolName: 'task', args: { agent: nativeAgent } }, { type: 'tool_execution_end', toolName: 'task', result: { content: 'Evidence', details: { results: [{ id: taskId, exitCode: 0, output: 'Evidence' }] } } }] }; } });
     try {
       const tasks = [{ id: 'research', agent: 'researcher', role: 'reasoning', ownership: ['evidence.md'], tools: ['read'], prompt: 'inspect source' }, { id: 'sdlc', parentId: 'research', agent: 'architect', ownership: ['design.md'], tools: ['read', 'write'], prompt: 'document design' }];
-      const result = await runOmpTeam({ cwd, tasks, maxParallel: 1, clientFactory: factory });
+      const result = await runOmpTeam({ cwd, model: 'fixture/model', premiumAuthorized: true, tasks, maxParallel: 1, clientFactory: factory });
       expect(result.results.map((r: any) => r.status)).toEqual(['completed', 'completed']); expect(result.results[1].parentId).toBe('research');
       expect(JSON.parse(await readFile(result.results[0].output, 'utf8')).result.content).toBe('Evidence');
       expect(await readdir(join(cwd, '.omp', 'agents'))).toEqual([]);
       expect(result.results[0].controlArtifacts.retained).toBe(true);
       expect(await readFile(result.results[0].controlArtifacts.guard, 'utf8')).toContain('Tool outside AIWG task declaration');
-      const signal = AbortSignal.abort(); const cancelled = await runOmpTeam({ cwd, tasks, signal, clientFactory: factory }); expect(cancelled.results.every((r: any) => r.status === 'cancelled')).toBe(true);
-      await expect(runOmpTeam({ cwd, tasks: [{ ...tasks[0], tools: ['task'] }], clientFactory: factory })).rejects.toThrow('leaf');
+      const signal = AbortSignal.abort(); const cancelled = await runOmpTeam({ cwd, model: 'fixture/model', premiumAuthorized: true, tasks, signal, clientFactory: factory }); expect(cancelled.results.every((r: any) => r.status === 'cancelled')).toBe(true);
+      await expect(runOmpTeam({ cwd, model: 'fixture/model', premiumAuthorized: true, tasks: [{ ...tasks[0], tools: ['task'] }], clientFactory: factory })).rejects.toThrow('leaf');
     } finally { await rm(cwd, { recursive: true, force: true }); }
   });
 });
@@ -209,9 +209,9 @@ describe('OMP edge cases', () => {
     try {
       const parentSignal = AbortSignal.abort();
       const tasks = [{ id: 'parent', agent: 'r', prompt: 'work', tools: ['read'], ownership: [], signal: parentSignal }, { id: 'child', parentId: 'parent', agent: 'c', prompt: 'work', tools: ['read'], ownership: [] }];
-      const result = await runOmpTeam({ cwd, tasks, clientFactory: () => { throw new Error('must not dispatch'); } });
+      const result = await runOmpTeam({ cwd, model: 'fixture/model', premiumAuthorized: true, tasks, clientFactory: () => { throw new Error('must not dispatch'); } });
       expect(result.results.map((r: any) => r.status)).toEqual(['cancelled', 'cancelled']);
-      const failed = await runOmpTeam({ cwd, tasks: [{ ...tasks[0], signal: undefined }], clientFactory: () => { throw new Error('fixture failure'); } });
+      const failed = await runOmpTeam({ cwd, model: 'fixture/model', premiumAuthorized: true, tasks: [{ ...tasks[0], signal: undefined }], clientFactory: () => { throw new Error('fixture failure'); } });
       expect(failed.results[0].status).toBe('failed'); expect(failed.results[0].error).toBe('fixture failure');
     } finally { await rm(cwd, { recursive: true, force: true }); }
   });
@@ -231,7 +231,7 @@ describe('OMP native model field contract', () => {
   it('releases both admission slots when native client cleanup throws', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'omp-cleanup-'));
     try {
-      const result = await runOmpTeam({ cwd, tasks: [{ id: 'x', agent: 'r', tools: [], ownership: [], prompt: 'work' }], clientFactory: () => ({ connect: async () => { throw new Error('connect failed'); }, close: async () => { throw new Error('close failed'); } }) });
+      const result = await runOmpTeam({ cwd, model: 'fixture/model', premiumAuthorized: true, tasks: [{ id: 'x', agent: 'r', tools: [], ownership: [], prompt: 'work' }], clientFactory: () => ({ connect: async () => { throw new Error('connect failed'); }, close: async () => { throw new Error('close failed'); } }) });
       expect(result.results[0].status).toBe('failed');
       const release = await acquireOmpWorkspaceSlot(cwd, 1, AbortSignal.timeout(500)); await release();
     } finally { await rm(cwd, { recursive: true, force: true }); }

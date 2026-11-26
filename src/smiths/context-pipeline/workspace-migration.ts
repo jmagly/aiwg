@@ -9,6 +9,7 @@ import { writeContextFileSync } from './context-file-safety.js';
 import { readAiwgOperatorNotes } from './finalization.js';
 import { auditWorkspaceContext } from './workspace-audit.js';
 import { buildProviderBootstrapFile } from './workspace-bootstrap.js';
+import { buildDelegationBridge } from './delegation-rubric.js';
 import {
   atomicWrite,
   PROJECT_CONTEXT_PLACEHOLDER,
@@ -127,6 +128,9 @@ export async function stageMigrationWrites(
   const activeCodexOverride = audit.sources.find((source) => source.path === 'AGENTS.override.md' && source.operatorContent.trim());
   if (providers.includes('codex') && activeCodexOverride) {
     writes.set('AGENTS.override.md', buildProviderBootstrapFile('codex'));
+  }
+  for (const target of ['AGENTS.md', 'AGENTS.override.md']) {
+    if (writes.has(target)) writes.set(target, `${writes.get(target)}\n${await buildDelegationBridge(projectPath)}`);
   }
 
   for (const provider of providers) {

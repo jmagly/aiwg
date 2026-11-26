@@ -54,6 +54,8 @@ describe('T-OG registry wiring gate (partial coverage is not release acceptance)
       'test/unit/serve/shared-host-scheduler-managed.test.ts',
       'test/unit/serve/shared-host-scheduler-budgets.test.ts',
       'test/unit/serve/shared-host-scheduler-host.test.ts',
+      // #2644 delegation default paths (delegation-default-paths pack).
+      'test/unit/ralph-external/orchestrator-model-routing.test.ts',
       'test/unit/config/worker-templates.test.ts',
       'test/unit/models/worker-rubrics.test.ts',
       'test/unit/smiths/parallelism-templates.test.ts',

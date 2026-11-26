@@ -108,9 +108,10 @@ describe('buildParallelismSection (#1362)', () => {
     }
   });
 
-  it('returns empty when no aiwg.config exists', async () => {
+  it('emits default delegation guidance when no aiwg.config exists', async () => {
     const section = await buildParallelismSection(tmpDir);
-    expect(section).toBe('');
+    expect(section).toContain('Consider delegation');
+    expect(section).toContain('defaults; edit project models.json');
   });
 
   it('returns empty when AIWG_HIDE_PARALLELISM_IN_CONTEXT=1 is set', async () => {
@@ -272,7 +273,7 @@ describe('orchestration groups block (#2893 / #2914)', () => {
 
   // Compact caps and authority pointer for emptyConfig(['codex']) after
   // Wave 4 deduplication, with dispatch disabled and no groups.
-  const COMPACT_CAP_GOLDEN = `<!-- AIWG-PARALLELISM-CAP:START -->
+  const COMPACT_CAP_GOLDEN = `<!-- AIWG-DELEGATION:START -->
 ## Parallelism Cap
 
 This project caps parallel agent fan-out (#1359):
@@ -283,14 +284,20 @@ This project caps parallel agent fan-out (#1359):
 
 *Rationale*: Provider default for codex — adjust via 'aiwg config set --project parallelism.max_parallel_subagents N'
 
-Delegation policy and model-worker selection: \`aiwg show rule subagent-scoping\`.
+### Delegation
+Consider delegation (advisory; cost-effective; ceiling premium): bounded read-heavy, verbose, independent/verification work → cheapest capable worker.
+Extraction \`aiwg-model-explorer\`/economy; coding/review \`aiwg-model-coding-worker\`/standard; high-consequence \`aiwg-model-reasoning-worker\`/premium.
+Keep local: trivial lookups, coupled edits, serial, user back-and-forth.
+Return ≤ 2000 tokens: pointers, confidence, open questions. Verify centrally; never concatenate.
+No auto-flagship; session model ≠ worker tier. Escalate one step on failed checks/low confidence.
+See: \`aiwg show rule subagent-scoping\`.
 After changing project parallelism with \`aiwg config set/reset --project\`, follow the emitted provider-specific regeneration commands and run \`aiwg workspace-context doctor\`.
 
 **Provider behavior (codex)**: native custom subagents can select the deployed model-worker wrapper. Verify the resolved model when provider or account policy may substitute it. Tier enforcement (generated wrapper defaults): pinned; effort: pinned via model_reasoning_effort (high/medium/low by wrapper). Native custom subagents carry explicit catalog model selectors. Explicit operator pins are preserved where supported. This is not a live resolved-model audit; provider/account policy may substitute models.
 
 **Direct worker dispatch**: off (\`parallelism.worker_dispatch\`). Do not assume other worker CLIs are unavailable — detect them yourself and offer \`aiwg config set --project parallelism.worker_dispatch true\` to the user if it would help.
 
-<!-- AIWG-PARALLELISM-CAP:END -->
+<!-- AIWG-DELEGATION:END -->
 `;
 
   it('dispatch disabled renders compact caps and the rule pointer', async () => {
@@ -412,7 +419,7 @@ After changing project parallelism with \`aiwg config set/reset --project\`, fol
     expect(section).toContain('max_parallel_subagents');
     expect(section).toContain('*Rationale*:');
     expect(section).toContain('aiwg show rule subagent-scoping');
-    expect(section).not.toContain('### Model-selected delegation rubric');
+    expect(section).toContain('### Delegation');
     expect(section).toContain('aiwg show rule subagent-scoping');
     expect(section).toContain('native custom subagents');
     // Only the orchestration/health details that need the defaults are omitted.

@@ -31,6 +31,7 @@ export interface DiscoveryShadowEvaluatorConfig {
   /** Same request in this host-owned scope replays the original durable receipt. */
   invocationScope: string;
   record(receipt: DiscoveryShadowReceipt): void;
+  health?: DiscoveryShadowHost['health'];
   onProjectionEvidence?: (input: { alias: string; evidence: DecisionProjectionEvidence }) => void;
   now?: () => number;
 }
@@ -67,7 +68,7 @@ export class DiscoveryShadowEvaluator implements DiscoveryShadowHost {
     | 'projectionPolicy' | 'policyPin' | 'receiptProjectId' | 'runId' | 'invocationScope'>;
   private readonly calibration: CalibrationArtifact;
   private readonly scheduler: DecisionSchedulerPolicy;
-  private readonly runtime: Pick<DiscoveryShadowEvaluatorConfig, 'adapters' | 'resolveCredential' | 'receiptStore' | 'record' | 'now' | 'onProjectionEvidence'>;
+  private readonly runtime: Pick<DiscoveryShadowEvaluatorConfig, 'adapters' | 'resolveCredential' | 'receiptStore' | 'record' | 'health' | 'now' | 'onProjectionEvidence'>;
   private readonly registry: CalibrationRegistry;
   private readonly alias: string;
   private readonly options: string[];
@@ -140,7 +141,7 @@ export class DiscoveryShadowEvaluator implements DiscoveryShadowHost {
       || identity.provider !== target.adapter || identity.adapterVersion !== target.adapterVersion
       || !p.shadowPolicy.allowedModels.includes(identity.actualModel)) throw new Error('Shadow calibration is not the registered pinned profile');
     this.runtime = { adapters: { ...config.adapters }, resolveCredential: config.resolveCredential, receiptStore: config.receiptStore,
-      record: config.record, ...(config.now ? { now: config.now } : {}), ...(config.onProjectionEvidence ? { onProjectionEvidence: config.onProjectionEvidence } : {}) };
+      record: config.record, health: config.health, ...(config.now ? { now: config.now } : {}), ...(config.onProjectionEvidence ? { onProjectionEvidence: config.onProjectionEvidence } : {}) };
     this.profileDigest = hash({ profile: p, calibration: this.calibration.digest, scheduler: schedulerData });
   }
 
@@ -149,6 +150,10 @@ export class DiscoveryShadowEvaluator implements DiscoveryShadowHost {
   }
 
   record(receipt: DiscoveryShadowReceipt): void { this.runtime.record(structuredClone(receipt)); }
+
+  health(): ReturnType<NonNullable<DiscoveryShadowHost['health']>> {
+    return this.runtime.health ? this.runtime.health() : { drift: false, quality: false, latency: false, cost: false };
+  }
 
   async evaluate(request: DiscoveryShadowRequest): Promise<{ result: import('../decision/types.js').DecisionResult; receiptDigest: string }> {
     const payload = this.checkedPayload(request);

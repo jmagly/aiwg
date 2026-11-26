@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "algorithm": "SHA-256 raw file bytes",
+  "artifacts": [
+    {
+      "path": "README.md",
+      "digest": "sha256:6a7852b83ac37800a50292c8bf19f8e6ed8d306e3d6703e8433b0a4a45bdaa7d"
+    },
+    {
+      "path": "paired-summary.json",
+      "digest": "sha256:665015a89e9bbfd0fe06733b204d790a89943625c597ec3472c4a560644b058c"
+    },
+    {
+      "path": "preregistration.md",
+      "digest": "sha256:ce966ef8256ae16d9d50179ba088fdf449e8eef8fbc1eb751cb0b65b6866e66d"
+    },
+    {
+      "path": "repeat-results.json",
+      "digest": "sha256:1eaf19cf72e01c46f9d27abd4c6c11c03e9593526fdc7fdb57993f255090aa50"
+    },
+    {
+      "path": "results.json",
+      "digest": "sha256:3436361bc39cc8a60e4d3dddeea88ced1a8ce73a712962f9a8b92687c674d200"
+    },
+    {
+      "path": "runtime-manifest.json",
+      "digest": "sha256:d0df8a5f3aa0a5547d2e3b0356d60a0d8c03676f29bcfc736bc363f1321ac943"
+    },
+    {
+      "path": "snapshot-manifest.json",
+      "digest": "sha256:4409d78a81bc12f5f133f2e0b4caa27e99e45ddcc68784fa9302a3e1dab900cd"
+    },
+    {
+      "path": "snapshot.json",
+      "digest": "sha256:11d6b9b56d7b1895d534981b81a3c4d182c4f3ac054f4191e613c7eee20ad200"
+    },
+    {
+      "path": "summarize.py",
+      "digest": "sha256:bd1711d8c93a716788617fced81d68d26bb944624bad47d251c8b35a95f2dcec"
+    }
+  ]
+}

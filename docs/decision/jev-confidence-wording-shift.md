@@ -12,6 +12,18 @@ missing from this checkout. No equivalent D17-MF observations are committed unde
 `docs/decision/evidence/`. This is the spend-free caveat-only disposition required
 when those results are unavailable, not a completed offline re-analysis.
 
+Recovery audit, 2026-11-25: searched the current repository, including ignored
+paths (excluding dependencies, build output and credentials), and all locally
+reachable git refs. `.aiwg/research/` is absent. The exact report path has no
+history in `git log --all --oneline -- <path>`. Searching D17, multifact,
+`score.json` and observation paths in `git rev-list --objects --all` found
+source, schemas, study documentation and synthetic tests, but no run observations
+or score artifact. Deleted `.aiwg/research/` paths include the corpus
+externalization commit `bb5da2652`, but no D17-MF report or run data. Nothing was
+recovered from that history. This audit cannot establish absence on other hosts,
+in external storage or in unreachable git objects; the 2026-10-30 issue comment
+reports the rows and `score.json` missing on both titan and noodle.
+
 The following are **issue-reported, unverified observations** from #2872, retained
 to explain the risk; they have not been independently reproduced here:
 
@@ -52,9 +64,18 @@ The supplied calibrated metrics must not be relabeled as native-confidence
 measurements. Repeated agreement also cannot establish calibrated correctness:
 repeated requests can share the same wording-sensitive error.
 
+The 2026-10-07 issue comment supplies four native `ask` field outcomes on
+jev-1.13.0: one evidence-matching choice answered at 0.93, one security-sensitive
+choice fell back, and a review-sufficiency judgment fell back in both yes-no and
+three-way choice wording. These are reported routing outcomes, with no correctness
+labels or native confidence values for the fallbacks. They cannot estimate
+accuracy, calibration, or error risk conditional on acceptance, nor prove a
+difference between factual and judgment-shaped questions.
+
 ## Operational caveat and threshold decision
 
-Wording-shift caveat: a high-confidence answer can be wrong after a paraphrase,
+Wording-shift caveat: confidence does not transfer across wording; do not use it
+as a calibrated probability of correctness. A high-confidence answer can be wrong after a paraphrase,
 including when the intended facts and answer shape are unchanged. Treat `ask`
 confidence as a routing signal. Use independent answer validation or ordinary
 local reasoning for unfamiliar wording or consequential decisions; do not let a
@@ -75,16 +96,20 @@ see [D17-MF calibrated evaluation](d17-multifact-study.md#calibrated-evaluation)
 Do not extend or backdate that artifact to use it now. Existing collection and
 scoring expiry checks remain authoritative. This expiry concerns the D17
 calibrator, not the native `ask` score, which does not load that artifact.
+Any renewed collection needs a newly reviewed preregistration and expiry binding;
+preserve the historical D17-MF expiry pins rather than bypassing their guards.
 
 Wording-diverse recalibration is warranted for any renewed claim that a D17
 mapping transfers across pools. It is not evidence for fitting or deploying a
-new `ask` calibrator now. The conditional follow-up, after recovering the missing
-report and sealed attempts, is:
+new `ask` calibrator now. The follow-up design is:
 
-1. Recompute native and mapped accuracy, confidence gaps, ECE, and accepted-answer
+1. If the original report and sealed attempts are recovered, recompute native
+   and mapped accuracy, confidence gaps, ECE, and accepted-answer
    risk/coverage by pool and shape offline. Keep binary-choice study results
    separate from native yes-no and multi-option choice results; mark absent
    observations unknown. Preserve the original report and artifact identities.
+   If recovery remains impossible, retain this caveat-only decision and plan a
+   separately approved new study; never reconstruct observations from aggregates.
 2. Specify separate development, calibration and held-out evaluation sets with
    disjoint latent subjects and wording templates. Include pool-a/b/c grammar
    families plus unseen paraphrases, negation, contrastive and non-connective
@@ -93,6 +118,11 @@ report and sealed attempts, is:
    separately, varying option count, order and descriptions. Choose sample counts
    before collection to meet the existing profile minima and per-slice risk
    interval precision; never tune on held-out wording.
+   Freeze the corpus, oracle labels, slice counts, acceptance error target and
+   analysis plan before any new collection. Synthetic entailment can use the
+   existing text oracle; subjective review/worker choices need independent human
+   correctness labels. Retain per-row native scores, answers, labels, wording
+   pool and shape, attempt and model identities, plus the scored report and digests.
 3. Refit the existing member mapping on the diverse calibration split, pin
    model/adapter/definition, dataset and mapping digests, and compare with native
    scores on untouched held-out pools. Register a replacement only after the
@@ -105,5 +135,7 @@ report and sealed attempts, is:
    artifact, not automatic renewal.
 
 No new collection, model calls, training or artifact renewal was performed.
+New collection needs operator approval and provider access/spend; subjective
+labels need human annotators. These are future prerequisites, not work run here.
 The missing report and attempts block the native per-pool characterization and
 any evidence-derived numeric threshold recommendation.

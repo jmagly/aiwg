@@ -4,6 +4,7 @@ import { join, resolve } from 'node:path';
 import { openSync, writeFileSync, closeSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { OmpRpcClient } from './omp-transport.mjs';
+import { importImpl } from '../_resolve-impl.mjs';
 
 /** One shared admission gate across team calls; HTTP concurrency is unrelated. */
 export class OmpTaskGate {
@@ -59,7 +60,7 @@ export async function acquireOmpWorkspaceSlot(cwd, limit, signal) {
  * Nested AIWG task requests are flattened into the same admission gate instead.
  * Ownership/read-only declarations are instructions, never a filesystem sandbox.
  */
-export async function runOmpTeam({ tasks, cwd = process.cwd(), outputDir = join(cwd, '.aiwg', 'team-results'), maxParallel = 4, providerLimit = 4, signal, model, modelRoles = {}, profile, clientFactory = options => new OmpRpcClient(options) }) {
+export async function runOmpTeam({ tasks, cwd = process.cwd(), outputDir = join(cwd, '.aiwg', 'team-results'), maxParallel = 4, providerLimit = 4, signal, model, modelRoles = {}, workerTier, election, premiumAuthorized, profile, clientFactory = options => new OmpRpcClient(options) }) {
   if (!Array.isArray(tasks) || !tasks.length) throw new Error('OMP team requires tasks');
   const ids = new Set();
   for (const task of tasks) {
@@ -69,14 +70,24 @@ export async function runOmpTeam({ tasks, cwd = process.cwd(), outputDir = join(
   for (const task of tasks) if (task.parentId && !ids.has(task.parentId)) throw new Error('Unknown OMP parent task');
   // Detect cycles while flattening parent ownership, with no held parent slots.
   for (const task of tasks) { const ancestors = new Set([task.id]); let p = task.parentId; while (p) { if (ancestors.has(p)) throw new Error('Cyclic OMP task graph'); ancestors.add(p); p = tasks.find(t => t.id === p)?.parentId; } }
+  const { resolveDelegation } = await importImpl(import.meta.url, 'models/delegation.js');
+  const routes = new Map();
+  for (const task of tasks) {
+    const pin = task.model ?? modelRoles[task.role ?? 'coding'] ?? model;
+    const { record } = await resolveDelegation({ orchestrator: 'team', workerId: task.agent, assignment: task.prompt,
+      provider: 'omp', cwd, role: task.role ?? 'coding', requestedTier: task.workerTier ?? workerTier,
+      model: pin, election: task.election ?? election, premiumAuthorized: task.premiumAuthorized ?? premiumAuthorized });
+    routes.set(task.id, record);
+  }
   await mkdir(outputDir, { recursive: true });
   let workspaceLimit = 4;
   try { const config = JSON.parse(await readFile(join(cwd, '.aiwg', 'aiwg.config'), 'utf8')); workspaceLimit = config.parallelism?.max_parallel_subagents ?? 4; } catch (error) { if (error.code !== 'ENOENT') throw error; }
   const gate = getOmpTaskGate(cwd, maxParallel, providerLimit, workspaceLimit);
   const results = await Promise.all(tasks.map(async task => {
-    const roleModel = task.model ?? modelRoles[task.role ?? 'coding'] ?? model ?? ({ reasoning: '@slow', coding: '@task', efficiency: '@smol' }[task.role ?? 'coding']);
+    const routing = routes.get(task.id);
+    const roleModel = routing.resolved_model;
     if (!roleModel) throw new Error('Unknown OMP role; supply explicit task.model or modelRoles mapping');
-    const record = { id: task.id, parentId: task.parentId ?? null, agent: task.agent, role: task.role ?? 'coding', model: roleModel, ownership: task.ownership, tools: task.tools, status: 'queued', output: join(outputDir, `${task.id}.json`) };
+    const record = { id: task.id, parentId: task.parentId ?? null, agent: task.agent, role: task.role ?? 'coding', model: roleModel, routing, ownership: task.ownership, tools: task.tools, status: 'queued', output: join(outputDir, `${task.id}.json`) };
     const inheritedSignals = [signal, task.signal];
     let ancestor = task.parentId;
     while (ancestor) { const parent = tasks.find(t => t.id === ancestor); inheritedSignals.push(parent.signal); ancestor = parent.parentId; }
@@ -112,7 +123,7 @@ export async function runOmpTeam({ tasks, cwd = process.cwd(), outputDir = join(
       record.controlArtifacts = { config, guard: guardFile, retained: true, purpose: 'Reviewable per-run controls; not auto-discovered extension installation' };
       const args = ['--no-extensions', '--extension', guardFile, '--tools', 'task', '--config', config];
       if (profile) args.push('--profile', profile);
-      if (model) args.push('--model', model);
+      args.push('--model', roleModel);
       client = clientFactory({ cwd, args }); await client.connect();
       const prompt = `Execute exactly one native task tool call using agent ${JSON.stringify(nativeAgent)} and name ${JSON.stringify(task.id)}. Do not execute the work yourself. Await its completion and report its output. Worker instruction: ${JSON.stringify({ taskId: task.id, parentId: task.parentId ?? null, ownership: task.ownership, tools: task.tools, readOnly: Boolean(task.readOnly), resultReference: record.output, instruction: task.prompt, constraints: 'Do not spawn descendants. Ownership and read-only are instructions, not a filesystem sandbox.' })}`;
       const result = await client.prompt(prompt, { signal: taskSignal });
@@ -138,7 +149,7 @@ export async function ompTeamMain(args = process.argv.slice(2)) {
   const usage = 'Public command: aiwg team run --provider omp --body-file tasks.json [--cwd DIR] [--output-root DIR] [--max-parallel N] [--model provider/model] [--profile NAME]';
   if (args.includes('--help')) { console.log(usage); return; }
   const options = {};
-  const allowed = new Set(['--body-file', '--cwd', '--output-root', '--max-parallel', '--model', '--profile']);
+  const allowed = new Set(['--body-file', '--cwd', '--output-root', '--max-parallel', '--model', '--worker-tier', '--profile']);
   for (let i = 0; i < args.length; i += 2) { if (!allowed.has(args[i]) || !args[i + 1]) throw new Error(usage); options[args[i]] = args[i + 1]; }
   if (!options['--body-file']) throw new Error(usage);
   const payload = JSON.parse(await readFile(options['--body-file'], 'utf8'));
@@ -146,7 +157,7 @@ export async function ompTeamMain(args = process.argv.slice(2)) {
   const abort = () => controller.abort();
   process.once('SIGINT', abort); process.once('SIGTERM', abort);
   try {
-    const result = await runOmpTeam({ tasks: payload.tasks, cwd: options['--cwd'], outputDir: options['--output-root'], maxParallel: options['--max-parallel'] ? Number(options['--max-parallel']) : 4, model: options['--model'], profile: options['--profile'], signal: controller.signal });
+    const result = await runOmpTeam({ tasks: payload.tasks, cwd: options['--cwd'], outputDir: options['--output-root'], maxParallel: options['--max-parallel'] ? Number(options['--max-parallel']) : 4, model: options['--model'], workerTier: options['--worker-tier'], election: options['--model'] ? 'user' : undefined, premiumAuthorized: Boolean(options['--model']), profile: options['--profile'], signal: controller.signal });
     console.log(JSON.stringify(result, null, 2));
     if (result.results.some(task => task.status !== 'completed')) process.exitCode = 1;
     return result;

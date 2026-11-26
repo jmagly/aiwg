@@ -259,6 +259,9 @@ Use the [shared structural editing rules](patterns/common-ai-tells.md) and [revi
       { from: 'agentic/code/addons/aiwg-utils/rules/cli-secondary.md', to: 'rules/cli-secondary.md' },
       ...['artifact-output-policy', 'artifact-output-policy-guidance'].map(name =>
         ({ from: `agentic/code/addons/aiwg-utils/rules/${name}.md`, to: `rules/${name}.md` })),
+      ...['subagent-scoping', 'escalation-discipline', 'parallel-then-synthesize', 'context-bloat', 'god-session', 'RULES-INDEX'].map(name =>
+        ({ from: `agentic/code/addons/aiwg-utils/rules/${name}.md`, to: `rules/${name}.md` })),
+      { from: 'agentic/code/addons/aiwg-utils/templates/context', to: 'templates/context' },
       { from: 'agentic/code/addons/aiwg-utils/templates/subagent-brief.md', to: 'templates/subagent-brief.md' },
       ...['checkpoint-handoff', 'commit-message', 'agent-handoff', 'stakeholder-status-report', 'security-finding', 'code-review-findings'].map(name =>
         ({ from: `agentic/code/addons/aiwg-utils/templates/${name}.md`, to: `templates/${name}.md` })),

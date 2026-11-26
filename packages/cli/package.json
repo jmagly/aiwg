@@ -31,6 +31,7 @@
     "agentic/code/addons/aiwg-hooks/hooks/aiwg-prompt-discovery.cjs",
     "agentic/code/addons/aiwg-utils/rules/anti-laziness.md",
     "agentic/code/addons/aiwg-utils/rules/anti-laziness.core.md",
+    "agentic/code/addons/aiwg-utils/templates/context/delegation-rubric.md",
     "agentic/code/addons/composition-engine/lib/runtime.mjs",
     "agentic/code/addons/composition-engine/lib/authority.mjs",
     "agentic/code/addons/composition-engine/lib/validator.mjs",

@@ -87,6 +87,30 @@ only when set, alongside the existing `HOME`, `PATH` and `CURSOR_API_KEY`
 allowlist. All other conductor variables stay outside the worker. Values
 are read at launch and are not printed in the rendered command or plan.
 
+Unattended launches (for example `systemd-run --user`) need the session
+variables that were present during qualification. Qualification binds
+`DISPLAY` and `XDG_RUNTIME_DIR` exactly and binds the D-Bus address after
+removing the optional hexadecimal `guid` hint from `unix:path=` addresses.
+Thus `unix:path=/run/user/1000/bus,guid=<hex>` and
+`unix:path=/run/user/1000/bus` identify the same bus for revalidation. Other
+address options, transports and fallback endpoints stay bound. The worker
+still receives the launch environment's original values.
+
+The installation scope uses that normalized address; signed per-variable
+hashes for these three desktop names allow resolution to distinguish changed
+endpoints from missing variables. `OG_ENVIRONMENT_MISMATCH` names the missing
+variables or those that changed since qualification, without their values.
+Credentials and other variables are excluded from this desktop diagnostic
+binding; their existing allowlist and scope checks still apply. Normalization
+avoids rejecting an unchanged login solely because systemd omits the GUID,
+while an absent variable or changed session endpoint still blocks dispatch.
+This comparison does not prove the keyring is currently unlocked.
+
+Pass the session variables to the launch environment, or re-qualify from that
+environment. Existing approvals need re-qualification to record the normalized
+scope and per-variable hashes. Re-qualifying from the desktop shell alone
+does not repair a different unattended session endpoint.
+
 For headless hosts without a desktop keyring session, use key-based login
 with `CURSOR_API_KEY` set in the conductor environment. Do not put the key
 in the brief, command arguments or project configuration.

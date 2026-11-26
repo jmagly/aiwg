@@ -22,9 +22,12 @@ export type RuntimeModelTier = 0 | 1 | 2 | 3 | 4;
 export interface ModelRouteRequest extends FlagshipAuthority {
   /** Explicit requested tier; max-quality is a compatibility alias for flagship. */
   requestedTier?: ModelTier;
-  /** Agent or workflow name, used for diagnostics only. */
+  /** Agent or workflow name for role assignments, overrides and diagnostics. */
   agentName?: string;
-  /** Current/default runtime tier for the session. Defaults to 1. */
+  /** Worker role/task guidance from defaults.workerSelection. */
+  role?: string;
+  task?: string;
+  /** Current/default runtime tier; otherwise resolved from worker role guidance. */
   defaultTier?: RuntimeModelTier;
   /** Existing answer, deterministic tool, or cache is sufficient. */
   deterministic?: boolean;
@@ -38,7 +41,7 @@ export interface ModelRouteRequest extends FlagshipAuthority {
   requestedPremium?: boolean;
   /** Unattended bot/session policy. */
   unattended?: boolean;
-  /** Highest tier allowed without confirmation. Defaults to 2 for supervised, 1 for unattended. */
+  /** Invocation ceiling override; otherwise resolved from defaults.workerSelection. */
   maxAutoTier?: RuntimeModelTier;
   /** Invocation or project policy has already authorized premium routing. */
   premiumAuthorized?: boolean;
@@ -261,6 +264,9 @@ export interface WorkerRoleGuidance {
   allowNotApplicableEffort?: boolean;
 }
 export interface WorkerSelectionPolicy {
+  /** Prompt delegation policy; advisory until the topology measurement gate passes. */
+  mode?: 'default' | 'advisory' | 'off';
+  returnBudgetTokens?: number;
   /** Ranking among eligible tuples; ties retain configured order. */
   strategy?: 'cost-effective' | 'balanced' | 'quality';
   /** Automatic selection ceiling across roles; max-quality aliases flagship. */
@@ -291,7 +297,7 @@ export interface WorkerPolicyOrigin {
 export interface WorkerPolicyDiagnostic {
   /** When present, this diagnostic concerns only these roles. */
   roles?: string[];
-  code: 'OG_HOST_ATTRIBUTION' | 'OG_HOST_CAPACITY' | 'OG_POLICY_RELAXATION' | 'OG_CONFIG_REFERENCE' | 'OG_EFFORT_DENIED' | 'OG_MODEL_UNAPPROVED' | 'OG_DATA_POLICY' | 'OG_PIN_MISMATCH' | 'OG_ADAPTER_UNQUALIFIED' | 'OG_BUDGET_UNMEASURABLE' | 'OG_NATIVE_SANDBOX_UNAVAILABLE' | 'OG_SANDBOX_EXTERNAL';
+  code: 'OG_HOST_ATTRIBUTION' | 'OG_HOST_CAPACITY' | 'OG_POLICY_RELAXATION' | 'OG_CONFIG_REFERENCE' | 'OG_EFFORT_DENIED' | 'OG_MODEL_UNAPPROVED' | 'OG_DATA_POLICY' | 'OG_PIN_MISMATCH' | 'OG_ADAPTER_UNQUALIFIED' | 'OG_ENVIRONMENT_MISMATCH' | 'OG_BUDGET_UNMEASURABLE' | 'OG_NATIVE_SANDBOX_UNAVAILABLE' | 'OG_SANDBOX_EXTERNAL';
   pointer: string;
   message: string;
   /** Fixed, non-sensitive invocation check identifier. */

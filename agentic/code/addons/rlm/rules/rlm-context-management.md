@@ -75,7 +75,7 @@ See `@$AIWG_ROOT/agentic/code/addons/aiwg-utils/rules/context-budget.md` and `su
 For any RLM run expected to exceed ~30 min wall-clock (REF-127, VERY LOW — treat as a warning, not a precise ceiling): externalize state to `.aiwg/working/rlm-runs/{id}/` at intervals; make it resumable from the last checkpoint (not from scratch); prefer split-into-loops (`aiwg ralph`-style iterations with persistent state) over one long run; surface an elapsed-time warning at ~25 min.
 
 ### Rule 10: Coding-Capable Models for the RLM Root
-RLM relies on the root emitting code (regex/glob/REPL) to filter context. Root agents (invoking `/rlm-query` or `/rlm-batch`): **sonnet or opus, never haiku**. Sub-agents doing simple extraction (count, yes/no, single-file match): haiku is fine; analysis/synthesis sub-agents: sonnet. Models with restrictive output limits (<4k) cap RLM effectiveness — warn before dispatch. Prefer `rlm-batch` (parallel) over chains of `rlm-query` (sequential) when recursion depth >1.
+RLM relies on the root emitting code (regex/glob/REPL) to filter context. Use a coding-capable standard tier for the root; premium requires evidence and authorization. Apply `subagent-scoping` Rule 4a (“Delegate by default”) for mode, keep-local exits and cheapest-capable workers: bounded extraction → economy, analysis/synthesis → standard, high-consequence reasoning → premium. Never inherit a flagship session tier. Models with output limits <4k require a warning before dispatch. Prefer independent `rlm-batch` work over serial query chains only within Rule 8’s minimum of caps.
 
 ## Detection
 

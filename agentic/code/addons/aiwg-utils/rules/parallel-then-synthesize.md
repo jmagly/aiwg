@@ -109,6 +109,8 @@ Inappropriate parallelism introduces:
 
 A single focused agent analyzing one codebase holistically often produces more coherent, internally consistent output than three parallel agents each analyzing a third of it and a synthesizer trying to merge conflicting assessments.
 
+Delegate bounded independent reads and verification according to `subagent-scoping` Rule 4a (“Delegate by default”), including its mode, cheapest-capable selection and keep-local exits. Coupled work may stay with one focused worker; the orchestrator verifies condensed returns centrally.
+
 ## Mandatory Rules
 
 ### Rule 1: Verify Independence Before Parallelizing
