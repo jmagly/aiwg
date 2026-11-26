@@ -13,6 +13,34 @@
   },
   "artifacts": [
     {
+      "logicalName": "decision.discovery-study-manifest",
+      "id": "https://aiwg.io/schemas/decision/DiscoveryStudyManifest.v1.schema.json",
+      "version": "1.0.0",
+      "format": "json-schema",
+      "dialect": "https://json-schema.org/draft/2020-12/schema",
+      "lifecycle": "active",
+      "stability": "experimental",
+      "owner": { "id": "decision-engine" },
+      "authority": { "kind": "canonical", "path": "schemas/decision/DiscoveryStudyManifest.v1.schema.json" },
+      "compatibility": { "mode": "backward" },
+      "consumers": [{ "id": "discovery-shadow", "boundary": "Pinned offline study preregistration", "path": "src/artifacts/discovery-shadow-study.ts" }],
+      "publication": { "public": true }
+    },
+    {
+      "logicalName": "decision.discovery-study-report",
+      "id": "https://aiwg.io/schemas/decision/DiscoveryStudyReport.v1.schema.json",
+      "version": "1.0.0",
+      "format": "json-schema",
+      "dialect": "https://json-schema.org/draft/2020-12/schema",
+      "lifecycle": "active",
+      "stability": "experimental",
+      "owner": { "id": "decision-engine" },
+      "authority": { "kind": "canonical", "path": "schemas/decision/DiscoveryStudyReport.v1.schema.json" },
+      "compatibility": { "mode": "backward" },
+      "consumers": [{ "id": "discovery-shadow", "boundary": "Unrun report preserving integrity and economics fields", "path": "src/artifacts/discovery-shadow-study.ts" }],
+      "publication": { "public": true }
+    },
+    {
       "logicalName": "decision.d29-access.v2",
       "id": "https://aiwg.io/schemas/decision/D29Study.v10.schema.json",
       "version": "10.0.0",
