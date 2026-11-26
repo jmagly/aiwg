@@ -5,7 +5,7 @@ import { buildWrapperRouteEnvelope } from './wrapper-route.js';
 import { exceedsWorkerAutoTier } from './worker-tier-selection.js';
 import { flagshipElected, isFlagshipModel, normalizeModelTier, parseWorkerTier, TIER_ORDER } from './tiers.js';
 import { isConcreteWrapperModel } from './wrapper-enforcement.js';
-import { DEFAULT_WORKER_SELECTION } from './worker-selection-policy.js';
+import { resolveDelegationDefaults, roleTiers } from './delegation-defaults.js';
 import type { MergedModelConfig, ModelRole, ModelRouteRequest, ModelTier } from './types.js';
 
 export interface DelegationRequest extends Pick<ModelRouteRequest, 'election' | 'premiumAuthorized'> {
@@ -38,30 +38,14 @@ export interface DelegationRecord {
 
 export { parseWorkerTier } from './tiers.js';
 
-const roleTiers = { efficiency: 'economy', coding: 'standard', reasoning: 'premium' } as const;
-
 export async function resolveDelegation(request: DelegationRequest, models?: MergedModelConfig) {
   parseWorkerTier(request.requestedTier);
   const config = models ?? await new ConfigLoader(request.cwd).load();
-  const policy = config.defaults.workerSelection ?? DEFAULT_WORKER_SELECTION;
+  const { policy, role, baseRole, tier, ceiling, strategy } = resolveDelegationDefaults(request, config);
   const provider = (request.provider === 'claude-code' ? 'claude' : request.provider === 'openai' ? 'codex' : request.provider) as ModelPolicyProvider;
   const catalog = loadProviderModelCatalog();
   const catalogProvider = catalog.providers[provider];
   if (!catalogProvider) throw new Error(`Worker tier selection is unavailable for provider ${request.provider}`);
-  if (request.task && !policy.taskClasses?.[request.task]) throw new Error(`Unknown worker task class: ${request.task}`);
-  const agentGuidance = Object.values(config.agentRoleAssignments ?? {}).find(entry => entry.agents.includes(request.workerId));
-  const role = request.role ?? (request.task ? policy.taskClasses?.[request.task] : undefined) ?? agentGuidance?.defaultRole
-    ?? (request.requestedTier === 'economy' ? 'efficiency' : 'coding');
-  const guidance = policy.roleGuidance && Object.hasOwn(policy.roleGuidance, role) ? policy.roleGuidance[role] : undefined;
-  const baseRole = guidance?.baseRole ?? role;
-  if (!Object.hasOwn(roleTiers, baseRole)) throw new Error(`Unknown worker role: ${role}`);
-  let tier = normalizeModelTier(request.requestedTier ?? config.agentOverrides[request.workerId]?.['model-tier']
-    ?? guidance?.tier ?? roleTiers[baseRole as ModelRole]);
-  for (const assignment of Object.values(config.agentRoleAssignments ?? {})) {
-    if (assignment.agents.includes(request.workerId) && TIER_ORDER.indexOf(normalizeModelTier(assignment.minimumTier)) > TIER_ORDER.indexOf(tier)) tier = normalizeModelTier(assignment.minimumTier);
-  }
-  if (guidance && TIER_ORDER.indexOf(tier) < TIER_ORDER.indexOf(normalizeModelTier(guidance.tier))) throw new Error('Requested worker tier is below role guidance');
-  const ceiling = policy.maxAutoTier ?? 'standard';
   const override = config.agentOverrides[request.workerId]?.['model-override'];
   const definition = config.providers[provider];
   const inherited = definition && new ConfigLoader(request.cwd).resolveProviderInheritance(definition, config.providers);
@@ -97,7 +81,7 @@ export async function resolveDelegation(request: DelegationRequest, models?: Mer
   const record: DelegationRecord = {
     version: 1, orchestrator: request.orchestrator, workerId: request.workerId, role,
     requested_tier: request.requestedTier ?? null, resolved_tier: actualTier, resolved_model: selected,
-    wrapper: envelope.wrapper!, strategy: policy.strategy ?? 'cost-effective', max_auto_tier: ceiling,
+    wrapper: envelope.wrapper!, strategy, max_auto_tier: ceiling,
     election: request.election ?? null, warnings: envelope.model!.diagnostics.map(item => item.message),
   };
   return { record, envelope };

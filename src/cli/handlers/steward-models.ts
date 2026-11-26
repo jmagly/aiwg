@@ -6,7 +6,8 @@ import { AiwgError, EXIT_CODES } from '../errors.js';
 import { getProjectDir } from '../../config/aiwg-config.js';
 import { capabilityProviderId, normalizeProviderId, resolveActiveProvider } from '../provider-resolution.js';
 import type { CapabilityMatrix } from '../../providers/capability-matrix.js';
-import { routeModelTier } from '../../models/router.js';
+import { resolveModelTier } from '../../models/router.js';
+import { ConfigLoader } from '../../models/config-loader.js';
 import { buildWrapperRouteEnvelope, type RoutedCapabilityType } from '../../models/wrapper-route.js';
 import { loadProviderModelCatalog, type ModelPolicyProvider, type ProviderModelCatalog } from '../../models/provider-policy.js';
 import { CapabilityResolutionError, resolveRoutableCapability } from '../../artifacts/capability-resolver.js';
@@ -113,7 +114,7 @@ export async function handleStewardModels(args: string[], matrix: CapabilityMatr
         premiumAuthorized,
         maxAutoTier: premiumAuthorized ? 3 : undefined,
         catalog: effectiveCatalog,
-      });
+      }, await new ConfigLoader(projectDir).load());
       if (args.includes('--json')) console.log(JSON.stringify(envelope, null, 2));
       else {
         console.log('\n  Model wrapper route');
@@ -133,7 +134,7 @@ export async function handleStewardModels(args: string[], matrix: CapabilityMatr
       .filter(([, entry]) => entry.tiers)
       .map(([provider, entry]) => [provider, Object.fromEntries(Object.entries(entry.tiers!)
         .map(([tier, model]) => [tier, { ...model, label: model.selection === 'user-elected' ? 'user-elected only' : tier }]))]));
-    const decision = routeModelTier({
+    const decision = await resolveModelTier({
       deterministic: args.includes('--deterministic'),
       routine: args.includes('--routine'),
       complex: args.includes('--complex'),
@@ -142,7 +143,7 @@ export async function handleStewardModels(args: string[], matrix: CapabilityMatr
       unattended: args.includes('--unattended'),
       premiumAuthorized: args.includes('--allow-premium'),
       maxAutoTier: args.includes('--allow-premium') ? 3 : undefined,
-    });
+    }, ctx ? getProjectDir(ctx, ctx.args) : process.cwd());
     if (args.includes('--json')) { console.log(JSON.stringify({ decision, tiers }, null, 2)); return; }
     for (const [provider, ladder] of Object.entries(tiers)) {
       for (const [tier, entry] of Object.entries(ladder)) console.log(`  ${provider} ${tier}: ${entry.id} (${entry.label})`);

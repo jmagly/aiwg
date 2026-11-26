@@ -2,6 +2,7 @@
   "T-OG-01": {
     "testFiles": [
       "test/unit/models/delegation.test.ts",
+      "test/unit/models/router-policy.test.ts",
       "test/unit/models/worker-routing-record.test.ts"
     ]
   },

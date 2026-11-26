@@ -5,7 +5,7 @@ import {
 } from './provider-policy.js';
 import { MODEL_WRAPPERS, type ModelRole } from './provider-models.js';
 import { routeModelTier } from './router.js';
-import type { ModelRouteRequest, ModelRouteDecision, ModelTier } from './types.js';
+import type { ModelRouteRequest, ModelRouteDecision, ModelTier, MergedModelConfig } from './types.js';
 import type { ResolvedRoutableCapability } from '../artifacts/capability-resolver.js';
 import { resolveWorkerPlan, type WorkerPlanRequest, type WorkerPlanSnapshot, type WorkerResolutionPlan } from './resolver.js';
 
@@ -48,10 +48,10 @@ function roleForTier(tier: ModelTier | null): ModelRole | null {
   return null;
 }
 
-export function buildWrapperRouteEnvelope(request: WrapperRouteRequest): WrapperRouteEnvelope {
+export function buildWrapperRouteEnvelope(request: WrapperRouteRequest, models?: MergedModelConfig): WrapperRouteEnvelope {
   if (typeof request.assignment !== 'string' || !request.assignment.trim()) throw new Error('Wrapper routing requires a bounded assignment.');
 
-  const decision = routeModelTier({ ...request, agentName: request.agentName ?? request.capability.name });
+  const decision = routeModelTier({ ...request, agentName: request.agentName ?? request.capability.name }, models);
   if (request.worker?.snapshot.config.parallelism?.worker_dispatch && !request.deterministic) {
     const worker = resolveWorkerPlan(request.worker.snapshot, {
       ...request.worker.request,
