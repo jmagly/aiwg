@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { delimiter, join, resolve } from 'node:path';
 
@@ -151,11 +151,13 @@ describe('manual-only Grok Build ACP dispatch script', () => {
   });
 
   it('keeps live ACP dispatch out of both CI workflow trees', () => {
+    // Read the workflow files directly: CI images do not all ship ripgrep.
     for (const tree of ['.github', '.gitea']) {
-      const result = spawnSync('rg', ['-l', 'grok-build-acp-live\\.mjs', `${tree}/workflows`], {
-        encoding: 'utf8', timeout: 5_000,
-      });
-      expect(result.status).toBe(1);
+      const dir = join(process.cwd(), tree, 'workflows');
+      const files = readdirSync(dir).filter(name => /\.ya?ml$/.test(name));
+      expect(files.length, dir).toBeGreaterThan(0);
+      const offenders = files.filter(name => readFileSync(join(dir, name), 'utf8').includes('grok-build-acp-live.mjs'));
+      expect(offenders, tree).toEqual([]);
     }
   });
 });
