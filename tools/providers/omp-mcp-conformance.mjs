@@ -73,13 +73,15 @@ export async function runOmpMcpConformance({ binary = process.env.AIWG_OMP_BIN |
     const expansion = await client.prompt('/conformance-prompt VALUE');
     const promptExpanded = expansion.success && modelCalls.some(call => call.promptExpanded);
     const teamStart = modelCalls.length;
-    const nativeTeam = await runOmpTeam({ cwd, model: 'fixture/fixture', maxParallel: 2, tasks: [
+    // The loopback fixture model is not a catalog model, so state the tier explicitly
+    // (within the default ceiling): this gate checks team dispatch, not tier escalation.
+    const nativeTeam = await runOmpTeam({ cwd, model: 'fixture/fixture', workerTier: 'standard', maxParallel: 2, tasks: [
       { id: 'research', agent: 'researcher', role: 'reasoning', prompt: 'Inspect deterministic evidence', ownership: ['research.md'], tools: ['read'] },
       { id: 'sdlc', agent: 'architect', role: 'coding', prompt: 'Assess deterministic evidence', ownership: ['design.md'], tools: ['read'] },
     ], clientFactory: options => new OmpRpcClient({ ...options, binary, env, timeoutMs: 30000 }) });
     const teamAllowlistVerified = modelCalls.slice(teamStart).every(call => call.allTools.every(name => ['task', 'read'].includes(name)));
     const controller = new AbortController();
-    const cancelledRun = runOmpTeam({ cwd, outputDir: join(cwd, '.aiwg', 'cancel-results'), model: 'fixture/fixture', maxParallel: 1, signal: controller.signal, tasks: [{ id: 'cancelled', agent: 'researcher', prompt: 'AIWG_CANCEL_WORKER', tools: ['read'], ownership: [] }], clientFactory: options => new OmpRpcClient({ ...options, binary, env, timeoutMs: 30000 }) });
+    const cancelledRun = runOmpTeam({ cwd, outputDir: join(cwd, '.aiwg', 'cancel-results'), model: 'fixture/fixture', workerTier: 'standard', maxParallel: 1, signal: controller.signal, tasks: [{ id: 'cancelled', agent: 'researcher', prompt: 'AIWG_CANCEL_WORKER', tools: ['read'], ownership: [] }], clientFactory: options => new OmpRpcClient({ ...options, binary, env, timeoutMs: 30000 }) });
     const cancelReached = await Promise.race([cancellationObserved.then(() => true), new Promise(resolveTimeout => setTimeout(() => resolveTimeout(false), 15000))]);
     controller.abort(); const cancellation = await cancelledRun;
     const nativeCancelled = cancelReached && cancellation.results[0].status === 'cancelled';
