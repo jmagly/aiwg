@@ -1,0 +1,30 @@
+apiVersion: ops.aiwg.io/v1
+kind: OpsCapability
+metadata:
+  name: cicd-gitea-runner-labels
+  labels:
+    category: ci
+spec:
+  description: "Resolve logical CIEnvironment runner labels against the operator act_runner registration inventory. Verify every label, execution mode, pinned image/runtime identity and trust pool; do not interpret labels as GitHub hosted images. Require an isolated ephemeral pool for untrusted PRs, distinct from privileged delivery. Fail on absent or ambiguous bindings; never register or reconfigure a runner."
+  version: "1.0.0"
+  inputs:
+    - name: labels
+      type: list
+      required: true
+    - name: registration_inventory
+      type: path
+      required: true
+    - name: trust_pool
+      type: string
+      required: true
+  outputs:
+    - name: labels_verified
+      type: boolean
+    - name: resolved_labels
+      type: list
+    - name: evidence_path
+      type: path
+  idempotent: true
+  verification:
+    command: "jq -e '.labels_verified == true and (.resolved_labels | length > 0)' '{{ evidence_path }}'"
+    expect: "true"
