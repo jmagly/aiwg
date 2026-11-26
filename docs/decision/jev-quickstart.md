@@ -136,7 +136,8 @@ and otherwise exits 2 with instructions.
 
 ## 4. Ask
 
-Confidence can be unreliable under wording shift. The default threshold of 0.8
+Confidence does not transfer across wording; do not use it as a calibrated
+probability of correctness. The default threshold of 0.8
 is a routing policy, not a correctness guarantee; see the
 [wording-shift caveat and threshold decision](jev-confidence-wording-shift.md).
 
