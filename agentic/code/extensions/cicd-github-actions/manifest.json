@@ -1,0 +1,28 @@
+{
+  "id": "cicd-github-actions",
+  "type": "addon",
+  "name": "Github Actions CI/CD Extension",
+  "version": "1.0.0",
+  "description": "Provider templates and safety mappings for github-actions CIPipeline targets",
+  "core": false,
+  "autoInstall": false,
+  "requires": [
+    "cicd-complete"
+  ],
+  "entry": {
+    "rules": "rules/",
+    "templates": "templates/",
+    "capabilities": "capabilities/"
+  },
+  "provides": {
+    "rules": [
+      "cicd-github-actions-safety"
+    ],
+    "templates": [
+      "cicd-github-actions-workflow"
+    ],
+    "capabilities": [
+      "cicd-gha-environment-protection"
+    ]
+  }
+}

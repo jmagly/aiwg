@@ -1,0 +1,34 @@
+apiVersion: ops.aiwg.io/v1
+kind: OpsCapability
+metadata:
+  name: cicd-gha-environment-protection
+  labels:
+    category: ci
+spec:
+  description: "Read the GitHub environment configuration and approval evidence; prove required_reviewers distinct approvals and branch_restrictions for this repository, revision and actor. Native environment approval must complete before the job starts; an eligible reviewer list does not prove multiple approvals. Require an external approval service when native controls cannot enforce the count. Return false on insufficient reviewers, missing API access, stale evidence or unavailable plan features; never create or weaken settings."
+  version: "1.0.0"
+  inputs:
+    - name: environment
+      type: string
+      required: true
+    - name: required_reviewers
+      type: integer
+      required: true
+    - name: branch_restrictions
+      type: list
+      required: true
+    - name: revision
+      type: string
+      required: true
+    - name: approval_evidence
+      type: path
+      required: true
+  outputs:
+    - name: protection_verified
+      type: boolean
+    - name: evidence_path
+      type: path
+  idempotent: true
+  verification:
+    command: "jq -e '.protection_verified == true' '{{ evidence_path }}'"
+    expect: "true"

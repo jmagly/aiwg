@@ -1,0 +1,158 @@
+# Inert golden preview; never installed as AIWG CI.
+# Recipe: agentic/code/extensions/cicd-gitea-actions/templates/cicd-gitea-actions-workflow.md v1.0.0
+# Source: test/fixtures/cicd/valid/ci-pipeline-canary.json + ci-environment.json
+# Requires reviewed project adapters/bindings and provisioned Node 24 runtime.
+name: ci-canary
+'on':
+  push:
+    branches:
+      - main
+    paths:
+      - src/**
+  pull_request:
+    branches:
+      - main
+  schedule:
+    - cron: 0 2 * * *
+  workflow_dispatch: {}
+jobs:
+  ci-unit:
+    runs-on:
+      - linux
+      - ci-untrusted
+    steps:
+      - uses: https://github.com/actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - uses: https://github.com/actions/cache@704facf57e6136b1bc63b828d79edcd491f0ee84 # v3.3.2
+        with:
+          path: .ci-cache
+          key: ${{ runner.os }}-ci-untrusted-node24-${{ hashFiles('package-lock.json') }}
+      - name: Invoke ci-test
+        env:
+          CI_BINDINGS: ci/bindings.json
+          CI_CAPABILITY: ci-test
+          CI_INPUTS: '{"suite":"unit"}'
+          CI_RETRY: '{"max_attempts":3,"backoff":"exponential"}'
+        run: node ci/capability.mjs
+      - uses: https://github.com/actions/upload-artifact@c24449f33cd45d4826c6702db7e49f7cdb9b551d # v3.2.1-node20
+        with:
+          name: ci-unit-${{ github.sha }}
+          path: ci-evidence/
+          retention-days: 7
+          if-no-files-found: error
+  ci-build:
+    runs-on:
+      - linux
+      - ci-untrusted
+    needs:
+      - ci-unit
+    steps:
+      - uses: https://github.com/actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - name: Invoke docker-build
+        env:
+          CI_BINDINGS: ci/bindings.json
+          CI_CAPABILITY: docker-build
+          CI_INPUTS: '{}'
+          CI_RETRY: '{"max_attempts":1}'
+        run: node ci/capability.mjs
+      - uses: https://github.com/actions/upload-artifact@c24449f33cd45d4826c6702db7e49f7cdb9b551d # v3.2.1-node20
+        with:
+          name: ci-build-${{ github.sha }}
+          path: ci-evidence/
+          retention-days: 7
+          if-no-files-found: error
+  ci-test-gate-1:
+    runs-on:
+      - linux
+      - ci-untrusted
+    needs:
+      - ci-unit
+      - ci-build
+    steps:
+      - uses: https://github.com/actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - name: Evaluate entry GatePack
+        env:
+          CI_BINDINGS: ci/bindings.json
+          CI_GATE: '{"pack":"aiwg:dev/ci-flake","after":"ci-test","parameters":{"requiredRuns":50}}'
+        run: node ci/gate.mjs
+      - uses: https://github.com/actions/upload-artifact@c24449f33cd45d4826c6702db7e49f7cdb9b551d # v3.2.1-node20
+        with:
+          name: ci-test-gate-1-${{ github.sha }}
+          path: ci-evidence/
+          retention-days: 7
+          if-no-files-found: error
+  ci-release:
+    runs-on:
+      - linux
+      - ci-runner
+    needs:
+      - ci-build
+      - ci-test-gate-1
+    if: ${{ github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/')) }}
+    steps:
+      - uses: https://github.com/actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - name: Verify environment protection and approval
+        env:
+          CI_BINDINGS: ci/bindings.json
+          CI_ENVIRONMENT: ci-production
+          CI_PROTECTION: '{"required_reviewers":2,"branch_restrictions":["main","release/*"]}'
+        run: node ci/approval.mjs
+      - name: Invoke ci-deploy-handoff
+        env:
+          CI_BINDINGS: ci/bindings.json
+          CI_CAPABILITY: ci-deploy-handoff
+          CI_INPUTS: '{}'
+          CI_RETRY: '{"max_attempts":1}'
+          CI_ENVIRONMENT: ci-production
+          CI_TOKEN: ${{ secrets.CI_TOKEN }}
+        run: node ci/capability.mjs
+      - uses: https://github.com/actions/upload-artifact@c24449f33cd45d4826c6702db7e49f7cdb9b551d # v3.2.1-node20
+        with:
+          name: ci-release-${{ github.sha }}
+          path: ci-evidence/
+          retention-days: 7
+          if-no-files-found: error
+  ci-release-rollout:
+    if: ${{ github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/')) }}
+    runs-on:
+      - linux
+      - ci-runner
+    needs:
+      - ci-release
+      - ci-test-gate-1
+    steps:
+      - uses: https://github.com/actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - name: Verify environment protection and approval
+        env:
+          CI_BINDINGS: ci/bindings.json
+          CI_ENVIRONMENT: ci-production
+          CI_PROTECTION: '{"required_reviewers":2,"branch_restrictions":["main","release/*"]}'
+        run: node ci/approval.mjs
+      - name: Evaluate entry GatePack
+        env:
+          CI_BINDINGS: ci/bindings.json
+          CI_GATE: '{"pack":"aiwg:dev/ci-flake","after":"ci-test","parameters":{"requiredRuns":50}}'
+        run: node ci/gate.mjs
+      - name: Execute gated canary ramp and verified rollback
+        env:
+          CI_BINDINGS: ci/bindings.json
+          CI_ENVIRONMENT: ci-production
+          CI_CAPABILITY: ci-deploy-handoff
+          CI_ROLLOUT: '{"strategy":"canary","steps":[{"weight":10,"pause":"5m","gate":"aiwg:dev/ci-flake"},{"weight":100}],"gates":[{"pack":"aiwg:dev/ci-flake","after":"ci-test","parameters":{"requiredRuns":50}}],"rollback":{"on":["gate-failure","manual"],"capability":"ci-deploy-handoff"}}'
+          CI_TOKEN: ${{ secrets.CI_TOKEN }}
+        run: node ci/rollout.mjs
+      - uses: https://github.com/actions/upload-artifact@c24449f33cd45d4826c6702db7e49f7cdb9b551d # v3.2.1-node20
+        with:
+          name: ci-release-rollout-${{ github.sha }}
+          path: ci-evidence/
+          retention-days: 7
+          if-no-files-found: error
