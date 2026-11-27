@@ -8,6 +8,8 @@ metadata:
 triggers:
   - "ld-agentcontrol"
   - "Gate completion or agent configuration changes and offer test-only targeting"
+  - "manage LaunchDarkly AI configs"
+  - "LaunchDarkly AgentControl config"
 ---
 
 # ld-agentcontrol

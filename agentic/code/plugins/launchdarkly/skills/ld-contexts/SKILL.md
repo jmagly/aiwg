@@ -8,6 +8,8 @@ metadata:
 triggers:
   - "ld-contexts"
   - "Design context kinds, multi-context evaluation and private attributes"
+  - "design LaunchDarkly contexts"
+  - "LaunchDarkly multi-context targeting"
 ---
 
 # ld-contexts

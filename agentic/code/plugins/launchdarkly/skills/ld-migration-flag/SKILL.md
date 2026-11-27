@@ -8,6 +8,8 @@ metadata:
 triggers:
   - "ld-migration-flag"
   - "Plan migration stages and rollback checkpoints without guarded rollouts"
+  - "LaunchDarkly migration flag"
+  - "migrate a data store with LaunchDarkly"
 ---
 
 # ld-migration-flag

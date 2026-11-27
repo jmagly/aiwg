@@ -8,6 +8,8 @@ metadata:
 triggers:
   - "ld-code-refs-ci"
   - "Integrate code-reference scans and report repository coverage honestly"
+  - "LaunchDarkly code references in CI"
+  - "find LaunchDarkly flag references in code"
 ---
 
 # ld-code-refs-ci

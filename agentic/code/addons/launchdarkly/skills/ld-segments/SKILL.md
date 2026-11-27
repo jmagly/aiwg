@@ -8,6 +8,8 @@ metadata:
 triggers:
   - "ld-segments"
   - "Manage bounded segment reads and approved targeting changes"
+  - "create a LaunchDarkly segment"
+  - "LaunchDarkly user segment targeting"
 ---
 
 # ld-segments

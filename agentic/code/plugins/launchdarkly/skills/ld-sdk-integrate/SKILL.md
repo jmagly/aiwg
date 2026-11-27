@@ -8,6 +8,8 @@ metadata:
 triggers:
   - "ld-sdk-integrate"
   - "Integrate a stack-specific SDK or OpenFeature provider with bounded startup and shutdown"
+  - "install the LaunchDarkly SDK"
+  - "integrate LaunchDarkly into my app"
 ---
 
 # ld-sdk-integrate

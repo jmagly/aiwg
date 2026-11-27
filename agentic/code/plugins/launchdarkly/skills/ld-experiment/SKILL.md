@@ -8,6 +8,8 @@ metadata:
 triggers:
   - "ld-experiment"
   - "Gate experiment setup and readout with permanent-residue and targeting safeguards"
+  - "set up a LaunchDarkly experiment"
+  - "read out LaunchDarkly experiment results"
 ---
 
 # ld-experiment

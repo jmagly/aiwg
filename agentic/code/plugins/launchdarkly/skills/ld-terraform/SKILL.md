@@ -8,6 +8,8 @@ metadata:
 triggers:
   - "ld-terraform"
   - "Plan reviewed Terraform governance and drift ownership without guessing authentication"
+  - "manage LaunchDarkly with Terraform"
+  - "LaunchDarkly Terraform provider"
 ---
 
 # ld-terraform
