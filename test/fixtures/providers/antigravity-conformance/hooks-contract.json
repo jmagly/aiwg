@@ -1,0 +1,201 @@
+{
+  "sha256": "d97edcf90eda1799cd6cedc92616ef402f23c9752a723e8b8ae3e8f062ce458b",
+  "version": "1.3.3",
+  "jsonHookSpecFields": [
+    {
+      "name": "Enabled json:\"enabled,omitempty\"",
+      "offset": 0
+    },
+    {
+      "name": "SessionStart",
+      "offset": 8
+    },
+    {
+      "name": "PreInvocation",
+      "offset": 32
+    },
+    {
+      "name": "PostInvocation",
+      "offset": 56
+    },
+    {
+      "name": "Stop",
+      "offset": 80
+    },
+    {
+      "name": "PreToolUse",
+      "offset": 104
+    },
+    {
+      "name": "PostToolUse",
+      "offset": 128
+    }
+  ],
+  "protobufMessages": {
+    "HookSystemMessage": [
+      {
+        "name": "system_message",
+        "jsonName": "systemMessage",
+        "type": 9
+      },
+      {
+        "name": "metadata",
+        "jsonName": "metadata",
+        "type": 11,
+        "typeName": ".exa.hooks_pb.HookSystemMessage.MetadataEntry"
+      },
+      {
+        "name": "media",
+        "jsonName": "media",
+        "type": 11,
+        "typeName": ".exa.codeium_common_pb.Media"
+      }
+    ],
+    "HookInjectedStep": [
+      {
+        "name": "tool_call",
+        "jsonName": "toolCall",
+        "type": 11,
+        "typeName": ".exa.hooks_pb.HookToolCall"
+      },
+      {
+        "name": "user_message",
+        "jsonName": "userMessage",
+        "type": 9
+      },
+      {
+        "name": "ephemeral_message",
+        "jsonName": "ephemeralMessage",
+        "type": 9
+      },
+      {
+        "name": "system_message",
+        "jsonName": "systemMessage",
+        "type": 11,
+        "typeName": ".exa.hooks_pb.HookSystemMessage"
+      },
+      {
+        "name": "error_message",
+        "jsonName": "errorMessage",
+        "type": 11,
+        "typeName": ".exa.hooks_pb.HookErrorMessage"
+      },
+      {
+        "name": "hook_user_message",
+        "jsonName": "hookUserMessage",
+        "type": 11,
+        "typeName": ".exa.hooks_pb.HookUserMessage"
+      },
+      {
+        "name": "hook_ephemeral_message",
+        "jsonName": "hookEphemeralMessage",
+        "type": 11,
+        "typeName": ".exa.hooks_pb.HookEphemeralMessage"
+      },
+      {
+        "name": "checkpoint",
+        "jsonName": "checkpoint",
+        "type": 11,
+        "typeName": ".exa.hooks_pb.HookCheckpoint"
+      },
+      {
+        "name": "model_api_content_id",
+        "jsonName": "modelApiContentId",
+        "type": 9
+      }
+    ],
+    "HookArgsCommon": [
+      {
+        "name": "conversation_id",
+        "jsonName": "conversationId",
+        "type": 9
+      },
+      {
+        "name": "workspace_paths",
+        "jsonName": "workspacePaths",
+        "type": 9
+      },
+      {
+        "name": "transcript_path",
+        "jsonName": "transcriptPath",
+        "type": 9
+      },
+      {
+        "name": "artifact_directory_path",
+        "jsonName": "artifactDirectoryPath",
+        "type": 9
+      },
+      {
+        "name": "execution_id",
+        "jsonName": "executionId",
+        "type": 9
+      },
+      {
+        "name": "model_name",
+        "jsonName": "modelName",
+        "type": 9
+      },
+      {
+        "name": "is_battle_mode",
+        "jsonName": "isBattleMode",
+        "type": 8
+      },
+      {
+        "name": "last_user_input",
+        "jsonName": "lastUserInput",
+        "type": 9
+      },
+      {
+        "name": "agent_name",
+        "jsonName": "agentName",
+        "type": 9
+      },
+      {
+        "name": "parent_conversation_id",
+        "jsonName": "parentConversationId",
+        "type": 9
+      },
+      {
+        "name": "caller_context",
+        "jsonName": "callerContext",
+        "type": 9
+      },
+      {
+        "name": "root_conversation_id",
+        "jsonName": "rootConversationId",
+        "type": 9
+      }
+    ],
+    "PreInvocationHookArgs": [
+      {
+        "name": "invocation_num",
+        "jsonName": "invocationNum",
+        "type": 5
+      },
+      {
+        "name": "initial_num_steps",
+        "jsonName": "initialNumSteps",
+        "type": 5
+      }
+    ],
+    "PreInvocationHookResult": [
+      {
+        "name": "inject_steps",
+        "jsonName": "injectSteps",
+        "type": 11,
+        "typeName": ".exa.hooks_pb.HookInjectedStep"
+      }
+    ],
+    "SessionStartHookArgs": [],
+    "SessionStartHookResult": [
+      {
+        "name": "inject_steps",
+        "jsonName": "injectSteps",
+        "type": 11,
+        "typeName": ".exa.hooks_pb.HookInjectedStep"
+      }
+    ]
+  },
+  "documentation": "agy-customizations/docs/hooks.md (installed builtin skill)",
+  "documentationSha256": "79c917a0ea47c1abc3bfe2e97371950d42d981fb648af2e2099c121652bc771b"
+}

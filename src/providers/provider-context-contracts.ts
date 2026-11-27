@@ -15,6 +15,9 @@ export const CONTEXT_CONTRACTS: Record<Platform, ProviderContextContract> = {
       source: '@flue/runtime/dist/conversation-stream-store-CXrgv-b0.mjs:339-349,463-482', lastVerified: '2026-10-30' },
   },
   antigravity: {
+    promptDiscovery: { delivery: 'hook-bridge', event: 'PreInvocation', files: [
+      '.agents/hooks.json', '.agents/hooks/aiwg-prompt-discovery.cjs',
+    ] },
     startupFiles: ['AGENTS.md', 'GEMINI.md'],
     precedence: ['provider/system', 'project AGENTS.md or GEMINI.md', 'nested project context when selected by the CLI'],
     loadMode: 'prose-directive', includeSyntax: null, configRegistration: null,

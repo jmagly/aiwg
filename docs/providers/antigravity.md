@@ -1,7 +1,8 @@
 # Google Antigravity CLI Provider
 
-Status: experimental. Offline conformance is pinned to Antigravity CLI `1.1.26`;
-authenticated model execution has not been qualified.
+Status: experimental. Resource conformance is pinned to Antigravity CLI `1.1.26`;
+native hook contracts were checked against installed `1.3.3` and `1.2.12` schemas.
+Authenticated model execution has not been qualified.
 
 ## Selector Names
 
@@ -36,6 +37,7 @@ Relevant paths:
 | Workspace skills | `.agents/skills/` |
 | Global skills | Deferred: Google sources conflict between `~/.gemini/antigravity-cli/skills/` and `~/.gemini/config/skills/` |
 | Workspace MCP | `.agents/mcp_config.json` |
+| Workspace lifecycle hooks | `.agents/hooks.json` |
 | Global MCP | `~/.gemini/config/mcp_config.json` |
 | Plugins | `~/.gemini/antigravity-cli/plugins/<plugin_name>/` |
 
@@ -64,6 +66,46 @@ Relevant paths:
   replace an existing server with the same name. Project scope writes
   `.agents/mcp_config.json`; explicit MCP user scope writes
   `~/.gemini/config/mcp_config.json`.
+
+## Native project hooks
+
+`aiwg use all --provider antigravity` installs bounded prompt discovery by
+default (suppress with `--no-hooks`). `AGENTS.md` requires `aiwg discover` before
+tool-based context reads on each new directive, including subagent tasks.
+
+The native `.agents/hooks.json` is a map of named hooks, not a `hooks` wrapper or
+versioned document. AIWG owns the `aiwg-prompt-discovery` name and preserves other
+names and explicit `enabled: false`. Its `PreInvocation` array contains flat
+`{type: "command", command: "…", timeout: 2}` handlers. Tool events use
+`{matcher: "*", hooks: [handler]}` groups. The bridge maps `SessionStart`,
+`PreToolUse`, `PostToolUse` and `Stop`; unsupported canonical events are reported.
+`aiwg refresh --dry-run --skip-update --provider antigravity` detects missing or
+outdated registration and script bytes. Edited managed scripts are kept for review.
+
+Offline contract verification on 2026-11-27 used installed
+`~/.local/bin/agy --version` (**1.3.3**), its embedded `JSONHookSpec` Go metadata
+and `third_party/jetski/hooks_pb/hooks.proto` descriptors, plus installed builtin
+`agy-customizations/docs/hooks.md`. The PATH executable at
+`/opt/noodle-agentic/bin/agy` reports **1.2.12**; the issue's 1.5.17 was unavailable.
+Its embedded schema also confirms the hook events and payload fields used here.
+The captured contract is in
+`test/fixtures/providers/antigravity-conformance/hooks-contract.json`.
+
+The verified protojson input uses `conversationId`, `lastUserInput`,
+`workspacePaths` and `invocationNum`. Version 1.3.3's input schema has no
+`hookEventName` or `cwd`, so the registered command explicitly selects the
+Antigravity adapter and uses the first workspace path. Hook commands run from
+the directory containing `hooks.json`, not the project root. Output is
+`{injectSteps: [{systemMessage: {systemMessage: "…"}}]}`; the installed docs also
+show the alternative `ephemeralMessage` form. Embedded schema confirms the
+nested system message and `SessionStart`, which those docs omit.
+
+`PreInvocation` fires before every model call. The shared discovery script emits
+once per `(project, conversationId, lastUserInput)` using exclusive, hash-only
+markers in the system temporary directory. Changed prompts or conversations get
+new discovery; clearing the temporary directory permits reinjection. Missing
+input/runtime, disabled discovery, timeouts and errors fail open without injection.
+Authenticated execution and hook behavior on 1.5.17 were not tested.
 
 ## Headless use
 

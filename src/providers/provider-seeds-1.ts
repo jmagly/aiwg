@@ -33,7 +33,7 @@ export const BUILT_IN_SEEDS_1: BuiltInSeed[] = [
       deploymentGroup: 'deep-recursion', pathType: 'project', skillsBaseDir: '.agents/skills', subdirLayout: true,
     },
     adapters: {
-      agentFormat: 'antigravity-markdown', hookBridge: null, mcpInjection: 'antigravity',
+      agentFormat: 'antigravity-markdown', hookBridge: 'antigravity', mcpInjection: 'antigravity',
       contextAggregation: 'agents-md', ruleFormat: null,
     },
     matrixRef: 'antigravity',

@@ -4,6 +4,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { Worker } = require('node:worker_threads');
+const { createHash } = require('node:crypto');
+const { tmpdir } = require('node:os');
 
 const configured = Number(process.env.AIWG_PROMPT_DISCOVERY_TIMEOUT_MS || 1500);
 const budget = Number.isFinite(configured) && configured > 0 ? Math.min(configured, 10000) : 1500;
@@ -95,14 +97,28 @@ async function main() {
     chunks.push(chunk);
   }
   const event = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+  // agy 1.3.3 supplies no hookEventName: the verified registration selects this adapter.
+  const antigravity = process.argv.includes('--antigravity-pre-invocation');
   const hermes = event.hook_event_name === 'pre_llm_call';
   const cursor = event.hook_event_name === 'beforeSubmitPrompt';
-  if (event.hook_event_name && event.hook_event_name !== 'UserPromptSubmit' && !hermes && !cursor) return finish();
+  if (event.hook_event_name && event.hook_event_name !== 'UserPromptSubmit' && !hermes && !cursor && !antigravity) return finish();
   if ([event.role, event.message?.role].some(role => role && role !== 'user')
     || /^(system|notification|tool[_-]result)$/.test(event.type || '')) return finish();
-  const text = hermes ? event.extra?.user_message : event.prompt;
+  const text = antigravity ? event.lastUserInput : hermes ? event.extra?.user_message : event.prompt;
   const prompt = typeof text === 'string' ? text.trim() : '';
   if (!shouldDiscover(prompt)) return finish();
+  let cwd = hermes && typeof event.cwd === 'string' ? event.cwd : process.cwd();
+  let dedup;
+  if (antigravity) {
+    if (typeof event.conversationId !== 'string' || !event.conversationId
+      || !Array.isArray(event.workspacePaths) || typeof event.workspacePaths[0] !== 'string'
+      || !path.isAbsolute(event.workspacePaths[0])) return finish();
+    cwd = event.workspacePaths[0];
+    // Only hashes reach disk. Exclusive creation also handles concurrent model invocations.
+    const key = createHash('sha256').update(JSON.stringify([cwd, event.conversationId, text])).digest('hex');
+    dedup = path.join(tmpdir(), 'aiwg-antigravity-prompt-discovery', key);
+    if (fs.existsSync(dedup)) return finish();
+  }
   const moduleUrl = runtimeModule();
   if (!moduleUrl || Date.now() >= deadline) return finish();
   // The installed discovery API prints a JSON envelope. Capture it inside the
@@ -123,12 +139,20 @@ async function main() {
     })().catch(() => process.exit(0));
   `, {
     eval: true, stdout: true, stderr: true,
-    workerData: { moduleUrl, prompt, cwd: hermes && typeof event.cwd === 'string' ? event.cwd : process.cwd() },
+    workerData: { moduleUrl, prompt, cwd },
   });
   worker.on('message', envelope => {
     if (Date.now() >= deadline) return finish();
     const context = contextFor(envelope, prompt);
-    if (context) process.stdout.write(JSON.stringify(cursor ? { continue: true, additional_context: context } : hermes ? { context } : {
+    if (context && dedup) {
+      try {
+        fs.mkdirSync(path.dirname(dedup), { recursive: true, mode: 0o700 });
+        fs.closeSync(fs.openSync(dedup, 'wx', 0o600));
+      } catch { return finish(); }
+    }
+    if (context) process.stdout.write(JSON.stringify(antigravity ? {
+      injectSteps: [{ systemMessage: { systemMessage: context } }],
+    } : cursor ? { continue: true, additional_context: context } : hermes ? { context } : {
       hookSpecificOutput: { hookEventName: 'UserPromptSubmit', additionalContext: context },
     }) + '\n', finish);
     else finish();
