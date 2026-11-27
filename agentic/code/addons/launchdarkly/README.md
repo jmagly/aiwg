@@ -37,3 +37,16 @@ LaunchDarkly documents data sharing and prompt injection in its [hosted MCP guid
 Load available vendor guides through MCP `get-skills` / `load-skill` in the `guides` toolset rather than copying their text ([MCP overview](https://launchdarkly.com/docs/home/getting-started/mcp.md)). For a local/EU path without guides, use page documentation or a separately reviewed pinned `ai-tooling` reference: commit `22a512139` observed 2026-11-25 ([vendor repository](https://github.com/launchdarkly/ai-tooling)). No vendor skill content is bundled; see NOTICE.
 
 User guide: `$AIWG_ROOT/docs/addons/launchdarkly/user-guide.md`. Connection detail: `docs/hosted-mcp.md`. Offline diagnosis fixtures contain synthetic values only; run the repository's LaunchDarkly vitest suite. Live account checks are manual and must be recorded separately from fixtures.
+
+## Delivery and governance
+
+Use `ld-quickref` for prompts and routes. The addon now includes SDK/context/testing,
+flag creation/targeting/segments, staged and guarded releases, migrations, approvals,
+experiments, AgentControl, cleanup/debt/code refs, Terraform and Relay proposals.
+Specialists: `launchdarkly-sdk-integrator`, `launchdarkly-release-engineer` and
+read-only `launchdarkly-governance-auditor`. Flows and all six report/card templates
+are registered in manifest.json; lifecycle authority remains in sdlc-complete.
+
+CI/CD v1 selection: feature_flags.provider -> provider-implementations.json ->
+registered skill / scripts/capabilities.mjs. See @$AIWG_ROOT/agentic/code/addons/launchdarkly/docs/capability-contract.md for
+contracts, approval hooks, held/handoff semantics and test limitations.

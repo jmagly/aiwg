@@ -1,0 +1,23 @@
+apiVersion: flow.aiwg.io/v1
+kind: FlowCapability
+metadata:
+  name: ld-governance-maturity
+  namespace: launchdarkly
+  annotations:
+    triggers: "ld-governance-maturity; LaunchDarkly governance maturity"
+spec:
+  description: >-
+    AIWG guidance: Read-only assessment of roles, token hygiene (metadata only), ownership, naming/tags, approvals, plan-feature fit, flag debt and code-reference coverage. Use ld-flag-debt-audit; produce governance-assessment with evidence, uncertainty and prioritized recommendations. Propose ld-terraform and ld-relay-proxy work separately; do not mutate provider state or expose credentials. Caller persists the report under the resolved artifact root.
+    Apply ld-change-authorization, ld-key-safety, ld-docs-currency and ld-flag-hygiene.
+    Resolve aiwg artifacts path --json --check-write before sanitized artifact output.
+    Vendor guidance uses ld-docs and runtime guides
+    (https://launchdarkly.com/docs/home/getting-started/mcp.md).
+  version: "1.0.0"
+  inputs:
+    - { name: request, type: object, required: true }
+  outputs:
+    - { name: report, type: object }
+    - { name: status, type: string }
+  agent: launchdarkly-governance-auditor
+  requires_addon: launchdarkly
+  idempotent: false

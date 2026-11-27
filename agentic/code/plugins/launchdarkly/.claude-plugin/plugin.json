@@ -1,7 +1,7 @@
 {
   "name": "launchdarkly",
   "version": "2026.11.9",
-  "description": "Safe LaunchDarkly connection, credential diagnosis and guided feature flag onboarding through the launchdarkly-concierge.",
+  "description": "Governed LaunchDarkly onboarding, SDK integration, staged releases, experiments, lifecycle cleanup and read-only governance.",
   "author": {
     "name": "AIWG Contributors",
     "email": "support@aiwg.io"

@@ -1,0 +1,23 @@
+apiVersion: flow.aiwg.io/v1
+kind: FlowCapability
+metadata:
+  name: ld-migration
+  namespace: launchdarkly
+  annotations:
+    triggers: "ld-migration; LaunchDarkly migration"
+spec:
+  description: >-
+    AIWG guidance: ld-migration-flag -> select two/four/six-stage model -> define consistency and rollback checks -> isolated ld-testing -> approve each production transition -> verify correctness -> cleanup handoff. Refuse guarded rollouts for migration flags. Hold before irreversible data changes; require explicit approval and a recovery plan.
+    Apply ld-change-authorization, ld-key-safety, ld-docs-currency and ld-flag-hygiene.
+    Resolve aiwg artifacts path --json --check-write before sanitized artifact output.
+    Vendor guidance uses ld-docs and runtime guides
+    (https://launchdarkly.com/docs/home/getting-started/mcp.md).
+  version: "1.0.0"
+  inputs:
+    - { name: request, type: object, required: true }
+  outputs:
+    - { name: report, type: object }
+    - { name: status, type: string }
+  agent: launchdarkly-release-engineer
+  requires_addon: launchdarkly
+  idempotent: false

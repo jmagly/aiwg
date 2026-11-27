@@ -620,7 +620,8 @@
     "addons/launchdarkly",
     "addons/launchdarkly/hosted-mcp",
     "addons/launchdarkly/user-guide",
-    "frameworks/sdlc-complete/feature-flags"
+    "frameworks/sdlc-complete/feature-flags",
+    "addons/launchdarkly/capability-contract"
   ],
   "sections": [
     {
@@ -4749,6 +4750,13 @@
       "summary": "Start with a prompt:",
       "file": "frameworks/sdlc-complete/feature-flags.md",
       "parent": "frameworks/sdlc-complete"
+    },
+    {
+      "id": "addons/launchdarkly/capability-contract",
+      "title": "Capability Contract",
+      "summary": "AIWG guidance: the five definitions belong to cicd-complete; this addon implements",
+      "file": "addons/launchdarkly/capability-contract.md",
+      "parent": "addons/launchdarkly"
     }
   ],
   "pages": [

@@ -442,7 +442,7 @@
     {
       "name": "launchdarkly",
       "source": "./agentic/code/plugins/launchdarkly",
-      "description": "Safe LaunchDarkly connection, credential diagnosis and guided feature flag onboarding through the launchdarkly-concierge.",
+      "description": "Governed LaunchDarkly onboarding, SDK integration, staged releases, experiments, lifecycle cleanup and read-only governance.",
       "version": "2026.11.9",
       "author": {
         "name": "AIWG Contributors"
