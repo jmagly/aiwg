@@ -5,6 +5,7 @@ import { sensitiveInputOptions } from '../auth/sensitive-input.js';
 import { deliveryTracker, trackerLabels, trackerMilestone } from '../delivery/tracker.js';
 import { editIssue, type IssueComposition } from './edit.js';
 import type { ParsedArgs } from './args.js';
+import { requireIssuePlanAuthorization } from './policy.js';
 
 export type ExternalArgs = ParsedArgs;
 export async function externalIssues(args: ExternalArgs, cwd: string,
@@ -24,6 +25,7 @@ export async function externalIssues(args: ExternalArgs, cwd: string,
   if (operation === 'create' || operation === 'new') {
     if (args.flags.has('milestone') && !value('milestone')?.trim()) throw new Error('--milestone requires a non-empty value');
     const { plan, composer } = await composition();
+    requireIssuePlanAuthorization(plan, value('authorize-policy'));
     const milestone = value('milestone') === undefined ? undefined : await trackerMilestone(client, value('milestone')!);
     const resolvedLabels = await trackerLabels(client, [...new Set<string>(plan.segments.flatMap((segment: { labels: string[] }) => segment.labels))]);
     result = await composer.executeIssuePlan(plan, {
@@ -53,6 +55,10 @@ export async function externalIssues(args: ExternalArgs, cwd: string,
     if (!/^[1-9][0-9]*$/.test(number ?? '')) throw new Error(`${operation} requires a positive issue number`);
     const body = value('body-file') ? await readFile(value('body-file')!, 'utf8') : value('body') ?? value('reason');
     if (operation === 'comment' && !body) throw new Error('comment requires --body or --body-file');
+    if (body) {
+      const { plan } = await composition({ title: 'comment', body });
+      requireIssuePlanAuthorization(plan, value('authorize-policy'), true);
+    }
     if (body) result = await client.repositoryRequest('POST', `/issues/${number}/comments`, { body });
     if (operation === 'close') result = await client.repositoryRequest('PATCH', `/issues/${number}`, { state: 'closed' });
   }
