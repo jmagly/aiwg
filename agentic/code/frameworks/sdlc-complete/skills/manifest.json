@@ -178,6 +178,15 @@
       "name": "regression-visual",
       "description": "Detect visual and UI regressions through screenshot comparison and pixel-diff analysis",
       "triggers": ["visual regression", "UI diff", "screenshot comparison"]
+    },
+    {
+      "name": "feature-flag-plan",
+      "description": "Plan feature flags with scoped decisions, requirement-linked cards and removal tasks",
+      "triggers": [
+        "plan feature flags",
+        "should this be behind a flag",
+        "review feature flag debt"
+      ]
     }
   ],
   "dependencies": {

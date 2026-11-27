@@ -356,6 +356,10 @@ Based on your answers, I'll adjust:
        - Feature Toggle: Dark launch (for maximum control)
 
        Document selected strategy and rationale
+       Apply feature-flag-fit; recommend invokes feature-flag-plan for accept/decline.
+       Offer defaults to no; skip/declined scopes stay silent. Record rationale. [AIWG guidance]
+       For accepted flags choose feature-toggle/progressive rollout and define rollback-by-flag.
+       Route installed provider skills via feature_flags.provider; none stays cards/code guidance.
        Define rollback criteria and procedures
 
        Output: .aiwg/working/transition/deployment-strategy.md
@@ -896,6 +900,20 @@ Based on your answers, I'll adjust:
 ✓ PRM Report generated: .aiwg/reports/prm-report.md
 ✓ PROJECT COMPLETE - Ready for closure
 ```
+
+## Feature flag debt review
+
+Read feature-toggle cards under .aiwg/deployment/ without a vendor connection. Invoke
+$AIWG_ROOT/agentic/code/frameworks/sdlc-complete/skills/feature-flag-plan/scripts/flag-plan.mjs debt with explicit as_of and optional temporary_flag_caps
+from solution-profile; list temporary flags past removal criteria or optional review-by date,
+evidence, owner, removal task and live temporary count per service versus optional cap. Report
+metadata gaps. Use ready for code removal / ready to archive as local workflow labels; do not infer
+vendor lifecycle eligibility. Route optional installed provider cleanup skills via
+feature_flags.provider per $AIWG_ROOT/docs/frameworks/sdlc-complete/feature-flags.md; none/missing addon stays card-only.
+Debt is advisory. [AIWG guidance] Optional inventory caps/removal tasks:
+https://martinfowler.com/articles/feature-toggles.html ; review dates:
+https://docs.getunleash.io/guides/feature-flag-best-practices.md ; vendor lifecycle terms:
+https://launchdarkly.com/docs/home/flags/flag-status.md .
 
 ## Quality Gates
 

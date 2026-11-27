@@ -5,7 +5,13 @@ metadata:
   name: e2c-iteration-planning
   labels: { domain: phase-transition }
 spec:
-  description: Assess backlog readiness against Definition of Ready, then create detailed Iteration 1 (conservative ramp-up capacity) and Iteration 2 (baseline velocity) plans with work-item selection, owners, dependencies, and acceptance criteria.
+  description: >-
+    Assess backlog readiness against Definition of Ready, then create detailed Iteration 1
+    (conservative ramp-up capacity) and Iteration 2 (baseline velocity) plans with work-item
+    selection, owners, dependencies, and acceptance criteria. Apply feature-flag-fit, record
+    outcome/reason and scoped accept/decline in intake or ADR; recommend invokes feature-flag-plan
+    for optional planning, offer defaults to no, skip stays silent and prior declines suppress
+    repeats. This advice never gates progress. [AIWG guidance]
   version: "1.0.0"
   inputs: []
   outputs:

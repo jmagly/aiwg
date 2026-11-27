@@ -1,0 +1,10 @@
+{
+  "scope": "docs",
+  "feature_flags": {
+    "provider": "none",
+    "policy": "suggest"
+  },
+  "facts": {
+    "docs_only": true
+  }
+}

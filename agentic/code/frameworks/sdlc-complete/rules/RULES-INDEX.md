@@ -64,7 +64,7 @@ Core rules are non-negotiable defaults deployed to every AIWG installation.
 
 ---
 
-## SDLC Rules (24 rules — active with framework)
+## SDLC Rules (25 rules — active with framework)
 
 SDLC rules enforce workflow quality when the SDLC framework is deployed via `aiwg use sdlc`.
 
@@ -119,6 +119,11 @@ SDLC rules enforce workflow quality when the SDLC framework is deployed via `aiw
 **Full rule**: @$AIWG_ROOT/agentic/code/frameworks/sdlc-complete/rules/self-maintenance.md
 
 ### MEDIUM
+
+#### feature-flag-fit
+**Summary**: Recommend, offer or silently skip flags; honor declines and never-flag cases. Advisory only.
+**When to apply**: Intake, architecture, iteration planning and deployment strategy.
+**Full rule**: @$AIWG_ROOT/agentic/code/frameworks/sdlc-complete/rules/feature-flag-fit.md
 
 #### hitl-patterns
 **Summary**: Human-in-the-loop patterns for agent-human collaboration including draft-then-edit workflow.
@@ -213,7 +218,7 @@ These rules encode 12-factor methodology principles (https://12factor.net/) as d
 ### MEDIUM
 
 #### config-in-environment
-**Summary**: Configuration values that differ between environments (URLs, feature flags, resource limits) must come from environment variables.
+**Summary**: Deploy-time configuration values that differ between environments (URLs, resource limits) come from environment variables; runtime/per-request flag decisions use a provider; static release toggles may stay in source/config.
 **Full rule**: @$AIWG_ROOT/agentic/code/frameworks/sdlc-complete/rules/config-in-environment.md
 
 ---
@@ -236,7 +241,7 @@ Rules contributed by installed addons. Load the component index for full rule su
 |-----------|---------------|
 | **Writing code** | no-attribution, executable-feedback, anti-laziness, agent-friendly-code, agent-generation-guardrails, config-in-environment, logs-as-event-streams |
 | **Service/process design** | stateless-processes, disposable-processes, config-in-environment, logs-as-event-streams |
-| **Deployment/operations** | disposable-processes, logs-as-event-streams, config-in-environment |
+| **Deployment/operations** | feature-flag-fit, disposable-processes, logs-as-event-streams, config-in-environment |
 | **Running tests** | executable-feedback, anti-laziness, reproducibility, reproducibility-validation |
 | **Creating artifacts** | mention-wiring, provenance-tracking, qualified-references, progressive-disclosure, artifact-discovery |
 | **Phase transitions** | hitl-gates, sdlc-orchestration, human-gate-display |
@@ -252,5 +257,5 @@ Rules contributed by installed addons. Load the component index for full rule su
 
 ---
 
-*Generated from manifest.json v2.0.0 — 37 rules across 4 tiers*
+*Generated from manifest.json v2.0.0 — 38 rules across 4 tiers*
 *Full rule files: @$AIWG_ROOT/agentic/code/frameworks/sdlc-complete/rules/*

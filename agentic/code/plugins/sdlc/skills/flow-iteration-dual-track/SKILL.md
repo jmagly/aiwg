@@ -12,6 +12,10 @@ commandHint:
   modelRole: coding
   modelTier: standard
 ---
+Apply `feature-flag-fit` here; record outcome/reason in intake or ADR. On recommend,
+invoke `feature-flag-plan` for a scoped accept/decline and cards; offer defaults to
+no, skip stays silent, and prior declines suppress repeat suggestions. [AIWG guidance]
+
 
 > **Declarative Flow (#1539):** This flow's orchestration is now also expressed as a
 > declarative YAML Flow at `flows/flow-iteration-dual-track.playbook.yaml` (source of truth for the step

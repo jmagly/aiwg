@@ -278,7 +278,9 @@ Document system-wide concerns that cut across multiple components. Each subsecti
 
 - Describe how configuration is loaded: environment variables, config files, remote config store (Consul, etcd, AWS AppConfig). State the precedence order when multiple sources exist.
 - List all configuration parameters that vary by environment. For each: parameter name, type, example values, and whether it is a secret (if yes, refer to Section 9 secrets management — do not list values here).
-- Describe feature flag management: the tool or pattern used, how flags are evaluated, and how to change a flag value in each environment without a deployment.
+- Record the `feature-flag-fit` decision and accepted card links; flags remain optional. [AIWG guidance]
+- Describe flag provider, evaluation location, evaluation context model, default value and hooks ([OpenFeature](https://openfeature.dev/docs/reference/concepts)). Document PII minimization and server-side evaluation for sensitive decisions ([Unleash](https://docs.getunleash.io/guides/feature-flag-best-practices.md)).
+- Choose one decision point, inside the component or injected as a decision; document the unit-of-work consistency boundary ([Hodgson](https://martinfowler.com/articles/feature-toggles.html), [component guidance](https://launchdarkly.com/docs/guides/flags/improving-code.md)). Distinguish deploy-time settings from runtime/per-request decisions; link rollout, tests and removal tasks.
 - Describe configuration validation: is the configuration validated at startup? What happens on invalid configuration (fail-fast vs warn-and-continue)?
 - Document any configuration drift detection: tooling or processes that detect when running configuration diverges from declared configuration.
 

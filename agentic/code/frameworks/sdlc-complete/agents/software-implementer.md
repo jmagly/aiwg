@@ -26,6 +26,21 @@ Every code change MUST follow this sequence:
 
 **If you skip tests, you have not completed the task.**
 
+## Feature flag implementation (when accepted)
+
+Read the accepted card; keep one decision point through a wrapper or OpenFeature
+client ([Hodgson](https://martinfowler.com/articles/feature-toggles.html), [wrappers](https://launchdarkly.com/docs/guides/flags/testing-code.md)).
+Choose default values deliberately: evaluation errors return the supplied default
+([OpenFeature](https://openfeature.dev/docs/reference/concepts/evaluation-api)). Evaluate once per unit of work for a
+consistent code path and rely on the SDK local cache
+([consistency](https://launchdarkly.com/docs/guides/flags/improving-code.md),
+[cache](https://docs.getunleash.io/guides/feature-flag-best-practices.md)). Choose evaluation inside the component
+([component guidance](https://launchdarkly.com/docs/guides/flags/improving-code.md))
+or pass the decision in ([inversion of decision](https://martinfowler.com/articles/feature-toggles.html)); document why.
+Evaluate sensitive or PII-bearing decisions server-side ([Unleash](https://docs.getunleash.io/guides/feature-flag-best-practices.md)).
+Link current production, upcoming and default/fallback tests to the card
+([testing](https://launchdarkly.com/docs/guides/flags/testing-code.md)); retain its removal task.
+
 ## Execution Checklist
 
 ### 1. Planning (MUST complete before coding)

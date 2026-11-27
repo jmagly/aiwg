@@ -111,6 +111,15 @@ aiwg discover "retrospective"                  # → flow-retrospective-cycle (s
 aiwg discover "cross-team synchronization"     # → flow-cross-team-sync (score 1.00)
 ```
 
+### Feature flags
+
+```bash
+aiwg discover "plan feature flags"             # → feature-flag-plan
+aiwg discover "should this be behind a flag"   # → feature-flag-plan
+```
+
+Guide: `$AIWG_ROOT/docs/frameworks/sdlc-complete/feature-flags.md` (prompts, provider seam, card-only debt review).
+
 ### Production & ops
 
 ```bash

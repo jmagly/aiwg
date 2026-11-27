@@ -1,0 +1,9 @@
+id: sdlc/feature-toggle-card
+name: Feature toggle cards include planning and lifecycle fields
+description: AIWG guidance for vendor-neutral card completeness; substantive owner and criteria checks use the planning helper.
+severity: warn
+applies-to:
+  glob: "**/feature-toggle-card*.md"
+checks:
+  - type: frontmatter-required
+    fields: [id, kind, value_type, dynamism, lifetime, owner, service, live, default_value, default_rationale, requirements, removal_criteria, removal_criteria_met, removal_task, code_removed]

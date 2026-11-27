@@ -5,6 +5,10 @@ platforms: [all]
 description: Manage architecture changes with impact analysis, ADR generation, migration planning, and breaking change tracking
 
 ---
+Apply `feature-flag-fit` here; record outcome/reason in intake or ADR. On recommend,
+invoke `feature-flag-plan` for a scoped accept/decline and cards; offer defaults to
+no, skip stays silent, and prior declines suppress repeat suggestions. [AIWG guidance]
+
 
 # architecture-evolution
 

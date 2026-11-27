@@ -619,7 +619,8 @@
     "frameworks/cicd-complete/phases/operate",
     "addons/launchdarkly",
     "addons/launchdarkly/hosted-mcp",
-    "addons/launchdarkly/user-guide"
+    "addons/launchdarkly/user-guide",
+    "frameworks/sdlc-complete/feature-flags"
   ],
   "sections": [
     {
@@ -4741,6 +4742,13 @@
       "summary": "“Set up LaunchDarkly.” The concierge checks your stage and guides account setup, safe connection and",
       "file": "addons/launchdarkly/user-guide.md",
       "parent": "addons/launchdarkly"
+    },
+    {
+      "id": "frameworks/sdlc-complete/feature-flags",
+      "title": "Feature Flags",
+      "summary": "Start with a prompt:",
+      "file": "frameworks/sdlc-complete/feature-flags.md",
+      "parent": "frameworks/sdlc-complete"
     }
   ],
   "pages": [
