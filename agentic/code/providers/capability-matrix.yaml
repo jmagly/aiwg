@@ -909,7 +909,7 @@ providers:
       - agy
     status: experimental
     executable: agy
-    qualified_version: 1.1.26
+    qualified_version: 1.3.3
     qualification_evidence: agentic/code/providers/antigravity/provider-contract.v1.json
     daemon_tier: unsupported
     daemon_pty_adapter: false
@@ -918,23 +918,23 @@ providers:
       commands: "(not deployed; no qualified native command surface)"
       skills: .agents/skills/
       rules: AGENTS.md
-      behaviors: "(not supported)"
-      mcp_project: .agents/mcp_config.json
+      behaviors: .agents/hooks.json
+      mcp_project: .agents/plugins/aiwg/mcp_config.json
       mcp_user: "~/.gemini/config/mcp_config.json"
     native_features:
-      cron: false
-      agent_teams: false
-      tasks: false
+      cron: true
+      agent_teams: true
+      tasks: true
       mcp: true
-      behaviors: false
+      behaviors: true
       mission_control: false
       daemon: false
     emulation:
-      cron: external-trigger
-      agent_teams: aiwg-mc
-      tasks: aiwg-mc
+      cron: native
+      agent_teams: native
+      tasks: native
       mcp: native
-      behaviors: null
+      behaviors: hooks
       mission_control: aiwg-mc
       daemon: null
     hook_wiring:
@@ -944,7 +944,7 @@ providers:
     interaction:
       structured_questions: none
       fallback: markdown
-      notes: No stable structured-question tool contract was qualified for CLI 1.1.26.
+      notes: Structured-question tool execution is unverified; installed 1.2.12/1.3.3 help and shared built-in docs reviewed 2026-11-27; no 1.5.17 attestation.
     deploy_target: project
     aggregated_output: false
 

@@ -272,10 +272,11 @@ describe.sequential('deployment verification contract (#2069)', () => {
     const dryRun = buildDryRunUseResult({
       projectRoot: fixture.projectRoot,
       frameworkRoot: fixture.frameworkRoot,
-      providers: ['claude', 'codex'],
+      providers: ['claude', 'codex', 'antigravity'],
       scope: 'project',
       requestedBundles: ['all'],
     });
+    expect(dryRun.providers.find(item => item.provider === 'antigravity')).toMatchObject({ reloadPolicy: 'restart-required', restartRequired: true });
     const claude = dryRun.providers.find((item) => item.provider === 'claude');
     const codexPlanned = dryRun.providers.find((item) => item.provider === 'codex');
 

@@ -1,6 +1,6 @@
 import { deployAntigravityPromptDiscovery } from './antigravity-prompt-discovery.mjs';
 import { withModelWrapper } from './model-wrapper.mjs';
-/** Google Antigravity CLI project resource deployment, qualified against 1.1.26. */
+/** Google Antigravity CLI project resource deployment, reviewed against installed help and built-in customization docs (2026-11-27). */
 import fs from 'node:fs';
 import path from 'node:path';
 import {
@@ -32,9 +32,9 @@ export const capabilities = {
 };
 export const mapModel = model => model;
 const ANTIGRAVITY_TOOL_MAP = new Map([
-  ['Read', 'view_file'],
-  ['Write', 'write_to_file'],
-  ['Edit', 'replace_file_content'],
+  ['Read', 'read_file'],
+  ['Write', 'write_file'],
+  ['Edit', 'edit_file'],
   ['Grep', 'grep_search'],
   ['Bash', 'run_command'],
 ]);
@@ -92,15 +92,15 @@ export function createAgentsMd(target, srcRoot, dryRun) {
 }
 
 export async function postDeploy(target, opts) {
-  if (opts.global || opts.user || opts.scope === 'user') {
-    throw new Error('Antigravity global skill deployment is disabled: official 1.1.26 path documentation conflicts');
+  // Project hooks only; user-scope deploys go through antigravity-user-scope.
+  if (!(opts.global || opts.user || opts.scope === 'user')) {
+    await deployAntigravityPromptDiscovery(target, opts);
   }
-  await deployAntigravityPromptDiscovery(target, opts);
   if (opts.createAgentsMd || (!opts.commandsOnly && !opts.skillsOnly && !opts.rulesOnly)) {
     if (opts.contextFiles !== false) createAgentsMd(target, opts.srcRoot, opts.dryRun);
   }
   if (!opts.quiet) {
-    console.log('Antigravity resources are project scoped. Restart agy after resource changes; authenticate with the provider separately.');
+    console.log('Restart agy after resource changes; authenticate with the provider separately.');
   }
 }
 
@@ -111,9 +111,6 @@ export async function deploy(opts) {
 }
 
 async function deploySelected(opts) {
-  if (opts.global || opts.user || opts.scope === 'user') {
-    throw new Error('Antigravity global skill deployment is disabled: official 1.1.26 path documentation conflicts');
-  }
   const mode = normalizeDeploymentMode(opts.mode);
   const agents = [];
   const skills = [];

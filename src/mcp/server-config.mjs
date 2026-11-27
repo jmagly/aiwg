@@ -30,7 +30,7 @@ export function buildServerConfig(server, provider) {
       if (server.type === 'stdio') {
         return { command: server.command, args: server.args || [], ...(env ? { env } : {}) };
       }
-      return { serverUrl: server.url, ...(headers ? { headers } : {}) };
+      return { url: server.url, ...(headers ? { headers } : {}) };
     }
     case 'standard': {
       if (server.type === 'stdio') {

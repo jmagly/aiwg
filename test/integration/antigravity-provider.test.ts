@@ -17,6 +17,7 @@ writeFileSync(join(config, 'channel.json'), JSON.stringify({ channel: 'edge', ed
 
 const baseEnv = {
   ...process.env,
+  HOME: join(sandbox, 'home'),
   AIWG_CONFIG: config,
   AIWG_USER_REGISTRY_PATH: join(config, 'installed.json'),
   XDG_CACHE_HOME: join(sandbox, 'cache'),
@@ -82,8 +83,10 @@ describe('Antigravity public use command integration', () => {
     expect(readFileSync(join(workspace, otherProvider), 'utf8')).toBe('# operator-owned provider config\n');
   }, 300000);
 
-  it('fails closed for the intentionally unsupported user scope', () => {
-    const result = cli([...common, '--scope', 'user'], 1);
-    expect(result.stderr + result.stdout).toContain("--scope user not supported for provider 'antigravity'");
+  it('mirrors user skills to the documented global configuration root', () => {
+    cli([...common, '--scope', 'user']);
+    expect(existsSync(join(sandbox, 'home/.gemini/config/skills/aiwg-doctor/SKILL.md'))).toBe(true);
+    const registry = JSON.parse(readFileSync(join(config, 'installed.json'), 'utf8'));
+    expect(registry.installed['aiwg-utils'].deployedTo.antigravity.entries.skills).toContain('aiwg-doctor');
   }, 180000);
 });

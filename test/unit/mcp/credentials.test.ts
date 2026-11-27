@@ -151,7 +151,7 @@ describe.each(implementations)("$implementation credential reference rendering",
   });
 
   it("renders literal-only servers unchanged for harnesses without interpolation", () => {
-    expect(build({ name: "plain", type: "http", url: "https://plain.example/mcp" }, "antigravity")).toEqual({ serverUrl: "https://plain.example/mcp" });
+    expect(build({ name: "plain", type: "http", url: "https://plain.example/mcp" }, "antigravity")).toEqual({ url: "https://plain.example/mcp" });
   });
 
   it("refuses a Codex env-from that renames the variable", () => {

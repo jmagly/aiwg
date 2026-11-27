@@ -160,8 +160,8 @@ describe.each([
     const registry = new Registry(join(root, "config"));
     await registry.add(servers[0]);
     const projectDir = join(root, "project");
-    const config = join(projectDir, ".agents", "mcp_config.json");
-    mkdirSync(join(projectDir, ".agents"), { recursive: true });
+    const config = join(projectDir, ".agents/plugins/aiwg", "mcp_config.json");
+    mkdirSync(join(projectDir, ".agents/plugins/aiwg"), { recursive: true });
     writeFileSync(config, JSON.stringify({ mcpServers: { tracker: { command: "operator", custom: 42, disabledTools: ["operator_denied"] } } }));
     await inject(registry, "antigravity", { projectDir, toolFilters: { deny: ["tracker__delete_issue"], allow: [] } });
     expect(JSON.parse(readFileSync(config, "utf-8")).mcpServers.tracker).toEqual({
@@ -175,8 +175,8 @@ describe.each([
     const registry = new Registry(join(root, "config"));
     await registry.add(servers[0]);
     const projectDir = join(root, "project");
-    const config = join(projectDir, ".agents", "mcp_config.json");
-    mkdirSync(join(projectDir, ".agents"), { recursive: true });
+    const config = join(projectDir, ".agents/plugins/aiwg", "mcp_config.json");
+    mkdirSync(join(projectDir, ".agents/plugins/aiwg"), { recursive: true });
     const original = JSON.stringify({ mcpServers: { tracker: { command: "operator", disabledTools } } });
     writeFileSync(config, original);
     const receipt = vi.spyOn(registry, "recordInjection");

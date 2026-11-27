@@ -246,13 +246,13 @@ describe('tools/cli/clean-providers.mjs', () => {
     expect(result.mcpServers).toEqual({ 'my-own-server': { command: 'python', args: ['mine.py'] } });
   });
 
-  it('removes only the AIWG-managed MCP server from .agents/mcp_config.json, preserving the user-owned one', async () => {
+  it.each(['.agents', '.agents/plugins/aiwg'])('removes only managed Antigravity MCP servers from %s, preserving operator data', async directory => {
     const projectDir = await makeScratchProject();
     const configDir = await makeScratchConfigDir();
     await writeMcpRegistry(configDir, { 'aiwg-fs': { injectedProviders: ['antigravity'] } });
-    await mkdir(join(projectDir, '.agents'), { recursive: true });
+    await mkdir(join(projectDir, directory), { recursive: true });
     await writeFile(
-      join(projectDir, '.agents', 'mcp_config.json'),
+      join(projectDir, directory, 'mcp_config.json'),
       JSON.stringify({
         mcpServers: {
           'aiwg-fs': { command: 'node', args: ['server.js'] },
@@ -262,9 +262,12 @@ describe('tools/cli/clean-providers.mjs', () => {
       'utf-8',
     );
 
+    const manifest = join(projectDir, directory, 'plugin.json');
+    await writeFile(manifest, '{"name":"operator"}\n');
     await runCleanProviders(projectDir, { configDir });
+    expect(await readFile(manifest, 'utf8')).toBe('{"name":"operator"}\n');
 
-    const result = JSON.parse(await readFile(join(projectDir, '.agents', 'mcp_config.json'), 'utf-8'));
+    const result = JSON.parse(await readFile(join(projectDir, directory, 'mcp_config.json'), 'utf-8'));
     expect(result.mcpServers).toEqual({ 'my-own-server': { command: 'python', args: ['mine.py'] } });
   });
 

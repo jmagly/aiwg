@@ -1,3 +1,4 @@
+import { prepareAntigravityConfig, resolveAntigravityConfigPath } from './antigravity-config.mjs';
 import { tomlString } from './toml-string.mjs';
 import { buildServerConfig as renderServerConfig } from './server-config.mjs';
 import { type Layering, isLowerLayerEntry, loadLayered, lowerEntryQualified, resolveConfigLayers, saveLayerData } from './config-layers.mjs';
@@ -518,10 +519,6 @@ export interface InjectResult {
  * Get the config file path for a provider.
  */
 export function getProviderConfigPath(provider: InjectProvider, projectDir = '.', options: { scope?: 'user' | 'project' } = {}): string {
-  if ((provider === 'antigravity' || provider === 'agy') && options.scope === 'user') {
-    const homeDir = process.env.HOME || process.env.USERPROFILE || '';
-    return resolve(homeDir, '.gemini/config/mcp_config.json');
-  }
   if ((provider === 'claude-code' || provider === 'claude') && options.scope === 'user') {
     return resolve(process.env.HOME || process.env.USERPROFILE || homedir(), '.claude.json');
   }
@@ -530,8 +527,8 @@ export function getProviderConfigPath(provider: InjectProvider, projectDir = '.'
   const homeDir = process.env.HOME || process.env.USERPROFILE || '';
 
   const pathMap: Record<InjectProvider, string> = {
-    antigravity: resolve(projectDir, '.agents/mcp_config.json'),
-    agy: resolve(projectDir, '.agents/mcp_config.json'),
+    antigravity: resolveAntigravityConfigPath(projectDir, options),
+    agy: resolveAntigravityConfigPath(projectDir, options),
     omp: resolve(projectDir, '.omp/mcp.json'),
     'oh-my-pi': resolve(projectDir, '.omp/mcp.json'),
     'claude-code': resolve(projectDir, '.mcp.json'),
@@ -690,6 +687,9 @@ async function injectJson(
   if (!isObject(existing) || (Object.hasOwn(existing, mcpKey) && !isObject(existing[mcpKey]))) {
     throw new Error('MCP configuration must contain an object root and an object server map');
   }
+  const plugin = await prepareAntigravityConfig(provider, configPath, existing, location);
+  existing = plugin.config;
+  if (plugin.warnings.length) result.warnings = [...(result.warnings || []), ...plugin.warnings];
   const existingServers = (existing[mcpKey] as Record<string, unknown>) || {};
 
   // Build new server entries
@@ -722,6 +722,7 @@ async function injectJson(
 
   if (!dryRun) {
     await writeConfigTransaction([
+      ...plugin.writes,
       { file: configPath, content: JSON.stringify(merged, null, 2) + '\n', options: { userScope, projectRoot } },
       ...(settings?.writes || []),
     ]);

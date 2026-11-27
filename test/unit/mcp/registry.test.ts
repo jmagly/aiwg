@@ -474,8 +474,8 @@ describe("injectServers", () => {
     { provider: "cursor", location: "project", file: ".cursor/mcp.json", shape: "plain" },
     { provider: "factory", location: "home", file: ".factory/mcp.json", shape: "factory" },
     { provider: "opencode", location: "project", file: "opencode.json", shape: "opencode" },
-    { provider: "antigravity", location: "project", file: ".agents/mcp_config.json", shape: "antigravity" },
-    { provider: "agy", location: "project", file: ".agents/mcp_config.json", shape: "antigravity" },
+    { provider: "antigravity", location: "project", file: ".agents/plugins/aiwg/mcp_config.json", shape: "antigravity" },
+    { provider: "agy", location: "project", file: ".agents/plugins/aiwg/mcp_config.json", shape: "antigravity" },
     { provider: "devin", location: "project", file: ".devin/mcp_config.json", shape: "plain" },
     { provider: "windsurf", location: "project", file: ".devin/mcp_config.json", shape: "plain" },
     { provider: "warp", location: "home", file: ".warp/mcp.json", shape: "plain" },
@@ -522,6 +522,7 @@ describe("injectServers", () => {
       const configPath = getProviderConfigPath(provider, projectDir);
       const outside = join(tempDir, "outside");
       await mkdir(outside);
+      await mkdir(dirname(dirname(configPath)), { recursive: true });
       await symlink(outside, dirname(configPath));
       const before = await readFile(registry.getPath(), "utf-8");
       filesystemBoundary.mutations = [];
@@ -790,7 +791,7 @@ describe("injectServers", () => {
     });
     const entry = {
       ...(shape === "factory" ? { type: "http", disabled: false } : shape === "opencode" ? { type: "remote" } : shape === "claude" ? { type: "http" } : {}),
-      [shape === "antigravity" ? "serverUrl" : "url"]: "https://memory.internal/mcp",
+      url: "https://memory.internal/mcp",
     };
     expect(JSON.parse(await readFile(configPath, "utf-8"))).toEqual({ preferences: { keep: true }, [key]: { fortemi: entry } });
   });
@@ -798,7 +799,7 @@ describe("injectServers", () => {
   it.each([
     { provider: "claude-code", file: ".mcp.json", key: "mcpServers" },
     { provider: "opencode", file: "opencode.json", key: "mcp" },
-    { provider: "antigravity", file: ".agents/mcp_config.json", key: "mcpServers" },
+    { provider: "antigravity", file: ".agents/plugins/aiwg/mcp_config.json", key: "mcpServers" },
   ].flatMap(adapter => [
     { label: "array root", value: [] },
     { label: "string root", value: "retain" },
@@ -912,7 +913,7 @@ describe("injectServers", () => {
     const result = await inject(registry, provider, { projectDir, servers: ["fortemi"] });
     const entry = {
       ...(shape === "factory" ? { type: "http", disabled: false } : shape === "opencode" ? { type: "remote" } : shape === "claude" ? { type: "http" } : {}),
-      [shape === "antigravity" ? "serverUrl" : "url"]: "https://memory.internal/mcp",
+      url: "https://memory.internal/mcp",
     };
     expect(JSON.parse(await readFile(configPath, "utf-8"))).toEqual({
       ...prior, [key]: { ...prior[key], fortemi: entry },
@@ -943,7 +944,7 @@ describe("injectServers", () => {
     const configPath = join(location === "home" ? join(tempDir, "provider-home") : projectDir, file);
     const entry = {
       ...(shape === "factory" ? { type, disabled: false } : shape === "opencode" ? { type: "remote" } : shape === "claude" ? { type } : {}),
-      [shape === "antigravity" ? "serverUrl" : "url"]: "https://synthetic.example/mcp",
+      url: "https://synthetic.example/mcp",
       ...(location === "project" ? {} : { headers: { "X-Synthetic": "keep" } }),
     };
     expect(result).toEqual({ provider, configPath, serversInjected: ["matrix"], alreadyPresent: [] });
@@ -960,7 +961,7 @@ describe("injectServers", () => {
       : { ...(shape === "factory" ? { type: "stdio", disabled: false } : {}), command: "synthetic-command", args: [] };
     const remote = {
       ...(shape === "factory" ? { type: "http", disabled: false } : shape === "opencode" ? { type: "remote" } : shape === "claude" ? { type: "http" } : {}),
-      [shape === "antigravity" ? "serverUrl" : "url"]: "https://synthetic.example/mcp",
+      url: "https://synthetic.example/mcp",
     };
     expect(result).toEqual({ provider, configPath, serversInjected: ["local", "remote"], alreadyPresent: [] });
     expect(JSON.parse(await readFile(configPath, "utf-8"))).toEqual({ [shape === "opencode" ? "mcp" : "mcpServers"]: { local, remote } });

@@ -4,9 +4,9 @@
     "description": "Choose for architecture, synthesis, difficult analysis, and high-consequence review",
     "tools": [
       "run_command",
-      "view_file",
-      "write_to_file",
-      "replace_file_content",
+      "read_file",
+      "write_file",
+      "edit_file",
       "grep_search"
     ],
     "contract": "WorkerClaims: criterion + evidence + verdict; stop rules"
@@ -16,9 +16,9 @@
     "description": "Choose for implementation, tests, debugging, and routine technical delivery",
     "tools": [
       "run_command",
-      "view_file",
-      "write_to_file",
-      "replace_file_content",
+      "read_file",
+      "write_file",
+      "edit_file",
       "grep_search"
     ],
     "contract": "WorkerClaims: criterion + evidence + verdict; stop rules"
@@ -28,9 +28,9 @@
     "description": "Choose for discovery, inventory, focused edits, and bounded low-cost work",
     "tools": [
       "run_command",
-      "view_file",
-      "write_to_file",
-      "replace_file_content",
+      "read_file",
+      "write_file",
+      "edit_file",
       "grep_search"
     ],
     "contract": "WorkerClaims: criterion + evidence + verdict; stop rules"
@@ -39,7 +39,7 @@
     "name": "aiwg-model-explorer",
     "description": "Choose to explore codebase, search files, inspect docs or logs, and return cited findings",
     "tools": [
-      "view_file",
+      "read_file",
       "grep_search",
       "run_command"
     ],
@@ -49,7 +49,7 @@
     "name": "aiwg-model-verifier",
     "description": "Choose for fresh-context verification and adversarial review using the supplied verification oracle",
     "tools": [
-      "view_file",
+      "read_file",
       "grep_search",
       "run_command"
     ],

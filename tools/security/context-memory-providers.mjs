@@ -15,6 +15,7 @@ export const PROVIDERS = Object.freeze({
   // tools/agents/providers/antigravity.mjs (paths, deploySkills, createAgentsMd);
   // docs/providers/antigravity.md (Documented Google Surfaces, Integration Notes).
   antigravity: {
+    rules: '.antigravity/rules',
     agents: '.agents/agents', skills: ['.agents/skills', '.agents/.aiwg/skills'],
     bridges: ['AGENTS.md'],
   },

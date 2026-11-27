@@ -99,7 +99,16 @@ export function formatProvider(
     lines.push(`\n  ${featureId} — ${status}`);
     if (feat?.description) lines.push(`    ${feat.description}`);
     if (isNative) {
-      if (id === 'omp' && featureId === 'mcp') {
+      if (id === 'antigravity') {
+        const examples: Partial<Record<FeatureKey, string>> = {
+          cron: 'builtin schedule sidecar (cron); enable via the Automations dashboard',
+          agent_teams: 'swarm (per-worker model; workspace inherit/share/branch)',
+          tasks: 'invoke_subagent / define_subagent / run_workflow / manage_task',
+          mcp: '.agents/plugins/aiwg/mcp_config.json (mcpServers; HTTP url)',
+          behaviors: '.agents/hooks.json lifecycle hooks',
+        };
+        if (examples[featureId]) lines.push(`    example: ${examples[featureId]}`);
+      } else if (id === 'omp' && featureId === 'mcp') {
         lines.push('    OMP supplies the native client. AIWG persistent injection/removal is available for project and profile scope; ephemeral injection is unsupported.');
         lines.push('    example: aiwg mcp inject --provider omp --servers local-tools');
       } else if (id === 'omp' && featureId === 'behaviors') {
