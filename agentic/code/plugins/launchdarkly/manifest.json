@@ -1,0 +1,76 @@
+{
+  "id": "launchdarkly",
+  "type": "addon",
+  "name": "LaunchDarkly",
+  "version": "2026.11.0",
+  "description": "Safe LaunchDarkly connection, credential diagnosis and guided feature flag onboarding through the launchdarkly-concierge.",
+  "core": false,
+  "autoInstall": false,
+  "explicitInstall": true,
+  "author": "AIWG Contributors",
+  "license": "MIT",
+  "repository": "https://github.com/jmagly/aiwg",
+  "keywords": [
+    "launchdarkly",
+    "feature flags",
+    "onboarding",
+    "set up LaunchDarkly",
+    "ld-onboarding"
+  ],
+  "entry": {
+    "agents": "agents/",
+    "skills": "skills/",
+    "rules": "rules/",
+    "flows": "flows/",
+    "templates": "templates/",
+    "fixtures": "fixtures/",
+    "docs": "docs/",
+    "scripts": "scripts/"
+  },
+  "agents": [
+    "launchdarkly-concierge"
+  ],
+  "skills": [
+    "ld-docs",
+    "ld-connect",
+    "ld-doctor",
+    "ld-account-setup"
+  ],
+  "rules": [
+    "ld-key-safety",
+    "ld-change-authorization",
+    "ld-docs-currency",
+    "ld-flag-hygiene"
+  ],
+  "flows": [
+    "ld-onboarding"
+  ],
+  "templates": [
+    "onboarding-record"
+  ],
+  "fixtures": [
+    "doctor-cases"
+  ],
+  "dependencies": {
+    "required": [],
+    "optional": [
+      "sdlc-complete"
+    ]
+  },
+  "configuration": {
+    "defaults": {
+      "feature_flags": {
+        "provider": "launchdarkly"
+      },
+      "writes": "none"
+    }
+  },
+  "memory": {
+    "creates": [
+      {
+        "path": ".aiwg/launchdarkly/",
+        "description": "Sanitized onboarding records and connection checks under the configured artifact root."
+      }
+    ]
+  }
+}

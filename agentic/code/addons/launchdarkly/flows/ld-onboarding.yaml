@@ -1,0 +1,38 @@
+apiVersion: flow.aiwg.io/v1
+kind: FlowCapability
+metadata:
+  name: ld-onboarding
+  namespace: launchdarkly
+  labels: { domain: feature-flags }
+  annotations:
+    triggers: "set up LaunchDarkly; onboard LaunchDarkly"
+spec:
+  description: >-
+    Set up LaunchDarkly through launchdarkly-concierge. Require sdlc-complete
+    at runtime and respect flag opt-out. Resolve the artifact root, instantiate
+    onboarding-record and assess maturity. Run ld-docs, ld-account-setup,
+    ld-doctor and ld-connect under all four ld safety/hygiene rules. Discover
+    vendor onboarding and mcp-configure guides via get-skills/load-skill when
+    available (https://launchdarkly.com/docs/home/getting-started/mcp.md).
+    Confirm an isolated non-production project/environment and propose a first
+    flag with owner, fallback, rollout/rollback and removal criteria in the
+    existing SDLC flag plan. Pause for write scope; every production write
+    requires human approval of its sanitized diff. Fetch stack-specific SDK
+    instructions through ld-docs or the available vendor sdk-install guide.
+    Never send keys through chat. Verify a real application SDK evaluation,
+    intended states and fallback using the testing guide
+    (https://launchdarkly.com/docs/guides/flags/testing-code.md); poll transient
+    propagation with bounded backoff and report pending rather than fake success.
+    Update the sanitized record with SDLC links, source dates, approvals,
+    first-evaluation evidence and next action. Block missing dependencies,
+    unknown region, unsafe filtering or credential mismatch before connection.
+    Offline fixtures cannot satisfy the real first-evaluation checkpoint.
+  version: "1.0.0"
+  inputs:
+    - { name: onboarding_request, type: object, required: true }
+  outputs:
+    - { name: onboarding_record, type: object }
+    - { name: status, type: string }
+  agent: launchdarkly-concierge
+  requires_addon: launchdarkly
+  idempotent: false

@@ -380,6 +380,16 @@
   },
   {
     "kind": "addons",
+    "name": "launchdarkly",
+    "source": "agentic/code/addons/launchdarkly/docs",
+    "dest": "docs/addons/launchdarkly",
+    "files": [
+      "hosted-mcp.md",
+      "user-guide.md"
+    ]
+  },
+  {
+    "kind": "addons",
     "name": "line-memory",
     "source": "agentic/code/addons/line-memory/docs",
     "dest": "docs/addons/line-memory",

@@ -1,0 +1,19 @@
+{
+  "name": "launchdarkly",
+  "version": "2026.11.9",
+  "description": "Safe LaunchDarkly connection, credential diagnosis and guided feature flag onboarding through the launchdarkly-concierge.",
+  "author": {
+    "name": "AIWG Contributors",
+    "email": "support@aiwg.io"
+  },
+  "homepage": "https://aiwg.io",
+  "repository": "https://github.com/jmagly/aiwg",
+  "license": "MIT",
+  "keywords": [
+    "launchdarkly",
+    "feature flags",
+    "onboarding",
+    "set up LaunchDarkly",
+    "ld-onboarding"
+  ]
+}

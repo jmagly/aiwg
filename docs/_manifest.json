@@ -616,7 +616,10 @@
     "frameworks/cicd-complete/phases/assess",
     "frameworks/cicd-complete/phases/design",
     "frameworks/cicd-complete/phases/implement",
-    "frameworks/cicd-complete/phases/operate"
+    "frameworks/cicd-complete/phases/operate",
+    "addons/launchdarkly",
+    "addons/launchdarkly/hosted-mcp",
+    "addons/launchdarkly/user-guide"
   ],
   "sections": [
     {
@@ -4717,6 +4720,27 @@
       "summary": "Keep delivery reliable, explain failures and coordinate releases while keeping",
       "file": "frameworks/cicd-complete/phases/operate.md",
       "parent": "frameworks/cicd-complete/phases"
+    },
+    {
+      "id": "addons/launchdarkly",
+      "title": "Launchdarkly",
+      "summary": "",
+      "collapsed": true,
+      "parent": "addons"
+    },
+    {
+      "id": "addons/launchdarkly/hosted-mcp",
+      "title": "Hosted Mcp",
+      "summary": "Last verified reference: 2026-11-25. Recheck through ld-docs before use.",
+      "file": "addons/launchdarkly/hosted-mcp.md",
+      "parent": "addons/launchdarkly"
+    },
+    {
+      "id": "addons/launchdarkly/user-guide",
+      "title": "User Guide",
+      "summary": "“Set up LaunchDarkly.” The concierge checks your stage and guides account setup, safe connection and",
+      "file": "addons/launchdarkly/user-guide.md",
+      "parent": "addons/launchdarkly"
     }
   ],
   "pages": [
