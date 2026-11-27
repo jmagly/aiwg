@@ -14,6 +14,7 @@ const providers = ['antigravity', 'claude', 'codex', 'copilot', 'cursor', 'deeps
 const kernels = ['skill-discovery', 'artifact-output-policy'];
 const cores = ['anti-laziness', 'no-attribution'];
 const hooks: Record<string, string> = {
+  antigravity: '.agents/hooks.json',
   claude: '.claude/settings.json', codex: '.codex/hooks.json',
   muse: '.muse/hooks.json', factory: '.factory/hooks.json', cursor: '.cursor/hooks.json',
 };
@@ -182,11 +183,13 @@ describe.each(providers)('%s offline harness bootstrap audit', provider => {
     }
     if (hooks[provider]) {
       const doc = JSON.parse(f.read(hooks[provider]));
-      const entries = provider === 'cursor' ? doc.hooks.beforeSubmitPrompt
+      const entries = provider === 'antigravity' ? doc['aiwg-prompt-discovery'].PreInvocation
+        : provider === 'cursor' ? doc.hooks.beforeSubmitPrompt
         : provider === 'factory' ? doc.UserPromptSubmit : doc.hooks.UserPromptSubmit;
       expect(entries).toBeInstanceOf(Array);
       expect(JSON.stringify(entries)).toContain('aiwg-prompt-discovery');
-      expect(f.read(`.${provider}/hooks/aiwg-prompt-discovery.cjs`)).toBe(
+      const hookRoot = provider === 'antigravity' ? '.agents' : `.${provider}`;
+      expect(f.read(`${hookRoot}/hooks/aiwg-prompt-discovery.cjs`)).toBe(
         fs.readFileSync(path.join(root, 'agentic/code/addons/aiwg-hooks/hooks/aiwg-prompt-discovery.cjs'), 'utf8'));
     } else if (provider !== 'hermes') {
       // Bridge event mappings without prompt/context transport must not install this hook.
