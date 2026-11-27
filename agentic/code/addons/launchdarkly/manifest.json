@@ -3,7 +3,7 @@
   "type": "addon",
   "name": "LaunchDarkly",
   "version": "2026.11.0",
-  "description": "Safe LaunchDarkly connection, credential diagnosis and guided feature flag onboarding through the launchdarkly-concierge.",
+  "description": "Governed LaunchDarkly onboarding, SDK integration, staged releases, experiments, lifecycle cleanup and read-only governance.",
   "core": false,
   "autoInstall": false,
   "explicitInstall": true,
@@ -28,13 +28,34 @@
     "scripts": "scripts/"
   },
   "agents": [
-    "launchdarkly-concierge"
+    "launchdarkly-concierge",
+    "launchdarkly-governance-auditor",
+    "launchdarkly-release-engineer",
+    "launchdarkly-sdk-integrator"
   ],
   "skills": [
     "ld-docs",
     "ld-connect",
     "ld-doctor",
-    "ld-account-setup"
+    "ld-account-setup",
+    "ld-sdk-integrate",
+    "ld-contexts",
+    "ld-testing",
+    "ld-flag-create",
+    "ld-targeting",
+    "ld-segments",
+    "ld-progressive-rollout",
+    "ld-guarded-release",
+    "ld-migration-flag",
+    "ld-approvals",
+    "ld-experiment",
+    "ld-agentcontrol",
+    "ld-flag-cleanup",
+    "ld-flag-debt-audit",
+    "ld-code-refs-ci",
+    "ld-terraform",
+    "ld-relay-proxy",
+    "ld-quickref"
   ],
   "rules": [
     "ld-key-safety",
@@ -43,13 +64,24 @@
     "ld-flag-hygiene"
   ],
   "flows": [
+    "ld-feature-release",
+    "ld-flag-cleanup-cycle",
+    "ld-governance-maturity",
+    "ld-migration",
     "ld-onboarding"
   ],
   "templates": [
-    "onboarding-record"
+    "experiment-readout",
+    "flag-debt-report",
+    "governance-assessment",
+    "launchdarkly-fields",
+    "onboarding-record",
+    "rollout-plan"
   ],
   "fixtures": [
-    "doctor-cases"
+    "doctor-cases",
+    "sdk-node",
+    "sdk-python"
   ],
   "dependencies": {
     "required": [],
@@ -63,7 +95,8 @@
         "provider": "launchdarkly"
       },
       "writes": "none"
-    }
+    },
+    "providerImplementations": "provider-implementations.json"
   },
   "memory": {
     "creates": [

@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "provider": "launchdarkly",
+  "selector": "feature_flags.provider",
+  "contract": "cicd v1",
+  "implementations": {
+    "flag-check": {
+      "skill": "ld-flag-create",
+      "runner": "scripts/capabilities.mjs",
+      "export": "runCapability"
+    },
+    "flag-states-test": {
+      "skill": "ld-testing",
+      "runner": "scripts/capabilities.mjs",
+      "export": "runCapability"
+    },
+    "progressive-rollout": {
+      "skill": "ld-progressive-rollout",
+      "runner": "scripts/capabilities.mjs",
+      "export": "runCapability"
+    },
+    "flag-coderefs-scan": {
+      "skill": "ld-code-refs-ci",
+      "runner": "scripts/capabilities.mjs",
+      "export": "runCapability"
+    },
+    "flag-cleanup-handoff": {
+      "skill": "ld-flag-cleanup",
+      "runner": "scripts/capabilities.mjs",
+      "export": "runCapability"
+    }
+  }
+}

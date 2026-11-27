@@ -1,0 +1,23 @@
+apiVersion: flow.aiwg.io/v1
+kind: FlowCapability
+metadata:
+  name: ld-flag-cleanup-cycle
+  namespace: launchdarkly
+  annotations:
+    triggers: "ld-flag-cleanup-cycle; LaunchDarkly flag cleanup cycle"
+spec:
+  description: >-
+    AIWG guidance: ld-flag-debt-audit -> prioritize owner-assigned candidates -> complete ld-code-refs-ci evidence -> ld-flag-cleanup -> local draft PR -> verified removal -> approved archive. Follow dependency order: approvals, experiments (archive via REST/UI), expiring targets, flag release plan, environment release plan, agent configs, metrics, flags, segments. Preserve archive-only blockers and never promise deletion of experiment-pinned resources. No PR publication without explicit authorization.
+    Apply ld-change-authorization, ld-key-safety, ld-docs-currency and ld-flag-hygiene.
+    Resolve aiwg artifacts path --json --check-write before sanitized artifact output.
+    Vendor guidance uses ld-docs and runtime guides
+    (https://launchdarkly.com/docs/home/getting-started/mcp.md).
+  version: "1.0.0"
+  inputs:
+    - { name: request, type: object, required: true }
+  outputs:
+    - { name: report, type: object }
+    - { name: status, type: string }
+  agent: launchdarkly-release-engineer
+  requires_addon: launchdarkly
+  idempotent: false

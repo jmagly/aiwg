@@ -1,0 +1,23 @@
+apiVersion: flow.aiwg.io/v1
+kind: FlowCapability
+metadata:
+  name: ld-feature-release
+  namespace: launchdarkly
+  annotations:
+    triggers: "ld-feature-release; LaunchDarkly feature release"
+spec:
+  description: >-
+    AIWG guidance: feature-flag-plan -> ld-flag-create -> ld-sdk-integrate -> ld-testing -> flag-check -> human approval -> ld-progressive-rollout or ld-guarded-release -> flag-coderefs-scan -> flag-cleanup-handoff. Consume the SDLC flow-construction-to-transition provider seam; keep feature-toggle-card authoritative. Before every production write pause for approval of the exact sanitized diff and rollback. Poll after propagation; HOLD and incomplete evidence block promotion; long native rollouts remain handed-off until rollout_ref is verified.
+    Apply ld-change-authorization, ld-key-safety, ld-docs-currency and ld-flag-hygiene.
+    Resolve aiwg artifacts path --json --check-write before sanitized artifact output.
+    Vendor guidance uses ld-docs and runtime guides
+    (https://launchdarkly.com/docs/home/getting-started/mcp.md).
+  version: "1.0.0"
+  inputs:
+    - { name: request, type: object, required: true }
+  outputs:
+    - { name: report, type: object }
+    - { name: status, type: string }
+  agent: launchdarkly-release-engineer
+  requires_addon: launchdarkly
+  idempotent: false

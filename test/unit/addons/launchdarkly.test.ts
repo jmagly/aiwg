@@ -67,8 +67,13 @@ describe('LaunchDarkly addon validation (validate-addon contract)', () => {
     const flow = yaml.load(read('flows/ld-onboarding.yaml')) as any;
     const validate = new Ajv({ allErrors: true }).compile(schema);
     expect(validate(flow), JSON.stringify(validate.errors)).toBe(true);
-    expect(readdirSync(resolve(root, 'flows'))).toEqual(['ld-onboarding.yaml']);
-    expect(manifest.flows).toEqual([flow.metadata.name]);
+    expect(readdirSync(resolve(root, 'flows')).sort()).toEqual(manifest.flows.map((name: string) => `${name}.yaml`).sort());
+    for (const name of manifest.flows) {
+      const registered = yaml.load(read(`flows/${name}.yaml`)) as any;
+      expect(validate(registered), JSON.stringify(validate.errors)).toBe(true);
+      expect(registered.metadata.name).toBe(name);
+    }
+    expect(manifest.flows).toContain(flow.metadata.name);
     expect(flow.spec.agent).toBe('launchdarkly-concierge');
     expect(flow.spec.description).toContain('human approval');
     expect(flow.spec.description).toContain('real application SDK evaluation');

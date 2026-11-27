@@ -385,6 +385,7 @@
     "source": "agentic/code/addons/launchdarkly/docs",
     "dest": "docs/addons/launchdarkly",
     "files": [
+      "capability-contract.md",
       "hosted-mcp.md",
       "user-guide.md"
     ]

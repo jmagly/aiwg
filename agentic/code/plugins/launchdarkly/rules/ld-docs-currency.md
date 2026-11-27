@@ -8,8 +8,29 @@ bound_to:
     - ld-connect
     - ld-doctor
     - ld-account-setup
+    - ld-sdk-integrate
+    - ld-contexts
+    - ld-testing
+    - ld-flag-create
+    - ld-targeting
+    - ld-segments
+    - ld-progressive-rollout
+    - ld-guarded-release
+    - ld-migration-flag
+    - ld-approvals
+    - ld-experiment
+    - ld-agentcontrol
+    - ld-flag-cleanup
+    - ld-flag-debt-audit
+    - ld-code-refs-ci
+    - ld-terraform
+    - ld-relay-proxy
+    - ld-quickref
   agents:
     - launchdarkly-concierge
+    - launchdarkly-governance-auditor
+    - launchdarkly-release-engineer
+    - launchdarkly-sdk-integrator
 enforcement: medium
 ---
 
