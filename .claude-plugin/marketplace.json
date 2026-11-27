@@ -440,6 +440,24 @@
       "keywords": []
     },
     {
+      "name": "launchdarkly",
+      "source": "./agentic/code/plugins/launchdarkly",
+      "description": "Safe LaunchDarkly connection, credential diagnosis and guided feature flag onboarding through the launchdarkly-concierge.",
+      "version": "2026.11.9",
+      "author": {
+        "name": "AIWG Contributors"
+      },
+      "license": "MIT",
+      "category": "productivity",
+      "keywords": [
+        "launchdarkly",
+        "feature flags",
+        "onboarding",
+        "set up LaunchDarkly",
+        "ld-onboarding"
+      ]
+    },
+    {
       "name": "line-memory",
       "source": "./agentic/code/plugins/line-memory",
       "description": "Bounded, plain-text project memory with least-recently-used retention.",

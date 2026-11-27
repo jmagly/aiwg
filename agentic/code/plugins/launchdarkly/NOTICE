@@ -1,0 +1,11 @@
+LaunchDarkly integration reference
+
+This AIWG addon refers to LaunchDarkly's official ai-tooling project:
+https://github.com/launchdarkly/ai-tooling
+
+That project is licensed under Apache License 2.0, as identified by its LICENSE:
+https://github.com/launchdarkly/ai-tooling
+
+AIWG invokes available vendor guides at runtime. No vendor skill text, source
+code, or other ai-tooling content is copied into this addon. This notice is
+reference attribution and does not imply vendor endorsement.

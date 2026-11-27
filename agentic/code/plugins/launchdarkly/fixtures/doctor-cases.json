@@ -1,0 +1,51 @@
+[
+  {
+    "value": "0123456789abcdef01234567",
+    "intendedUse": "server",
+    "kind": "client-side-id",
+    "placement": "client",
+    "mismatch": true
+  },
+  {
+    "value": "sdk-synthetic-not-valid",
+    "intendedUse": "server",
+    "kind": "server-sdk-key",
+    "placement": "server",
+    "mismatch": false
+  },
+  {
+    "value": "mob-synthetic-not-valid",
+    "intendedUse": "mobile",
+    "kind": "mobile-key",
+    "placement": "mobile",
+    "mismatch": false
+  },
+  {
+    "value": "api-synthetic-not-valid",
+    "intendedUse": "api",
+    "kind": "api-access-token",
+    "placement": "api",
+    "mismatch": false
+  },
+  {
+    "value": "mob-synthetic-not-valid",
+    "intendedUse": "server",
+    "kind": "mobile-key",
+    "placement": "mobile",
+    "mismatch": true
+  },
+  {
+    "value": "api-synthetic-not-valid",
+    "intendedUse": "server",
+    "kind": "api-access-token",
+    "placement": "api",
+    "mismatch": true
+  },
+  {
+    "value": "not-a-credential",
+    "intendedUse": "server",
+    "kind": "unknown",
+    "placement": "unknown",
+    "mismatch": true
+  }
+]

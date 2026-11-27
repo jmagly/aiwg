@@ -53,6 +53,7 @@ describe('plugin repository layout', () => {
       'browser-control',
       'compound-memory',
       'doc-intelligence',
+      'launchdarkly',
       'line-memory',
       'llm-wiki',
       'nlp-prod',

@@ -693,6 +693,7 @@ const MANIFEST_PLUGIN_SOURCES = [
   ['doc-intelligence', 'agentic/code/addons/doc-intelligence'],
   ['droid-bridge', 'agentic/code/addons/droid-bridge'],
   ['guided-implementation', 'agentic/code/addons/guided-implementation'],
+  ['launchdarkly', 'agentic/code/addons/launchdarkly'],
   ['line-memory', 'agentic/code/addons/line-memory'],
   ['llm-wiki', 'agentic/code/addons/llm-wiki'],
   ['nlp-prod', 'agentic/code/addons/nlp-prod'],
