@@ -95,7 +95,7 @@ describe('per-harness rule hooks (#3740)', () => {
       const location = `.${provider}/rules/RULES-INDEX.md`;
       const original = `${provider}: Before every task and subagent task, read and follow \`${location}\`; read every listed kernel file and fetch matching full rules before governed work.`;
       const hook = read(file).split(`<!-- AIWG:rule-hook-${provider}:start -->\n`)[1].split(`\n<!-- AIWG:rule-hook-${provider}:end -->`)[0];
-      if (['codex', 'muse'].includes(provider)) assertRuleStartupHook(read(file), provider, location);
+      if (['codex', 'muse', 'antigravity'].includes(provider)) assertRuleStartupHook(read(file), provider, location);
       else if (['copilot', 'grok-build'].includes(provider)) expect(hook.startsWith(original)).toBe(true);
       else expect(hook).toBe(original + (provider === 'factory' ? factoryInstructions : ''));
       if (provider === 'factory') {

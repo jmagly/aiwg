@@ -1,3 +1,4 @@
+import { deployAntigravityPromptDiscovery } from './antigravity-prompt-discovery.mjs';
 import { withModelWrapper } from './model-wrapper.mjs';
 /** Google Antigravity CLI project resource deployment, qualified against 1.1.26. */
 import fs from 'node:fs';
@@ -94,6 +95,7 @@ export async function postDeploy(target, opts) {
   if (opts.global || opts.user || opts.scope === 'user') {
     throw new Error('Antigravity global skill deployment is disabled: official 1.1.26 path documentation conflicts');
   }
+  await deployAntigravityPromptDiscovery(target, opts);
   if (opts.createAgentsMd || (!opts.commandsOnly && !opts.skillsOnly && !opts.rulesOnly)) {
     if (opts.contextFiles !== false) createAgentsMd(target, opts.srcRoot, opts.dryRun);
   }

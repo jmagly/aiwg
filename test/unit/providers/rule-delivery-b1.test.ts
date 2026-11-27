@@ -82,7 +82,7 @@ describe('B1 rule delivery regressions', () => {
       expect(text).toContain("including a discovered skill's mirror file or a template");
       expect(text).toContain('After discover, use `aiwg show <type> <name>` and its drill-ins');
     }
-    if (provider !== 'antigravity') {
+    {
       const hook = startup.split(`<!-- AIWG:rule-hook-${provider}:start -->`)[1];
       expect(hook).toContain('first information-gathering call');
       expect(hook.indexOf('aiwg discover')).toBeLessThan(hook.indexOf('RULES-INDEX.md'));

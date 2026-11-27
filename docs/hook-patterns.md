@@ -68,6 +68,7 @@ already-installed hooks.
 | Claude Code | UserPromptSubmit additionalContext |
 | Muse | UserPromptSubmit additionalContext via project hook owner |
 | Cursor | beforeSubmitPrompt additional_context via project `.cursor/hooks.json` |
+| Antigravity | PreInvocation `injectSteps[].systemMessage.systemMessage` via named project `.agents/hooks.json`; once per conversation and prompt |
 | Codex 0.165 | UserPromptSubmit additionalContext via project `.codex/hooks.json` |
 | Factory | UserPromptSubmit plain stdout context via project `.factory/hooks.json`; requires folder trust and a git commit |
 | Hermes | Opt-in `pre_llm_call` shell hook in `$HERMES_HOME/config.yaml`, returning native `{context}`; requires command consent |
@@ -108,6 +109,8 @@ Installed help/docs were inspected offline on 2026-11-08; no prompt runs were ma
 
 `context.promptDiscovery` in the provider registry records delivery files,
 the Hermes event and opt-in; the isolated harness audit checks the deployed bytes.
+Antigravity's native contract was checked against installed `agy 1.3.3` docs and
+embedded schema; see [Antigravity native hooks](./providers/antigravity.md#native-project-hooks).
 
 ## Factory project hooks (#3976)
 
@@ -478,7 +481,7 @@ establishes it; interactive support does not establish exec support.
 
 | Provider | Prompt hook support / config | Exec/headless surface | Exec-mode prompt hooks | Static check | Live UAT status (operator supplied) |
 |---|---|---|---|---|---|
-| antigravity | None | `agy --print` | Unverified | Pass | Static only |
+| antigravity | `PreInvocation` → `injectSteps[].systemMessage.systemMessage` in named `.agents/hooks.json` | `agy --print` | Offline deploy/runtime fixtures verified; live unverified | Pass | Installed docs + embedded schema, agy 1.3.3, 2026-11-27; no authenticated run |
 | claude | Native: `.claude/settings.json` | `claude --print` | Unverified separately | Pass | p1/p2/p4 discover-first; p3 not supplied |
 | codex | Bridge: `.codex/hooks.json`; saved folder + hook trust required | `codex exec` | 0.167 supplied logs: 0 hook items with per-run trust; 1 after saved trust | Pass | 2026-11-09 no-hook discovery at calls 1–4; post-#4036 p1/p2 rerun deferred |
 | copilot | Bootstrap rule: `.github/copilot-instructions.md` | `copilot` noninteractive | Bootstrap directive; runtime unverified | Pass | Static only |

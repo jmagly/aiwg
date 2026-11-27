@@ -8,6 +8,7 @@ import { verifiedHookCommand } from '../../extensions/verified-hook-command.js';
 import { managedMuseHooks } from '../../extensions/muse-managed-hooks.js';
 import { managedHookScriptState } from '../../extensions/managed-hook-script-state.js';
 import { managedCursorPromptHook } from '../../smiths/hook-bridge/cursor-translator.js';
+import { ANTIGRAVITY_PROMPT_SCRIPT, managedAntigravityPromptHook } from '../../smiths/hook-bridge/antigravity-translator.js';
 import { managedFactoryHooks } from '../../smiths/hook-bridge/factory-translator.js';
 import { readFactoryDocument } from '../../smiths/hook-bridge/factory-hook-config.js';
 import { loadHookSources } from '../../smiths/hook-bridge/loader.js';
@@ -53,15 +54,22 @@ function groups(doc: Record<string, unknown>, event: string): HookGroup[] {
 }
 
 async function staleHooks(projectRoot: string, frameworkRoot: string, provider: string, scope: 'project' | 'user'): Promise<StaleManagedDeployment[]> {
-  if (!['claude', 'muse', 'factory', 'codex', 'cursor'].includes(provider)) return [];
-  const file = provider === 'claude' ? '.claude/settings.json' : `.${provider}/hooks.json`;
+  if (!['claude', 'muse', 'factory', 'codex', 'cursor', 'antigravity'].includes(provider)) return [];
+  const file = provider === 'antigravity' ? '.agents/hooks.json' : provider === 'claude' ? '.claude/settings.json' : `.${provider}/hooks.json`;
   let doc;
   // Factory hooks.json is a top-level event map (older AIWG wrote it nested); normalize both (#3971).
   try { doc = provider === 'factory' ? readFactoryDocument(path.join(projectRoot, file)) as Record<string, unknown> : await readJson(path.join(projectRoot, file)); }
   catch { return [{ name: `${provider} managed hooks`, file, reason: 'unreadable' }]; }
 
   const stale: StaleManagedDeployment[] = [];
-  if (provider === 'cursor') {
+  if (provider === 'antigravity') {
+    const expected = managedAntigravityPromptHook(projectRoot, await fs.readFile(path.join(frameworkRoot,
+      'agentic/code/addons/aiwg-hooks/hooks/aiwg-prompt-discovery.cjs')));
+    const candidate = doc['aiwg-prompt-discovery'] as Record<string, unknown> | undefined;
+    if (!candidate || candidate.enabled === false || !isDeepStrictEqual(candidate.PreInvocation, expected.PreInvocation)) {
+      stale.push({ name: 'PreInvocation → aiwg-prompt-discovery', file, reason: candidate ? 'outdated' : 'missing' });
+    }
+  } else if (provider === 'cursor') {
     const expected = managedCursorPromptHook(projectRoot, await fs.readFile(path.join(frameworkRoot,
       'agentic/code/addons/aiwg-hooks/hooks/aiwg-prompt-discovery.cjs')));
     const hooks = (doc.hooks as Record<string, unknown> | undefined)?.beforeSubmitPrompt;
@@ -162,6 +170,8 @@ async function staleHookScripts(projectRoot: string, frameworkRoot: string, prov
     for (const hook of managedClaudeHooks(files)) scripts.set(hook.script, path.join(source, path.basename(hook.script)));
   } else if (provider === 'muse') {
     scripts.set('.muse/hooks/aiwg-prompt-discovery.cjs', path.join(source, 'aiwg-prompt-discovery.cjs'));
+  } else if (provider === 'antigravity') {
+    scripts.set(ANTIGRAVITY_PROMPT_SCRIPT, path.join(source, 'aiwg-prompt-discovery.cjs'));
   } else if (provider === 'codex' || provider === 'factory' || provider === 'cursor') {
     // Match installCodexPromptDiscovery: resolve packaged canonical arguments,
     // not the portable launcher command emitted into hooks.json.

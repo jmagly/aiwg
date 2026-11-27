@@ -7,7 +7,7 @@ import { projectOnDemandReferences } from '../../tools/agents/providers/rule-pre
 
 /** Keep the complete rule-loading contract while checking discovery comes first. */
 export function assertRuleStartupHook(startup: string, provider: string, index: string): void {
-  if (['codex', 'muse'].includes(provider)) {
+  if (['codex', 'muse', 'antigravity'].includes(provider)) {
     const hook = startup.split(`<!-- AIWG:rule-hook-${provider}:start -->`)[1]?.split('<!-- AIWG:rule-hook-')[0] || '';
     expect(hook, `${provider}: discovery hook`).toContain(`${provider}: On every new directive, including subagent tasks, run`);
     expect(hook).toContain('as the first information-gathering call, before tool-based context reads');
