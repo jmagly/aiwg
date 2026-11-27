@@ -1,3 +1,4 @@
+import { prepareAntigravityConfig, resolveAntigravityConfigPath } from './antigravity-config.mjs';
 import { tomlString } from './toml-string.mjs';
 import { buildServerConfig } from './server-config.mjs';
 export { buildServerConfig } from './server-config.mjs';
@@ -297,6 +298,7 @@ export function buildServerToml(server) {
 }
 
 export function getProviderConfigPath(provider, projectDir = '.', options = {}) {
+  if (normalizeRuntimeProviderId(provider) === 'antigravity') return resolveAntigravityConfigPath(projectDir, options);
   if (normalizeRuntimeProviderId(provider) === 'omp' && options.scope !== undefined && !['user', 'project'].includes(options.scope)) throw new Error('OMP MCP scope must be user or project');
   return resolveMcpConfigPath(provider, projectDir, options);
 }
@@ -405,6 +407,9 @@ async function injectJson(registry, servers, configPath, provider, dryRun, resul
   if (!isObject(existing) || (Object.hasOwn(existing, mcpKey) && !isObject(existing[mcpKey]))) {
     throw new Error('MCP configuration must contain an object root and an object server map');
   }
+  const plugin = await prepareAntigravityConfig(provider, configPath, existing, location);
+  existing = plugin.config;
+  if (plugin.warnings.length) result.warnings = [...(result.warnings || []), ...plugin.warnings];
   const existingServers = existing[mcpKey] || {};
   const newServers = { ...existingServers };
 
@@ -433,6 +438,7 @@ async function injectJson(registry, servers, configPath, provider, dryRun, resul
 
   if (!dryRun) {
     await writeConfigTransaction([
+      ...plugin.writes,
       { file: configPath, content: JSON.stringify(merged, null, 2) + '\n', options: { userScope, projectRoot } },
       ...(settings?.writes || []),
     ]);

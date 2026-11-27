@@ -43,6 +43,10 @@ function piAgentDir(): string {
  * another's deploy at the shared path.
  */
 export const USER_SCOPE_PATHS: Record<string, { agents: string; skills: string; commands: string; rules: string; behaviors: string }> = {
+  antigravity: {
+    agents: '', skills: path.join(homedir(), '.gemini', 'config', 'skills'),
+    commands: '', rules: '', behaviors: '',
+  },
   claude: {
     agents: path.join(homedir(), '.claude', 'agents'),
     skills: path.join(homedir(), '.claude', 'skills'),

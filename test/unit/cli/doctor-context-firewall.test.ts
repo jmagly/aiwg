@@ -25,7 +25,7 @@ async function fixture(files: string[]) {
 const layouts = [
   { provider: 'pi', files: ['AGENTS.md', 'CLAUDE.md', '.agents/skills/kernel/SKILL.md', '.pi/skills/local/SKILL.md', '.pi/.aiwg/skills/standard/SKILL.md'] },
   { provider: 'omp', files: ['.omp/AGENTS.md', '.omp/agents/worker.md', '.omp/rules/local.md', '.agents/skills/kernel/SKILL.md'] },
-  { provider: 'antigravity', files: ['AGENTS.md', '.agents/agents/worker.md', '.agents/skills/kernel/SKILL.md', '.agents/.aiwg/skills/standard/SKILL.md'] },
+  { provider: 'antigravity', files: ['AGENTS.md', '.antigravity/rules/project.md', '.agents/agents/worker.md', '.agents/skills/kernel/SKILL.md', '.agents/.aiwg/skills/standard/SKILL.md'] },
   { provider: 'deepseek-harness', files: ['AGENTS.md', 'CLAUDE.md', '.agents/skills/kernel/SKILL.md'] },
 ];
 async function check(rootDir: string, providers: string[], strictContext = false) {

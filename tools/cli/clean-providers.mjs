@@ -19,8 +19,9 @@
  * same way `.claude/` does, via `resolveDirectoryManagedPaths` below, but
  * each also holds a *project MCP config file* AIWG merges entries into
  * rather than owns outright — `.cursor/mcp.json` and
- * `.agents/mcp_config.json`. `opencode.json` is the same shape: AIWG merges
- * one `instructions` entry into it. Those three files get a merge-aware
+ * `.agents/plugins/aiwg/mcp_config.json` (plus its legacy flat config).
+ * `opencode.json` is the same shape: AIWG merges
+ * one `instructions` entry into it. These files get a merge-aware
  * pass (`cleanMergeTarget`) instead of being removed wholesale.
  *
  * Every other target below keeps the previous whole-directory/whole-file
@@ -128,7 +129,7 @@ export function resolveDirectoryManagedPaths(dirPrefix, source = registry) {
 // Identification reuses the same receipts the rest of AIWG uses to tell its
 // own entries apart from a user's, rather than guessing:
 //
-//  - MCP server entries (`.cursor/mcp.json`, `.agents/mcp_config.json`): the
+//  - MCP server entries (`.cursor/mcp.json`, Antigravity plugin + legacy configs): the
 //    central MCP server registry (~/.aiwg/mcp-servers.json, written by
 //    src/mcp/registry.ts) records, per server, which providers it was
 //    injected into (`injectedProviders`). An entry in a provider's
@@ -145,7 +146,7 @@ const OPENCODE_MANAGED_INSTRUCTIONS = ['WORKSPACE.md', 'AIWG.md'];
 // fallback, matching it by hand.
 const FALLBACK_MERGE_TARGETS = [
   { relPath: '.cursor/mcp.json', providerId: 'cursor', serversKey: 'mcpServers' },
-  { relPath: '.agents/mcp_config.json', providerId: 'antigravity', serversKey: 'mcpServers' },
+  { relPath: '.agents/plugins/aiwg/mcp_config.json', providerId: 'antigravity', serversKey: 'mcpServers' },
   { relPath: 'opencode.json', providerId: 'opencode', serversKey: 'mcp', instructionsKey: 'instructions' },
 ];
 
@@ -157,7 +158,8 @@ try {
 }
 
 function resolveMergeTargets() {
-  if (!mcpProviderDefs) return FALLBACK_MERGE_TARGETS;
+  const legacy = { relPath: '.agents/mcp_config.json', providerId: 'antigravity', serversKey: 'mcpServers' };
+  if (!mcpProviderDefs) return [...FALLBACK_MERGE_TARGETS, legacy];
   return FALLBACK_MERGE_TARGETS.map((fallback) => {
     const definition = mcpProviderDefs.getMcpInjectionDefinition(fallback.providerId);
     if (!definition) return fallback;
@@ -166,7 +168,7 @@ function resolveMergeTargets() {
       relPath: definition.configPath?.path || fallback.relPath,
       serversKey: definition.serversKey || fallback.serversKey,
     };
-  });
+  }).concat(legacy);
 }
 
 /**

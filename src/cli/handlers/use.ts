@@ -1,3 +1,4 @@
+import { mirrorAntigravityAddon } from '../services/antigravity-user-scope.js';
 import { ContextWriteJournal } from '../../smiths/context-pipeline/context-file-safety.js';
 import type { ContextPipelineOptions, ContextPipelineResult } from '../../smiths/context-pipeline/types.js';
 import { trackTemporaryDirectory } from '../../utils/temporary-directory.js';
@@ -3619,6 +3620,7 @@ export class UseHandler implements CommandHandler {
           };
         }
 
+        if (!dryRunAddon && provider === 'antigravity' && addonScope === 'user') await mirrorAntigravityAddon({ source: addonSource, target, bundle: framework });
         if (!dryRunAddon && (provider === 'openclaw' || (provider === 'grokbot' && addonScope === 'user'))) {
           try {
             await recordNativeAddonDeploy(addonSource, target, provider, framework);

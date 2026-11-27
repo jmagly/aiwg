@@ -92,7 +92,7 @@ describe('model wrapper deployment verification', () => {
     expect(result.valid).toBe(true);
   });
 
-  it.each(['Write', 'Edit', 'Task', 'Agent', 'apply_patch', 'write_to_file', 'replace_file_content'])
+  it.each(['Write', 'Edit', 'Task', 'Agent', 'apply_patch', 'write_to_file', 'replace_file_content', 'write_file', 'edit_file'])
   ('rejects a mutating or delegating read-only tool: %s', async tool => {
     const target = await root();
     await writeFile(join(target, 'aiwg-model-explorer.md'), [

@@ -163,13 +163,13 @@ async function validateArtifact(
     if (['claude', 'copilot', 'factory', 'omp', 'antigravity', 'openclaw'].includes(expectation.provider ?? '') && tools.length === 0) addMismatch(
       mismatches, wrapper, file, 'tools', 'read-only wrapper is missing its explicit tool allowlist',
     );
-    if (tools.some(tool => /^(?:write|edit|create|apply[_-]?patch|multiedit|task|agent|write_to_file|replace_file_content)$/i.test(String(tool)))) addMismatch(
+    if (tools.some(tool => /^(?:write(?:_file)?|edit(?:_file)?|create|apply[_-]?patch|multiedit|task|agent|write_to_file|replace_file_content)$/i.test(String(tool)))) addMismatch(
       mismatches, wrapper, file, 'tools', 'read-only wrapper exposes mutation or delegation tools',
     );
     const allowlists: Record<string, readonly string[]> = {
       claude: ['Read', 'Grep', 'Glob', 'Bash'], copilot: ['search/codebase', 'terminal'],
       factory: ['Execute', 'Glob', 'Grep', 'Read'], omp: ['read', 'grep', 'glob', 'bash'],
-      antigravity: ['view_file', 'grep_search', 'run_command'], openclaw: ['Read', 'Grep', 'Glob', 'Bash'],
+      antigravity: ['read_file', 'grep_search', 'run_command'], openclaw: ['Read', 'Grep', 'Glob', 'Bash'],
     };
     const allowed = allowlists[expectation.provider ?? ''];
     if (allowed && (tools.length !== allowed.length || allowed.some(tool => !tools.includes(tool)))) addMismatch(

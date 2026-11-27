@@ -1,0 +1,156 @@
+{
+  "observedOn": "2026-11-27",
+  "activeCli": {
+    "path": "/opt/noodle-agentic/bin/agy",
+    "version": "1.2.12"
+  },
+  "schemaCli": {
+    "path": "/home/roctinam/.local/bin/agy",
+    "version": "1.3.3",
+    "digest": "sha256:d97edcf90eda1799cd6cedc92616ef402f23c9752a723e8b8ae3e8f062ce458b"
+  },
+  "limitations": [
+    "No installed agy 1.5.17 was found. Built-in docs are shared installation files and carry no version attestation. Embedded tools can be account-gated; no authenticated execution was attempted.",
+    "The built-in rules guide documents .agents/rules, not .antigravity/rules. AIWG retains and audits its existing .antigravity/rules output through its bootstrap; no native loader claim is made.",
+    "Core-tool source markers and protobuf fields establish shipped implementations/schema types, not the account-visible tool roster. In particular the read_file/write_file projection has not been exercised as a provider tool call."
+  ],
+  "sources": [
+    {
+      "source": "~/.gemini/antigravity-cli/builtin/skills/agy-customizations/SKILL.md",
+      "digest": "sha256:79c8885e76ce449e82016b37b53dfcc3ff5afefd90a23ea83b24148f41f33fa1"
+    },
+    {
+      "source": "~/.gemini/antigravity-cli/builtin/skills/agy-customizations/docs/mcp_servers.md",
+      "digest": "sha256:7e34d5924e3574a60b75e8972d121de6923a3e7b9248c3c95434f26823fe18cf"
+    },
+    {
+      "source": "~/.gemini/antigravity-cli/builtin/skills/agy-customizations/docs/plugins.md",
+      "digest": "sha256:481c2612f4729fb4fab600aebc5eb0d4eda6e00d5b45084bc7523718514bf19e"
+    },
+    {
+      "source": "~/.gemini/antigravity-cli/builtin/skills/agy-customizations/docs/skills.md",
+      "digest": "sha256:c4eba3bc9a8775928704d1b7feede20871b25f8d427c6cd6757b7edd54b3ae60"
+    },
+    {
+      "source": "~/.gemini/antigravity-cli/builtin/skills/agy-customizations/docs/rules.md",
+      "digest": "sha256:063ab1c908fae4798d9a1f5981ed57b7570a860ceb0e5850816aefddf72b8b54"
+    },
+    {
+      "source": "~/.gemini/antigravity-cli/builtin/skills/agy-customizations/docs/hooks.md",
+      "digest": "sha256:79c917a0ea47c1abc3bfe2e97371950d42d981fb648af2e2099c121652bc771b"
+    },
+    {
+      "source": "~/.gemini/antigravity-cli/builtin/skills/plugin/SKILL.md",
+      "digest": "sha256:d93af06b31a0d21a72b1245453ef8295e32fea189cc16405ea30f00309044258"
+    },
+    {
+      "source": "~/.gemini/antigravity-cli/builtin/skills/automation/SKILL.md",
+      "digest": "sha256:62cae540c3cf7b8104e4378729bac9aab7696e766e5fc8edaf581891ab9a5053"
+    }
+  ],
+  "embeddedToolSchemaMarkers": {
+    "read_file": "third_party/jetski/cortex/core/tools/read_file.go",
+    "write_file": "third_party/jetski/cortex/core/tools/write_file.go",
+    "edit_file": "third_party/jetski/cortex/core/tools/edit_file.go",
+    "run_command": "third_party/jetski/cortex/core/tools/run_command.go",
+    "invoke_subagent": "third_party/jetski/cortex/core/tools/invoke_subagent.go",
+    "define_subagent": "third_party/jetski/cortex/core/tools/define_subagent.go",
+    "manage_task": "third_party/jetski/cortex/core/tools/manage_task.go",
+    "run_workflow": "third_party/jetski/cortex/core/tools/run_workflow.go"
+  },
+  "subagentModelValidation": "model must be 'inherit', 'flash_lite', 'flash', or 'pro'",
+  "swarmSchema": {
+    "type": "object",
+    "properties": {
+      "action": {
+        "type": "string",
+        "enum": [
+          "status",
+          "models",
+          "add",
+          "model",
+          "kill",
+          "title"
+        ],
+        "description": "What to do: status, models, add, model, kill or title."
+      },
+      "name": {
+        "type": "string",
+        "description": "Roster name of the worker, for add, model and kill (or base name when n > 1 or tasks is set). Short, lowercase, no spaces."
+      },
+      "n": {
+        "type": "integer",
+        "minimum": 1,
+        "description": "Optional number of homogeneous copies to spawn (<name>-1 through <name>-<n>), for add when the user explicitly asks for multiple agents sharing one role and brief. Omit (defaults to 1) to spawn a single named worker."
+      },
+      "model": {
+        "type": "string",
+        "description": "Model to pin this worker to, for add and model: a model name listed by the models action. Leave it unset to use your own model, unless the user asks for another."
+      },
+      "all": {
+        "type": "boolean",
+        "description": "For models: list every model add accepts, not just the suggested ones."
+      },
+      "brief": {
+        "type": "string",
+        "description": "The worker's assignment, for add: what it owns and what done looks like. Posted publicly on the board."
+      },
+      "tasks": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "Optional per-worker slice targets for add when spawning a sharded group (<name>-1 through <name>-<len(tasks)>), each combined with the shared brief. Omit for normal single-worker add calls."
+      },
+      "workspace": {
+        "type": "string",
+        "enum": [
+          "inherit",
+          "share",
+          "branch"
+        ],
+        "description": "Where each worker works, for add. inherit (default) is your own workspace. share gives each worker its own working copy of your repository; branch gives each an isolated clone. kill deletes a share or branch workspace."
+      },
+      "title": {
+        "type": "string",
+        "description": "A short title for the swarm, for the UI."
+      },
+      "backend": {
+        "type": "string",
+        "enum": [
+          "auto",
+          "spanner",
+          "local"
+        ],
+        "description": "Where the board is stored: auto (default), spanner, or local files. Honoured only on the call that creates the swarm; leave it unset unless the user asks."
+      }
+    },
+    "required": [
+      "action"
+    ]
+  },
+  "documentedSurfaces": {
+    "mcpProject": ".agents/plugins/aiwg/mcp_config.json",
+    "pluginManifest": ".agents/plugins/aiwg/plugin.json",
+    "mcpUser": "~/.gemini/config/mcp_config.json",
+    "serversKey": "mcpServers",
+    "remoteUrlKey": "url",
+    "skillsUser": "~/.gemini/config/skills",
+    "hooks": ".agents/hooks.json",
+    "rules": ".agents/rules/*.md",
+    "ruleMaxBytes": 24000,
+    "schedule": "builtin schedule sidecar with cron expression",
+    "reload": "new plugin directories discovered on startup"
+  },
+  "embeddedProtobufSchemaFields": {
+    "edit_file": "xxx_hidden_EditFileRprotobuf:\"bytes,26,opt,name=edit_file,json=editFile\" protolegacy_presence_idx:\"17\"",
+    "run_command": "RunCommandWprotobuf:\"bytes,5,opt,name=run_command,json=runCommand,proto3,oneof\" reflect:\"unexport\"",
+    "grep_search": "GrepSearchXprotobuf:\"bytes,13,opt,name=grep_search,json=grepSearch,proto3,oneof\" reflect:\"unexport\"",
+    "invoke_subagent": "InvokeSubagentaprotobuf:\"bytes,143,opt,name=invoke_subagent,json=invokeSubagent,proto3,oneof\" reflect:\"unexport\"",
+    "manage_task": "ManageTask>protobuf:\"bytes,29,opt,name=manage_task,json=manageTask,oneof\"",
+    "run_workflow": "xxx_hidden_RunWorkflowXprotobuf:\"bytes,38,opt,name=run_workflow,json=runWorkflow\" protolegacy_presence_idx:\"29\""
+  },
+  "embeddedChangelogExcerpts": [
+    "- Fixed `define_subagent` using a model-supplied agent name directly as a directory name, so a name containing `..` could write its `agent.md` outside the conversation's artifact directory; names are now validated at both the tool and the handler."
+  ]
+}

@@ -47,8 +47,8 @@ function expectedCapabilities(provider: string, readOnly: boolean) {
       'npm test': 'allow', 'npm run *': 'allow', 'git push': 'ask', 'rm -rf': 'deny', '*': 'ask' } } };
   if (provider === 'factory') return { tools: readOnly ? ['Execute', 'Glob', 'Grep', 'Read'] : ['Create', 'Edit', 'Execute', 'Grep', 'Read'] };
   if (provider === 'copilot') return { tools: readOnly ? ['search/codebase', 'terminal'] : ['terminal', 'search/codebase', 'edit'] };
-  if (provider === 'antigravity') return { tools: readOnly ? ['view_file', 'grep_search', 'run_command']
-    : ['run_command', 'view_file', 'write_to_file', 'replace_file_content', 'grep_search'] };
+  if (provider === 'antigravity') return { tools: readOnly ? ['read_file', 'grep_search', 'run_command']
+    : ['run_command', 'read_file', 'write_file', 'edit_file', 'grep_search'] };
   if (provider === 'omp') return { tools: tools.map(tool => tool.toLowerCase()) };
   if (provider === 'grok-build') return { tools: undefined };
   if (provider === 'devin') return { capabilities: tools };
@@ -221,7 +221,7 @@ describe('model wrapper provider translations', () => {
           grep: 'allow', glob: 'allow', bash: 'ask', edit: 'deny', task: 'deny' });
         else if (provider === 'cursor') expect(fields.readonly).toBe(true);
         if (fields.tools) expect(String(fields.tools)).not.toMatch(/(?:^|,)(?:Write|Edit|Create|Task|Agent|write|edit|task)(?:,|$)/);
-        if (provider === 'antigravity') expect(fields.tools).toEqual(['view_file', 'grep_search', 'run_command']);
+        if (provider === 'antigravity') expect(fields.tools).toEqual(['read_file', 'grep_search', 'run_command']);
         if (provider === 'copilot') expect(fields.tools).toEqual(['search/codebase', 'terminal']);
         if (provider === 'omp') expect(fields.tools).toEqual(['read', 'grep', 'glob', 'bash']);
         if (provider === 'factory') expect(fields.tools).toEqual(['Execute', 'Glob', 'Grep', 'Read']);

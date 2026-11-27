@@ -76,6 +76,7 @@ explicit no-project-artifact contract.
 
 | Provider | User-scope path | Status |
 |----------|-----------------|--------|
+| Antigravity CLI | `~/.gemini/config/skills/` (skills only) | Documented by installed built-in customization guide; 1.2.12/1.3.3 observed, authenticated loading unverified. See [provider notes](../providers/antigravity.md) |
 | Claude Code | `~/.claude/{agents,commands,skills,rules}/` | **Verified** ([docs](https://code.claude.com/docs/en/skills)) |
 | OpenClaw | `~/.openclaw/{agents,commands,skills,rules,behaviors}/` | Always user-scope (no `--scope project`) |
 | OpenHuman | `~/.openhuman/skills/` for kernel skills; `~/.openhuman/.aiwg/rules/` for rule bodies; optional native agents in `~/.openhuman/agents/`; project `AGENTS.md` bridge | **Verified** against OpenHuman induction ADR; home-dir payload plus project context bridge |

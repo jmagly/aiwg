@@ -369,7 +369,7 @@ describe('provider output characterization for registry migration', () => {
     expect(normalizeRuntimeProviderId('agy')).toBe('antigravity');
     expect(getMcpInjectionDefinition('openai')?.configFormat).toBe('toml');
     expect(getMcpInjectionDefinition('opencode')?.serversKey).toBe('mcp');
-    expect(getProviderConfigPath('agy', projectDir)).toBe(resolve(projectDir, '.agents/mcp_config.json'));
+    expect(getProviderConfigPath('agy', projectDir)).toBe(resolve(projectDir, '.agents/plugins/aiwg/mcp_config.json'));
     expect(getProviderConfigPath('antigravity', projectDir, { scope: 'user' })).toBe(resolve(homeDir, '.gemini/config/mcp_config.json'));
     expect(getProviderConfigPath('claude-code', projectDir)).toBe(resolve(projectDir, '.mcp.json'));
     expect(getProviderConfigPath('claude', projectDir)).toBe(resolve(projectDir, '.mcp.json'));

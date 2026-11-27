@@ -122,19 +122,19 @@ describe('Antigravity provider contract', () => {
 });
 
 describe('Antigravity MCP ownership', () => {
-  it('uses canonical project/user paths and Google remote serverUrl', async () => {
+  it('uses canonical project/user paths and Google remote url', async () => {
     const root = temp();
     const priorHome = process.env.HOME;
     process.env.HOME = join(root, 'home');
     try {
-      expect(getProviderConfigPath('agy', root)).toBe(join(root, '.agents/mcp_config.json'));
+      expect(getProviderConfigPath('agy', root)).toBe(join(root, '.agents/plugins/aiwg/mcp_config.json'));
       expect(getProviderConfigPath('antigravity', root, { scope: 'user' })).toBe(join(root, 'home/.gemini/config/mcp_config.json'));
       const registry = new McpServerRegistry(join(root, 'registry'));
       await registry.add({ name: 'remote', type: 'http', url: 'https://example.invalid/mcp' });
       const result = await injectServers(registry, 'agy', { projectDir: root });
       expect(result.error).toBeUndefined();
-      const config = JSON.parse(readFileSync(join(root, '.agents/mcp_config.json'), 'utf8'));
-      expect(config.mcpServers.remote).toEqual({ serverUrl: 'https://example.invalid/mcp' });
+      const config = JSON.parse(readFileSync(join(root, '.agents/plugins/aiwg/mcp_config.json'), 'utf8'));
+      expect(config.mcpServers.remote).toEqual({ url: 'https://example.invalid/mcp' });
       expect((await registry.get('remote'))?.injectedProviders).toEqual(['antigravity']);
     } finally {
       if (priorHome === undefined) delete process.env.HOME; else process.env.HOME = priorHome;
@@ -143,8 +143,8 @@ describe('Antigravity MCP ownership', () => {
 
   it('preserves operator collisions and refuses malformed JSON', async () => {
     const root = temp();
-    const target = join(root, '.agents/mcp_config.json');
-    mkdirSync(join(root, '.agents'), { recursive: true });
+    const target = join(root, '.agents/plugins/aiwg/mcp_config.json');
+    mkdirSync(join(root, '.agents/plugins/aiwg'), { recursive: true });
     writeFileSync(target, JSON.stringify({ keep: true, mcpServers: { owned: { command: 'operator' } } }));
     const registry = new McpServerRegistry(join(root, 'registry'));
     await registry.add({ name: 'owned', type: 'stdio', command: 'aiwg' });
@@ -169,7 +169,7 @@ describe('Antigravity native project deployment', () => {
     const options = { dryRun: false, force: false, deployVersion: 'test', deploySource: 'test', provider: 'antigravity' };
     expect(deployment.deployAgents([source], root, options)).toHaveLength(1);
     const first = readFileSync(join(root, '.agents/agents/source.md'), 'utf8');
-    expect(first).toContain('tools:\n  - view_file');
+    expect(first).toContain('tools:\n  - read_file');
     expect(first).not.toContain('tools: Read');
     expect(deployment.deployAgents([source], root, options)).toEqual([
       expect.objectContaining({ type: 'skip', reason: 'hash-match' }),
@@ -204,10 +204,12 @@ describe('Antigravity native project deployment', () => {
       .toEqual(readFileSync(join(alias, '.agents/agents/source.md')));
   });
 
-  it('fails closed for undocumented user/global skill deployment', async () => {
+  it('accepts user-scope staging for the documented global skill mirror', async () => {
     const root = temp();
+    mkdirSync(join(root, 'source/skills'), { recursive: true });
     await expect(deployment.deploy({
-      srcRoot: process.cwd(), target: root, mode: 'sdlc', scope: 'user',
-    })).rejects.toThrow('global skill deployment is disabled');
+      srcRoot: join(root, 'source'), target: join(root, 'stage'), mode: 'sdlc', scope: 'user',
+      skillsOnly: true, quiet: true, contextFiles: false,
+    })).resolves.toMatchObject({ provider: 'antigravity', exceeded: false });
   });
 });

@@ -136,6 +136,9 @@ interface ReloadNotice {
 }
 
 const RESTART_NOTICES: Readonly<Record<string, ReloadNotice>> = {
+  antigravity: { policy: 'restart-required',
+    action: 'Restart agy so it discovers deployed resources and the AIWG MCP plugin.',
+    reason: 'The installed Antigravity plugin guide requires startup discovery for new plugin directories; AIWG treats resource changes as next-session.' },
   flue: { policy: 'restart-required',
     action: 'Restart the Flue app before checking deployed context and skills.',
     reason: 'Flue is experimental; app hot reload of deployed context and skills has not been verified.' },

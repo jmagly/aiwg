@@ -18,14 +18,14 @@ export const CONTEXT_CONTRACTS: Record<Platform, ProviderContextContract> = {
     promptDiscovery: { delivery: 'hook-bridge', event: 'PreInvocation', files: [
       '.agents/hooks.json', '.agents/hooks/aiwg-prompt-discovery.cjs',
     ] },
-    startupFiles: ['AGENTS.md', 'GEMINI.md'],
-    precedence: ['provider/system', 'project AGENTS.md or GEMINI.md', 'nested project context when selected by the CLI'],
+    startupFiles: ['AGENTS.md', 'GEMINI.md', '.agents/rules/*.md'],
+    precedence: ['provider/system', 'workspace hierarchical rules', 'declared workspace customizations', 'global ~/.gemini/config', 'built-in customizations', 'global declared customizations'],
     loadMode: 'prose-directive', includeSyntax: null, configRegistration: null,
-    bootstrapTargets: ['AGENTS.md'], maxContextBytes: null, recommendedMaxLines: null, nestedContext: true, support: 'supported',
+    bootstrapTargets: ['AGENTS.md'], maxContextBytes: 24000, recommendedMaxLines: null, nestedContext: true, support: 'supported',
     verification: {
-      method: 'official Antigravity CLI documentation and sanitized 1.1.26 help evidence',
-      source: 'https://antigravity.google/docs/cli/overview/',
-      lastVerified: '2026-09-04',
+      method: 'Installed agy 1.2.12 / 1.3.3 help; local built-in customization guide (not version-attested to 1.5.17)',
+      source: 'test/fixtures/providers/antigravity-conformance/host-contract-evidence.json',
+      lastVerified: '2026-11-27',
     },
   },
   claude: {

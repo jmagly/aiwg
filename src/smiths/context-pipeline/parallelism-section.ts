@@ -228,7 +228,7 @@ function workerDispatchStateLine(parallelism: ParallelismConfig | undefined, set
 function delegationSupport(provider: string | undefined): string {
   switch (provider) {
     case 'antigravity':
-      return '**Provider behavior (antigravity)**: AIWG team execution uses aiwg-mc emulation. The conservative cap is four workers; native Antigravity subagent limits and heterogeneous model pinning remain unqualified.';
+      return '**Provider behavior (antigravity)**: Native invoke_subagent supports Model inherit|flash_lite|flash|pro; swarm supports per-worker model and workspace inherit|share|branch; run_workflow coordinates tasks. Installed 1.3.3 embedded schemas establish these surfaces, not account availability or live execution. AIWG team execution still uses aiwg-mc; its conservative cap is four workers.';
     case 'claude':
     case 'codex':
     case 'copilot':

@@ -7,7 +7,7 @@ const MCP_INJECTION_DEFINITIONS = [
     id: 'antigravity', aliases: ['agy'],
     mcp: { providerId: 'antigravity', includeInSupportedProviders: true, configFormat: 'json',
       serverConfigFormat: 'antigravity', serversKey: 'mcpServers',
-      configPath: { scope: 'project', path: '.agents/mcp_config.json' },
+      configPath: { scope: 'project', path: '.agents/plugins/aiwg/mcp_config.json' },
       supportsEphemeral: false,
       unsupportedReason: 'Antigravity uses project or user persistent MCP configuration; temporary injection is not qualified.' },
   },
