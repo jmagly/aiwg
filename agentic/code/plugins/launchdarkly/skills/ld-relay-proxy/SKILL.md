@@ -8,6 +8,8 @@ metadata:
 triggers:
   - "ld-relay-proxy"
   - "Assess Relay Proxy fit and produce a reviewed topology proposal"
+  - "should I use the LaunchDarkly Relay Proxy"
+  - "set up LaunchDarkly Relay Proxy"
 ---
 
 # ld-relay-proxy

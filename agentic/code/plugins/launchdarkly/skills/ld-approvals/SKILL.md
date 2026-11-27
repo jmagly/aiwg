@@ -8,6 +8,8 @@ metadata:
 triggers:
   - "ld-approvals"
   - "Prepare approval requests and scheduled changes with explicit production authorization"
+  - "request LaunchDarkly approval"
+  - "schedule a LaunchDarkly flag change"
 ---
 
 # ld-approvals

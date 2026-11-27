@@ -8,6 +8,8 @@ metadata:
 triggers:
   - "ld-flag-debt-audit"
   - "Audit flag debt read-only, including never-evaluated permanent flags"
+  - "audit LaunchDarkly flag debt"
+  - "find stale LaunchDarkly flags"
 ---
 
 # ld-flag-debt-audit

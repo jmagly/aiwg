@@ -8,6 +8,8 @@ metadata:
 triggers:
   - "ld-flag-create"
   - "Create a governed flag linked to the existing SDLC feature-toggle card"
+  - "create a LaunchDarkly flag"
+  - "add a new LaunchDarkly feature flag"
 ---
 
 # ld-flag-create

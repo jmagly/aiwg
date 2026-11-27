@@ -8,6 +8,8 @@ metadata:
 triggers:
   - "ld-quickref"
   - "Discover LaunchDarkly integration, release, experimentation, cleanup and governance"
+  - "what can the LaunchDarkly addon do"
+  - "LaunchDarkly quick reference"
 ---
 
 # ld-quickref

@@ -8,6 +8,8 @@ metadata:
 triggers:
   - "ld-targeting"
   - "Propose targeting rules and verified individual or expiring targets"
+  - "target users with a LaunchDarkly flag"
+  - "LaunchDarkly targeting rules"
 ---
 
 # ld-targeting

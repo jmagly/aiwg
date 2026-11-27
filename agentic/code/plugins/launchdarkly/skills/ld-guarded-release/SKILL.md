@@ -8,6 +8,8 @@ metadata:
 triggers:
   - "ld-guarded-release"
   - "Validate native guarded stages, metrics and durable rollout handoff"
+  - "guarded rollout with LaunchDarkly"
+  - "LaunchDarkly guarded release with automatic rollback"
 ---
 
 # ld-guarded-release

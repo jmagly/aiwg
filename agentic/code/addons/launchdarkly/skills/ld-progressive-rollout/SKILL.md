@@ -8,6 +8,8 @@ metadata:
 triggers:
   - "ld-progressive-rollout"
   - "Implement staged flag exposure with evidence, approval and rollback gates"
+  - "percentage rollout in LaunchDarkly"
+  - "progressively roll out a LaunchDarkly flag"
 ---
 
 # ld-progressive-rollout

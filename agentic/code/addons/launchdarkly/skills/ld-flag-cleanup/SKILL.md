@@ -8,6 +8,9 @@ metadata:
 triggers:
   - "ld-flag-cleanup"
   - "Prepare a reviewed cleanup PR while preserving dependency and archive-only blockers"
+  - "clean up stale LaunchDarkly flags"
+  - "remove a LaunchDarkly flag from code"
+  - "archive a LaunchDarkly flag"
 ---
 
 # ld-flag-cleanup

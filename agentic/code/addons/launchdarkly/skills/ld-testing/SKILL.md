@@ -8,6 +8,8 @@ metadata:
 triggers:
   - "ld-testing"
   - "Run revision-bound forced-off and forced-on tests using isolated TestData"
+  - "test code behind a LaunchDarkly flag"
+  - "LaunchDarkly TestData unit tests"
 ---
 
 # ld-testing
