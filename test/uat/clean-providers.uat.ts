@@ -8,7 +8,8 @@
  *     (`resolveScopedProviderManagedPaths` / `resolveDirectoryManagedPaths`
  *     — read from the product's own registry, never hard-coded here);
  *   - operator-added entries in the three merge-target files
- *     (`.cursor/mcp.json`, `.agents/mcp_config.json`, `opencode.json`);
+ *     (`.cursor/mcp.json`, Antigravity's `.agents/plugins/aiwg/mcp_config.json` and
+ *     legacy `.agents/mcp_config.json`, `opencode.json`);
  *   - Claude-owned settings and worktree files AIWG never deploys to.
  *
  * Hashes every file before and after running the real `cleanProviders()`
@@ -24,7 +25,7 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync, readFileSync, existsSync } from 'fs';
-import { join, resolve } from 'path';
+import { dirname, join, resolve } from 'path';
 import { tmpdir } from 'os';
 import { hashTree, diffTrees } from './helpers/hermetic-cli.js';
 
@@ -93,13 +94,19 @@ describe('UAT: SE-002 — clean:providers removes only AIWG-owned entries', () =
         'operator-server': { command: 'operator-tool', args: ['--flag'] },
       },
     });
-    mkdirSync(join(projectDir, '.agents'), { recursive: true });
-    writeJson(join(projectDir, antigravityDef.configPath.path), {
-      [antigravityDef.serversKey]: {
-        'aiwg-fortemi': { command: 'aiwg', args: ['mcp', 'serve'] },
-        'operator-server': { command: 'operator-tool', args: ['--flag'] },
-      },
-    });
+    // Antigravity: the native plugin config (#4496) plus the legacy flat config
+    // an older AIWG wrote; clean:providers must strip AIWG entries from both.
+    const antigravityLegacyPath = '.agents/mcp_config.json';
+    expect(antigravityDef.configPath.path).not.toBe(antigravityLegacyPath);
+    for (const relative of [antigravityDef.configPath.path, antigravityLegacyPath]) {
+      mkdirSync(dirname(join(projectDir, relative)), { recursive: true });
+      writeJson(join(projectDir, relative), {
+        [antigravityDef.serversKey]: {
+          'aiwg-fortemi': { command: 'aiwg', args: ['mcp', 'serve'] },
+          'operator-server': { command: 'operator-tool', args: ['--flag'] },
+        },
+      });
+    }
     writeJson(join(projectDir, opencodeDef.configPath.path), {
       instructions: ['WORKSPACE.md', 'AIWG.md', 'operator-instructions.md'],
       [opencodeDef.serversKey]: {},
@@ -135,7 +142,7 @@ describe('UAT: SE-002 — clean:providers removes only AIWG-owned entries', () =
     // each still has a surviving operator entry); everything else that
     // changed must be empty.
     expect(diff.changed.sort()).toEqual([
-      antigravityDef.configPath.path, cursorDef.configPath.path, opencodeDef.configPath.path,
+      antigravityDef.configPath.path, antigravityLegacyPath, cursorDef.configPath.path, opencodeDef.configPath.path,
     ].sort());
 
     // Every file under an AIWG-owned whole-remove or scoped-managed path was
@@ -159,8 +166,10 @@ describe('UAT: SE-002 — clean:providers removes only AIWG-owned entries', () =
     const cursorAfter = JSON.parse(readFileSync(join(projectDir, cursorDef.configPath.path), 'utf-8'));
     expect(cursorAfter[cursorDef.serversKey]).toEqual({ 'operator-server': { command: 'operator-tool', args: ['--flag'] } });
 
-    const antigravityAfter = JSON.parse(readFileSync(join(projectDir, antigravityDef.configPath.path), 'utf-8'));
-    expect(antigravityAfter[antigravityDef.serversKey]).toEqual({ 'operator-server': { command: 'operator-tool', args: ['--flag'] } });
+    for (const relative of [antigravityDef.configPath.path, antigravityLegacyPath]) {
+      const antigravityAfter = JSON.parse(readFileSync(join(projectDir, relative), 'utf-8'));
+      expect(antigravityAfter[antigravityDef.serversKey], relative).toEqual({ 'operator-server': { command: 'operator-tool', args: ['--flag'] } });
+    }
 
     const opencodeAfter = JSON.parse(readFileSync(join(projectDir, opencodeDef.configPath.path), 'utf-8'));
     expect(opencodeAfter.instructions).toEqual(['operator-instructions.md']);
