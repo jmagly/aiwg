@@ -74,6 +74,13 @@ aiwg issue new --title "..." --body-file issue.md \
   --authorize-policy <reviewed-plan-digest>
 ```
 
+Comments use the same policy gate as create/new. Review with
+`aiwg issue plan --title comment --body-file comment.md`, then post with
+`aiwg issue comment PROJECT-0001 --body-file comment.md --authorize-policy <digest>`
+when authorization is required. Missing, incorrect, or stale digests refuse without
+a write. Policy authorization never prompts; headless callers must pass the flag.
+Blocked or split comment plans must be revised before posting.
+
 Rejected drafts that cannot be separated produce suggestions and make no
 filesystem change. A partial multi-issue result includes the next segment and
 all stable markers; retrying the same draft reuses matching issues instead of

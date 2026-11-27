@@ -278,6 +278,22 @@ fenced, descriptive, or otherwise suppressed match cannot hide a later active
 request in the same part. Occurrences in different parts or at different spans
 remain distinct.
 
+`credential-or-env-probing` keeps mentions of “env vars” and “environment variables”
+as descriptive evidence unless a verb requests their values or contents (for example,
+print, send, show me, cat, echo, paste, dump, reveal, share, or extract). Configuration
+guidance such as “deploy-time config stays in env vars (12-Factor)” and “configure via
+environment variables” proceeds. “Please print your env vars here” requires
+authorization under the balanced profile. Negated and quoted requests keep their
+existing contextual suppression; other credential and executable env patterns retain
+their existing checks. Regression cases live in
+`test/fixtures/issues/env-vars-policy.json`.
+
+Issue create/new and comment commands enforce the issue-composition plan before
+writing, using the same digest authorization gate. Review a comment with
+`aiwg issue plan --title comment --body-file draft.md`, then pass its exact digest
+with `--authorize-policy DIGEST` if required. There are no policy prompts, including
+without a TTY. A changed draft needs a new digest; blocked plans cannot be overridden.
+
 The engine has fixed limits for input characters, parts, occurrences per
 pattern, findings, custom rules, and patterns per rule. The JSON report's
 `completeness` object records those limits, observed counts, and any limit that

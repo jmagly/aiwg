@@ -15,6 +15,7 @@ import { getFrameworkRoot } from '../channel/manager.mjs';
 import { readAiwgConfig } from '../config/aiwg-config.js';
 import { parseArgs, stringFlag, csvFlag, type ParsedArgs } from './args.js';
 import { externalIssues } from './external-cli.js';
+import { requireIssuePlanAuthorization } from './policy.js';
 import { trackerToken } from './tracker-policy.js';
 import { sensitiveInputOptions } from '../auth/sensitive-input.js';
 import {
@@ -137,13 +138,8 @@ async function handlePlan(args: ParsedArgs, cwd: string): Promise<void> {
 
 async function handleNew(issues: LocalIssueProviderCore, args: ParsedArgs, cwd: string): Promise<void> {
   const plan = await buildIssuePlan(args, cwd);
-  if (plan.disposition === 'blocked') {
-    throw new Error(`Issue draft rejected by ${plan.blockingRule}; no issue was written. Run aiwg issue plan to inspect suggested segments.`);
-  }
   const authorizationDigest = stringFlag(args, 'authorize-policy');
-  if (plan.authorizationRequired && authorizationDigest !== plan.digest) {
-    throw new Error(`Issue draft requires explicit policy authorization. Review 'aiwg issue plan', then pass --authorize-policy ${plan.digest}. No issue was written.`);
-  }
+  requireIssuePlanAuthorization(plan, authorizationDigest);
 
   await issues.requireInitialized();
   const composer = await loadIssueComposer();
@@ -328,6 +324,8 @@ async function handleComment(issues: LocalIssueProviderCore, rest: string[], arg
   const id = rest[0];
   if (!id) throw new Error('Usage: aiwg issue comment <id> --body <text>|--body-file <path>');
   const body = await readBody(args);
+  const plan = await buildIssuePlan(args, args.cwd!, { title: 'comment', body });
+  requireIssuePlanAuthorization(plan, stringFlag(args, 'authorize-policy'), true);
   const event = await issues.commentIssue(id, body, { author: stringFlag(args, 'author') });
   printJsonOrText(args, event, `Commented on ${id}`);
 }
@@ -398,10 +396,10 @@ function printJsonOrText(args: ParsedArgs, value: unknown, text: string): void {
 
 export function printUsage(): void {
   console.log(`Usage:
-  aiwg issues create|new --title "..." --body-file path [--label a,b --label c] [--assignee a,b --assignee c] [--milestone <title|id>]
+  aiwg issues create|new --title "..." --body-file path [--label a,b --label c] [--assignee a,b --assignee c] [--milestone <title|id>] [--authorize-policy DIGEST]
   aiwg issues edit <number> [--milestone <title|id|none>] [--add-label a,b] [--remove-label c]
     [--title "..."] [--body-file path] [--authorize-policy DIGEST]  (external tracker only)
-  aiwg issues comment|close <number> [--body-file path]  (configured external tracker)
+  aiwg issues comment|close <number> [--body-file path] [--authorize-policy DIGEST]  (configured external tracker)
   Use --provider local for local writes when an external tracker is configured.
   aiwg issue init [--prefix KEY] [--padding N]
   aiwg issue plan --title "..." [--body "..."] [--body-file path] [--label a,b --label c] [--assignee a,b --assignee c] [--milestone <title|id>] [--json]
@@ -428,7 +426,8 @@ Notes:
     values combine in order without duplicates. Other flags may only be specified once.
   Milestones resolve open and closed titles, or accept Gitea ids / GitHub numbers.
   Edit accepts issue or PR numbers; --milestone none clears the milestone.
-  --authorize-policy DIGEST authorizes a reviewed issue plan when policy requires it.
+  --authorize-policy DIGEST authorizes a reviewed create/new or comment plan; no policy prompts.
+  For comments, review aiwg issue plan --title comment --body-file path.
 
 Live token sources: --token-interactive, --token-stdin, --token-file <path>,
   --token-store <name>, --token-env <NAME> (see docs/cli/sensitive-values.md).`);

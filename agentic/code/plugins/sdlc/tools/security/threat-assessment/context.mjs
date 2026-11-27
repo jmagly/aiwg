@@ -15,6 +15,15 @@ export const SUPPRESSED_CONTEXTS = Object.freeze([
 const REQUEST_CUE = /\b(?:please|you (?:should|must|need to|have to|can)|we (?:should|must|need to|have to)|make sure|be sure|so that (?:you|it) can|in order to)\b/i;
 const DESCRIPTIVE_CUE = /\b(?:added|implemented|delivered|documented|recorded|verified|tested|passed|failed|opened|landed|merged|shipped|fixed|removed|renamed|introduced|wired|gated|configured|trialed|reviewed|observed|checked|confirmed|reconciled|mapped|covered|installed|proceeded|returned|classified|assessed|scored|flagged|contains?|preserves?|keeps?|remains?|names?|describ(?:es|ed|ing)|declares?|records?|reports?|states?|lists?|carries|existing|currently|already|was|were|has been|have been)\b/i;
 const SENTENCE_LEAD_MARKERS = /^(?:[\s|>]|[-*+]\s|\d+[.)]\s|\[[ xX]\]\s|\*\*|`)+/;
+const ENV_MATERIAL = /^env(?:ironment)?[ _-]?(?:vars?|variables?)$/i;
+// Match extraction aimed at the material itself or its values, not config advice.
+const ENV_VALUE_REQUEST = new RegExp([
+  String.raw`\b(?:read|print|dump|echo|cat|show|reveal|disclose|leak|send|upload|post|export|paste|share|give|provide|display|output|expose|extract|retrieve|collect|list|inspect|include|get|fetch|capture|log|return|copy|attach|transmit|forward)\s+`,
+  String.raw`(?:(?:out|over|me|us|with me|with us)\s+)?`,
+  String.raw`(?:(?:the|an?|all|of|my|your|our|these|those|current|raw|full|entire|actual|runtime|deployment|production)\s+)*`,
+  String.raw`(?:(?:values?|contents?|data)\s+(?:of|from|in|for)\s+(?:(?:the|all|my|your|our|these|those|current)\s+)*)?[\x60"'*]*$`,
+].join(''), 'i');
+const ENV_PASSIVE_REQUEST = /^\s*[`"'*]*(?:\s+(?:values?|contents?))?\s+(?:(?:must|should|need to|have to)\s+be\s+|(?:to\s+be\s+))?(?:printed|dumped|echoed|read|shown|revealed|disclosed|sent|uploaded|posted|exported|pasted|shared|displayed|extracted)\b/i;
 
 /**
  * Locate the sentence that contains a match. Markdown line breaks, list
@@ -92,6 +101,10 @@ export function inferContext(text, index, explicit, length = 0, ruleId = '', sur
     // "no model credentials needed", "no secret was accessed": a bare "no"
     // within three words of the match negates it; "no" further back does not.
     return 'negative';
+  }
+  if (ruleId === 'credential-or-env-probing' && ENV_MATERIAL.test(clause.match)
+    && !ENV_VALUE_REQUEST.test(requestPrefix(clause.before)) && !ENV_PASSIVE_REQUEST.test(clause.after)) {
+    return 'descriptive';
   }
   const leading = requestPrefix(clause.before).replace(SENTENCE_LEAD_MARKERS, '').trimStart();
   if (IMPERATIVE_LEAD.test(`${leading}${clause.match}`) || REQUEST_CUE.test(leading)) return 'requested';

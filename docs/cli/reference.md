@@ -1605,7 +1605,7 @@ aiwg issues edit <number> [--milestone <title|id|none>]
   [--title "..."] [--body-file path] [--authorize-policy DIGEST]
 aiwg issue list [--status open] [--label bug] [--json]
 aiwg issue show <KEY> [--comments last:10|all]
-aiwg issue comment <KEY> --body "..."
+aiwg issues comment <KEY|number> [--body "..."|--body-file path] [--authorize-policy DIGEST]
 aiwg issue close <KEY> [--reason "..."]
 ```
 
@@ -1614,6 +1614,15 @@ in order with duplicates removed. Other flags may only appear once. `plan` accep
 the same labels, assignees, and milestone as create; include them when reviewing
 a digest for authorization. Milestones accept an exact open or closed title,
 a Gitea milestone id, or a GitHub milestone number. Unknown titles fail before creation.
+
+Create/new and comment evaluate the same composition policy used by `issue plan`
+before posting. Review a comment with `aiwg issue plan --title comment --body-file path`.
+When authorization is required, the command refuses without a write and names the
+digest to pass as `--authorize-policy DIGEST`. A wrong or stale digest also refuses.
+Policy authorization uses flags only, including in headless/no-TTY calls; it never
+prompts. Blocked plans remain blocked even with a matching digest. Comments require
+one accepted segment; review and rewrite split content before posting. Close reasons
+posted as tracker comments use this comment gate too.
 
 `edit` requires an external tracker and accepts issue or PR numbers. `--add-label`
 and `--remove-label` accept comma lists and repeats. All labels and milestone

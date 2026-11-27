@@ -17,6 +17,9 @@ const SELF_REJECTION_FIXTURE = JSON.parse(readFileSync(fileURLToPath(
 const DEFENSIVE_REPORTS = JSON.parse(readFileSync(new URL(
   '../../fixtures/issues/defensive-security-reports.json', import.meta.url,
 ), 'utf8'));
+const ENV_VAR_DRAFTS = JSON.parse(readFileSync(new URL(
+  '../../fixtures/issues/env-vars-policy.json', import.meta.url,
+), 'utf8'));
 
 function adapter(route, options = {}) {
   const issues = [];
@@ -50,6 +53,13 @@ function adapter(route, options = {}) {
 }
 
 describe('policy-boundary-aware issue composition (#2072)', () => {
+  it.each(ENV_VAR_DRAFTS)('plans env variable fixture $id (#4450)', ({ body, action }) => {
+    const plan = planIssueDraft({ title: 'comment', body });
+    expect(plan.originalAssessment.decision.action).toBe(action);
+    expect(plan.authorizationRequired).toBe(action !== 'proceed');
+    expect(plan.disposition).toBe(action === 'proceed' ? 'single' : 'authorization-required');
+  });
+
   it.each(DEFENSIVE_REPORTS)('allows defensive security draft: $title (#3867)', async (draft) => {
     const plan = planIssueDraft(draft);
     expect(['single', 'authorization-required']).toContain(plan.disposition);
