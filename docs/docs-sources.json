@@ -157,6 +157,7 @@
       "agent-examples/test-engineer-examples.md",
       "agent-permission-rationale.md",
       "agent-permission-tiers.md",
+      "feature-flags.md",
       "flow-cleanup-checklist.md",
       "multi-agent-documentation-pattern.md",
       "orchestrator-architecture.md",

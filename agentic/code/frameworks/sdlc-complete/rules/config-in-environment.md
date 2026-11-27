@@ -21,16 +21,16 @@ triggers:
 **Enforcement Level**: MEDIUM
 ## Rule
 
-Configuration values that differ between deployment environments (dev, staging, production) must be stored in environment variables, not in source code or checked-in config files.
+Deploy-time configuration values that differ between deployment environments (dev, staging, production) must be stored in environment variables, not in source code or checked-in config files.
 
-**Why:** Configuration that varies between environments is by definition environment-specific. Storing it in code produces one of three bad outcomes: (1) env-specific branches in source, (2) separate builds per environment (violates Factor V build/run separation), or (3) secrets accidentally committed.
+**Why:** Deploy-time configuration that varies between environments is by definition environment-specific. Storing it in code produces one of three bad outcomes: (1) env-specific branches in source, (2) separate builds per environment (violates Factor V build/run separation), or (3) secrets accidentally committed.
 
 **How to apply:**
 
 ### What belongs in environment variables
 - Backing service URLs (database, cache, queue, external APIs)
 - Credentials and tokens (already covered by `token-security.md`)
-- Feature flags that differ per environment
+- Deploy-time release toggle settings that differ per environment
 - Resource limits (thread pool size, connection pool size)
 - Log level and observability endpoints
 - Environment identity itself (`APP_ENV=production`)
@@ -39,6 +39,15 @@ Configuration values that differ between deployment environments (dev, staging, 
 - Business logic constants (tax rates, timeout constants that never differ per env)
 - Code structure decisions (these are source code)
 - Configuration-as-code for infrastructure (Terraform, Pulumi) — that's a separate concern
+
+### Feature flags versus deploy-time configuration
+
+Deploy-time configuration stays in environment variables ([12-Factor](https://12factor.net/config)).
+Decisions that must change at runtime or per request go to the flag provider
+([Unleash](https://docs.getunleash.io/guides/feature-flag-best-practices.md)). Static release toggles may stay in source or
+config when no runtime change is needed ([Hodgson: prefer static configuration](https://martinfowler.com/articles/feature-toggles.html));
+never use a flag provider as a store for ordinary static/rarely changing settings
+([technical debt](https://launchdarkly.com/docs/guides/flags/technical-debt.md)). Provider selection alone does not move all config to flags.
 
 ### How to consume
 - Read env vars at startup (fail-fast if required vars missing)

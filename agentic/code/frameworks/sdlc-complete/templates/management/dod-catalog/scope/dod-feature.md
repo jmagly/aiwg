@@ -22,7 +22,7 @@ Confirms that a cohesive feature — a group of related stories delivering a com
 - [ ] All integration tests pass in the CI environment targeting the integration branch
 - [ ] Feature behaves correctly end-to-end in a staging or production-like environment
 - [ ] No P0 or P1 defects are open against this feature
-- [ ] Feature flag (if used) correctly gates access: feature is off by default and on when flag enabled
+- [ ] Feature flag (if used) follows the accepted card, including deliberate safe default and removal task
 - [ ] Feature demonstrated to Product Owner in a working environment; PO accepts it
 - [ ] User-facing documentation or release notes entry written and reviewed
 
@@ -38,7 +38,7 @@ Confirms that a cohesive feature — a group of related stories delivering a com
 
 **Automated checks:**
 - CI integration test suite: all feature-scoped tests green
-- Feature flag smoke test: CI run with flag disabled confirms existing behavior unaffected
+- Feature flags: required current production, upcoming and default/fallback path tests; optional all-on, not every combination ([testing](https://launchdarkly.com/docs/guides/flags/testing-code.md)). Flag off equals current behavior is a convention; document exceptions ([Hodgson](https://martinfowler.com/articles/feature-toggles.html)).
 - Static analysis: no new critical findings introduced by feature's changes
 
 **Manual steps:**

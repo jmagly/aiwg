@@ -6,6 +6,17 @@ version: 2.0.0
 reasoning_required: true
 ---
 
+### Feature flag state coverage (when flags are used)
+
+- Required: current production state, upcoming state, and default/fallback path;
+  record flag values, evaluation context and test IDs. Optional: all-on.
+- Test the selected configurations, not every combination
+  ([testing](https://launchdarkly.com/docs/guides/flags/testing-code.md), [Hodgson](https://martinfowler.com/articles/feature-toggles.html)).
+- Flag off equals current behavior is a convention; document exceptions and
+  deliberate defaults ([Hodgson](https://martinfowler.com/articles/feature-toggles.html)).
+- Link accepted cards and removal tasks; cicd `flag-states-test` may run this set. [AIWG guidance]
+
+
 ## Purpose
 
 Establish the overarching testing strategy, scope, resources, and schedule across all phases of the project.

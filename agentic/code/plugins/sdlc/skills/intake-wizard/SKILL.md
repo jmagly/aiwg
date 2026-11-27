@@ -21,6 +21,10 @@ commandHint:
   modelRole: efficiency
   modelTier: economy
 ---
+Apply `feature-flag-fit` here; record outcome/reason in intake or ADR. On recommend,
+invoke `feature-flag-plan` for a scoped accept/decline and cards; offer defaults to
+no, skip stays silent, and prior declines suppress repeat suggestions. [AIWG guidance]
+
 
 <!-- AIWG-SKILL-CALLOUT -->
 > **Skill access pattern (post-kernel-pivot, 2026.5+)**

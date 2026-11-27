@@ -321,6 +321,15 @@
       "tier": "sdlc",
       "description": "Use AIWG CLI commands for all maintenance; pre-flight checks before long sessions; delegate to Steward agent",
       "issue": "#484"
+    },
+    {
+      "name": "feature-flag-fit",
+      "file": "feature-flag-fit.md",
+      "enforcement": "medium",
+      "tier": "sdlc",
+      "activation": "summary",
+      "description": "Advisory feature flag fit at intake, architecture, iteration planning and deployment",
+      "issue": "#4432"
     }
   ]
 }

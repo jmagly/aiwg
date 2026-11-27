@@ -24,6 +24,21 @@ Select a profile to set defaults for gates, controls, and process rigor.
   - Production: full traceability and assessments
   - Enterprise: strict gates and audits
 
+## Feature flags
+
+```yaml
+feature_flags:
+  provider: none
+  policy: suggest
+```
+
+Contract: `provider: none|openfeature|<addon-id>`, `policy: suggest|always|never`.
+`none` produces cards and code guidance only; `openfeature` uses neutral client
+concepts. An installed addon may supply provider skills. `always` requests planning
+for eligible work; `never` suppresses suggestions. Declines and never-flag cases
+still apply. These field names/values are shared with cicd-complete. [AIWG guidance]
+See `$AIWG_ROOT/docs/frameworks/sdlc-complete/feature-flags.md` for the provider seam and optional per-service cap.
+
 ## Overrides
 
 - Notes: `tailoring decisions`

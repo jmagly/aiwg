@@ -5,7 +5,17 @@ metadata:
   name: c2t-deployment-strategy
   labels: { domain: transition }
 spec:
-  description: Select and plan the production deployment strategy (big-bang, phased/canary, blue-green, or feature-toggle) from the deployment plan and user guidance, documenting the rationale and defining rollback criteria and procedures.
+  description: >-
+    Select and plan the production deployment strategy (big-bang, phased/canary, blue-green, or
+    feature-toggle) from the deployment plan and user guidance, documenting the rationale and
+    defining rollback criteria and procedures. Apply feature-flag-fit, record outcome/reason and
+    scoped accept/decline in intake or ADR; recommend invokes feature-flag-plan for optional
+    planning, offer defaults to no, skip stays silent and prior declines suppress repeats. This
+    advice never gates progress. [AIWG guidance] For accepted cards choose feature-toggle or
+    phased/canary progressive rollout as appropriate; document cohorts, metrics, rollback-by-flag
+    value/operator/trigger/verification and irreversible data limits. Route installed provider
+    skills for rollout using feature_flags.provider per $AIWG_ROOT/docs/frameworks/sdlc-complete/feature-flags.md; none or
+    missing addon produces cards and code guidance only. [AIWG guidance]
   version: "1.0.0"
   inputs:
     - { name: guidance, type: string, required: false }

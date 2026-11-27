@@ -104,6 +104,22 @@ Select the testing regime appropriate for project phase:
   - Quality/security: `0.0–1.0`
 - Known risks/unknowns: `bullets`
 
+## Release & Rollout
+
+- Deploy cadence / trunk-based unfinished work: `notes`
+- Production blast radius / risk tolerance: `notes / Low | Medium | High`
+- Progressive rollout / experiments needed: `yes/no; reason`
+- Migration risk / external dependency kill switch / entitlement gating: `notes`
+- LLM prompt/model runtime control needed: `yes/no`
+- Existing flag tool: `none | OpenFeature | vendor/addon-id`
+- Flag-fit outcome and reason: `recommend | offer | skip; reason`
+- Scope decision: `accepted | declined | pending; project/story/REQ scope`
+- Flag cards / ADR / removal tasks: `links or not applicable`
+
+Apply `feature-flag-fit`; declines suppress further suggestions for the scope.
+Flags are optional advice, never an intake gate. [AIWG guidance]
+See `$AIWG_ROOT/docs/frameworks/sdlc-complete/feature-flags.md`.
+
 ## Team & Operations
 
 - Team size/skills: `notes`

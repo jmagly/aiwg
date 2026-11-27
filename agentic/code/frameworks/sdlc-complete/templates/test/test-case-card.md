@@ -20,6 +20,7 @@ Specify an individual test that validates a single behavior, requirement, or sce
 - Status: draft | approved | automated | passing | failing | skipped | deprecated
 - Priority: P0 (critical) | P1 (high) | P2 (medium) | P3 (low)
 - Test Type: unit | integration | system | acceptance | performance | security | accessibility
+- Flag state: {card ID/key; current production | upcoming | default/fallback | optional all-on; value and evaluation context}
 - Automation Status: manual | automated | partially-automated | not-automatable
 - Dates: created {YYYY-MM-DD} / updated {YYYY-MM-DD} / last_executed {YYYY-MM-DD}
 - Related: REQ-{id}, US-{id}, UC-{id}, DES-{id}, DEF-{id}

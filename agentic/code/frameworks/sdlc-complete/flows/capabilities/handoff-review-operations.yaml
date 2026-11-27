@@ -5,7 +5,13 @@ metadata:
   name: handoff-review-operations
   labels: { domain: handoff }
 spec:
-  description: Validate operational-readiness criteria (deployment to staging, feature flags, monitoring/alerting/logging configured, backup and rollback tested, support plan and team training in place) with PASS/FAIL status per item.
+  description: >-
+    Validate operational-readiness criteria (deployment to staging, feature flags,
+    monitoring/alerting/logging configured, backup and rollback tested, support plan and team
+    training in place) with PASS/FAIL status per item. Read live feature-toggle cards; FAIL each
+    live flag missing an accountable owner or removal criteria; report ID and remediation. No flags
+    is not applicable, not failure. Use $AIWG_ROOT/agentic/code/frameworks/sdlc-complete/skills/feature-flag-plan/scripts/flag-plan.mjs readiness for
+    repeatable card-only checks. [AIWG guidance]
   version: "1.0.0"
   inputs: []
   outputs:
