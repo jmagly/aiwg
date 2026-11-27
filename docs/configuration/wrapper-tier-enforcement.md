@@ -11,7 +11,7 @@ of a running worker. Provider or account policy can substitute a model.
 | Factory | pinned catalog model | `reasoningEffort` |
 | Copilot, Cursor, OpenCode | pinned catalog model | not enforced |
 | OMP | inherited until exact role models are configured | `thinkingLevel` with a model pin |
-| Antigravity | inherited; wrapper mirrors do not project CLI flags | not enforced |
+| Antigravity | global-only, session CLI model selection; wrapper mirrors do not project CLI flags | not enforced |
 | OpenClaw | inherited; Markdown mirrors do not set `subagents.model` | not enforced |
 | OpenHuman | inherited/dynamic; user wrappers use hints, project wrappers omit model | not enforced |
 | Devin Desktop | inherited from the UI session | not enforced |

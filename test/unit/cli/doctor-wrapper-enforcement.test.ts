@@ -88,14 +88,18 @@ describe('offline doctor wrapper checks', () => {
     ['warp', '--model', 'effort: unavailable'],
     ['muse', '--model', '--reasoning-effort'],
     ['grokbot', 'model: unavailable', 'effort: unavailable'],
-  ])('names global native controls in %s remediation', async (provider, model, effort) => {
+  ])('reports global native controls once without speculative %s wrapper warnings', async (provider, model, effort) => {
     const checks = await collect([provider]);
-    const risks = checks.filter((c: any) => c.id);
-    expect(risks.length).toBeGreaterThan(0);
-    for (const risk of risks) {
-      expect(risk.message).toContain(model);
-      expect(risk.message).toContain(effort);
-    }
+    expect(checks.filter((c: any) => c.id)).toEqual([]);
+    const summary = checks.find((c: any) => !c.wrapper && c.status === 'info');
+    expect(summary.message).toContain(model);
+    expect(summary.message).toContain(effort);
+  });
+
+  it('still warns about an explicit unresolved global setting', async () => {
+    await put(path.join(root, '.hermes/config.yaml'), 'delegation:\n  model: auto\n');
+    expect((await collect(['hermes'])).filter((c: any) => c.id))
+      .toHaveLength(5);
   });
 
   it('flags shared flagship inheritance for each Hermes wrapper without standalone files', async () => {

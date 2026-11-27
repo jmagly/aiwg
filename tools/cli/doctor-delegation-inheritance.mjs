@@ -103,7 +103,11 @@ export async function collectDelegationInheritance({ projectDir, config, package
           if (state.effectiveModel && (override?.['model-override'] === state.effectiveModel
             || electedModel === state.effectiveModel)) artifact.election = 'user';
           const risks = wrapperModelRisks(provider, artifact, catalog);
-          if (!flagshipElected(artifact) && (!isConcreteWrapperModel(state.effectiveModel)
+          // Missing pins are actionable only on native artifact controls. Global/session-only
+          // providers are described by the wrapper support report, not N speculative warnings.
+          const nativeModelControl = controls.model
+            && (kind === 'agent' || capabilities.providers[provider]?.skill === 'native');
+          if (!flagshipElected(artifact) && ((nativeModelControl && !isConcreteWrapperModel(state.effectiveModel))
             || risks.includes('delegation.flagship-inheritance'))) {
             const id = 'delegation.flagship-inheritance';
             checks.push({ id, name: id, status: 'warn', provider, kind, artifact: name,

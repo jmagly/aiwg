@@ -1,7 +1,7 @@
 [
   { "name": "pinned", "provider": "codex", "wrapper": "model = \"gpt-6-luna\"\nmodel_reasoning_effort = \"low\"\n", "settings": "model = \"gpt-6-astra\"\n", "model": "pinned", "effort": "pinned", "risks": [] },
   { "name": "inherited", "provider": "codex", "wrapper": "name = \"aiwg-model-coding-worker\"\n", "settings": "model = \"gpt-6-luna\"\n", "model": "inherited", "effort": "inherited", "risks": [] },
-  { "name": "global-only", "provider": "warp", "wrapper": "---\nmodel: gpt-6-luna\neffort: low\n---\n", "settings": "", "model": "global-only", "effort": "global-only", "risks": ["delegation.unresolved-model"] },
+  { "name": "global-only", "provider": "warp", "wrapper": "---\nmodel: gpt-6-luna\neffort: low\n---\n", "settings": "", "model": "global-only", "effort": "global-only", "risks": [] },
   { "name": "unelected flagship", "provider": "codex", "wrapper": "name = \"aiwg-model-coding-worker\"\n", "settings": "model = \"gpt-6-astra\"\n", "model": "inherited", "effort": "inherited", "risks": ["delegation.flagship-inheritance"] },
   { "name": "unelected premium", "provider": "codex", "wrapper": "name = \"aiwg-model-coding-worker\"\n", "settings": "model = \"gpt-6.1-sol\"\n", "model": "inherited", "effort": "inherited", "risks": ["delegation.flagship-inheritance"] },
   { "name": "placeholder", "provider": "codex", "wrapper": "model = \"configured/coding\"\n", "settings": "model = \"gpt-6-luna\"\n", "model": "inherited", "effort": "inherited", "risks": ["delegation.unresolved-model"] }
