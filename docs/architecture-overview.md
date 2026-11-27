@@ -12,7 +12,7 @@ Start with the part that answers your question:
 - [CLI boundaries and building blocks](architecture/cli/index.md).
 - [What changes after `aiwg use`](architecture/cli/flow-use.md).
 - [Provider layouts, context files and optional hooks](architecture/cli/provider-deployment.md).
-- [Discovery and kernel skills](discovery-and-kernel-skills.md). The canonical inventory contains 26 kernel skills for routing, quick references, and self-maintenance.
+- [Discovery and kernel skills](discovery-and-kernel-skills.md). The canonical inventory contains 27 kernel skills for routing, quick references, and self-maintenance.
 - [Index storage and manifests](architecture/index-and-manifest-loading.md).
 - [Adding project capabilities](architecture/cli/extending-cli.md).
 

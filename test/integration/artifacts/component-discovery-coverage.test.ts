@@ -39,6 +39,7 @@ describe('shipped component discovery coverage', () => {
       invalid: 0,
       missingRuntimeAssets: 0,
     });
+    expect(report.components.map(component => component.component)).toContain('launchdarkly');
 
     for (const component of report.components) {
       if (component.status === 'exempt') continue;

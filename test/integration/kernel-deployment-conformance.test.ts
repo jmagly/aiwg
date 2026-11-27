@@ -28,7 +28,7 @@ const PROVIDERS = [
   { id: 'factory', root: (project: string) => join(project, '.factory/skills'), standardRoot: (project: string) => join(project, '.factory/.aiwg/skills') },
   { id: 'opencode', root: (project: string) => join(project, '.opencode/skill'), standardRoot: (project: string) => join(project, '.opencode/.aiwg/skill') },
   { id: 'warp', root: (project: string) => join(project, '.warp/skills'), standardRoot: (project: string) => join(project, '.warp/.aiwg/skills') },
-  { id: 'devin', root: (project: string) => join(project, '.windsurf/skills'), standardRoot: (project: string) => join(project, '.windsurf/.aiwg/skills') },
+  { id: 'devin', root: (project: string) => join(project, '.devin/skills'), standardRoot: (project: string) => join(project, '.devin/.aiwg/skills') },
   { id: 'grokbot', root: (_project: string, home: string) => join(home, 'configured-grokbot-skills'), standardRoot: (_project: string, home: string) => join(home, 'configured-grokbot-skills/.aiwg/skills') },
   { id: 'hermes', root: (_project: string, home: string) => join(home, '.hermes/skills'), standardRoot: (_project: string, home: string) => join(home, '.hermes/skills/.aiwg') },
   { id: 'openclaw', root: (_project: string, home: string) => join(home, '.openclaw/skills/aiwg'), standardRoot: (_project: string, home: string) => join(home, '.openclaw/.aiwg/skills') },
@@ -77,6 +77,17 @@ function canonicalKernelNames(): string[] {
 }
 
 const EXPECTED_KERNEL = canonicalKernelNames();
+// Keep expected names independent of the deployer while honoring Claude's namespace.
+const claudeBuiltins = JSON.parse(readFileSync(join(REPO_ROOT, 'tools/agents/providers/claude-builtins.json'), 'utf8'));
+const CLAUDE_SKILL_DEPLOY_NAMES: Record<string, string> = {
+  steward: 'aiwg-steward-routing',
+  ...claudeBuiltins.skillDeployNames,
+};
+function kernelNamesFor(provider: string): string[] {
+  return EXPECTED_KERNEL.map(name => provider === 'claude'
+    ? CLAUDE_SKILL_DEPLOY_NAMES[name] ?? name : name).sort();
+}
+
 const CODEX_LISTING_CHAR_CAP = 8_000;
 const DEPLOY_CHILD_TIMEOUT_MS = 60_000;
 const SINGLE_DEPLOY_TEST_TIMEOUT_MS = DEPLOY_CHILD_TIMEOUT_MS + 15_000;
@@ -143,7 +154,8 @@ afterAll(() => {
 
 describe('kernel deployment conformance', () => {
   it('has a non-empty, unique canonical kernel inventory', () => {
-    expect(EXPECTED_KERNEL.length).toBe(26);
+    expect(EXPECTED_KERNEL.length).toBe(27);
+    expect(EXPECTED_KERNEL).toContain('cicd-quickref');
     expect(new Set(EXPECTED_KERNEL).size).toBe(EXPECTED_KERNEL.length);
   });
 
@@ -168,7 +180,7 @@ describe('kernel deployment conformance', () => {
           .map(dir => dir.split('/').at(-1)!)
           .sort();
 
-        expect(deployed).toEqual(EXPECTED_KERNEL);
+        expect(deployed).toEqual(kernelNamesFor(provider.id));
         expect(existsSync(join(deployedRoot, 'harness-memory-maintenance', 'SKILL.md'))).toBe(false);
         expect(existsSync(join(provider.standardRoot(project, home), 'harness-memory-maintenance', 'SKILL.md'))).toBe(false);
         for (const name of deployed) {
@@ -193,7 +205,7 @@ describe('kernel deployment conformance', () => {
         const fullRoot = provider.root(fullDeploy.project, fullDeploy.home);
         const fullStandardRoot = provider.standardRoot(fullDeploy.project, fullDeploy.home);
         expect(existsSync(join(fullStandardRoot, 'voice-apply', 'SKILL.md'))).toBe(true);
-        for (const kernelName of EXPECTED_KERNEL) {
+        for (const kernelName of kernelNamesFor(provider.id)) {
           expect(
             existsSync(join(fullRoot, kernelName, 'SKILL.md')),
             `${provider.id}/${kernelName}`,
@@ -219,8 +231,8 @@ describe('kernel deployment conformance', () => {
     expect(existsSync(stale)).toBe(false);
     expect(existsSync(operator)).toBe(true);
     expect(skillDirs(root).map(dir => dir.split('/').at(-1)!).filter(name =>
-      EXPECTED_KERNEL.includes(name)
-    ).sort()).toEqual(EXPECTED_KERNEL);
+      kernelNamesFor('claude').includes(name)
+    ).sort()).toEqual(kernelNamesFor('claude'));
   }, DOUBLE_DEPLOY_TEST_TIMEOUT_MS);
 
   for (const provider of PROVIDERS) {
@@ -240,8 +252,8 @@ describe('kernel deployment conformance', () => {
       expect(existsSync(join(repairedStandardRoot, 'voice-apply'))).toBe(false);
       expect(existsSync(operator)).toBe(true);
       expect(skillDirs(repairedKernelRoot).map(dir => dir.split('/').at(-1)!).filter(name =>
-        EXPECTED_KERNEL.includes(name)
-      ).sort()).toEqual(EXPECTED_KERNEL);
+        kernelNamesFor(provider.id).includes(name)
+      ).sort()).toEqual(kernelNamesFor(provider.id));
 
       if (provider.id === 'codex') {
         const stats = codexListingStats(repairedKernelRoot);
@@ -300,11 +312,11 @@ describe('kernel deployment conformance', () => {
   }, DOUBLE_DEPLOY_TEST_TIMEOUT_MS);
 
   it('matches the command mirror policy for every deployable provider', () => {
-    const commandProviders = ['factory', 'opencode', 'warp', 'devin', 'copilot', 'codex', 'openclaw'];
+    const commandProviders = ['factory', 'opencode', 'warp', 'copilot', 'codex', 'openclaw'];
     // #236: muse deploys skills natively (no command translation; writers land
     // agents/commands/rules as indexed-only), so it mirrors the native-only
     // peers (hermes/openhuman/grokbot).
-    const nativeOnlyProviders = ['claude', 'cursor', 'grokbot', 'hermes', 'openhuman', 'pi', 'muse'];
+    const nativeOnlyProviders = ['claude', 'cursor', 'devin', 'grokbot', 'hermes', 'openhuman', 'pi', 'muse'];
     expect(PROVIDERS.map(provider => provider.id).sort()).toEqual(
       [...commandProviders, ...nativeOnlyProviders].sort(),
     );

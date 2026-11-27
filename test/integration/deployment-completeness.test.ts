@@ -331,12 +331,12 @@ const PROVIDER_EXPECTATIONS: Record<string, ProviderExpectation> = {
   },
   devin: {
     name: 'devin',
-    requiredDirs: ['.windsurf/.aiwg/skills', '.windsurf/workflows', '.windsurf/rules'],
+    requiredDirs: ['.devin/skills', '.devin/.aiwg/skills', '.devin/rules'],
     rootFiles: ['AGENTS.md'],
-    agentDir: '.windsurf/agents',
-    skillDir: '.windsurf/.aiwg/skills',
-    commandDir: '.windsurf/workflows',
-    ruleDir: '.windsurf/rules',
+    agentDir: '.devin/agents',
+    skillDir: '.devin/.aiwg/skills',
+    commandDir: '.devin/skills', // Command content is delivered as native skills.
+    ruleDir: '.devin/rules',
     aggregatedAgents: true,
     aggregatedAgentFile: 'AGENTS.md',
     usesHomePaths: false,
@@ -429,9 +429,10 @@ describe.skipIf(!GIT_INIT_AVAILABLE)('Deployment Completeness', () => {
       expect(totalSkillFiles, `${providerName}: should deploy skills`).toBeGreaterThan(0);
     });
 
-    it('mirrors operator skills to the provider command surface', async () => {
-      const commandExt = prov.commandFileExt ?? '.md';
-      const commandsPath = path.join(projectDir, prov.commandDir);
+    it('delivers operator skills on the provider invocation surface', async () => {
+      // Devin reads shared skills natively; it has no command-file surface.
+      const commandExt = providerName === 'devin' ? '/SKILL.md' : prov.commandFileExt ?? '.md';
+      const commandsPath = path.join(projectDir, providerName === 'devin' ? prov.crossAgentSkillsDir! : prov.commandDir);
       const expected = [
         `aiwg-setup-project${commandExt}`,
         `aiwg-update-claude${commandExt}`,
@@ -440,6 +441,10 @@ describe.skipIf(!GIT_INIT_AVAILABLE)('Deployment Completeness', () => {
 
       for (const file of expected) {
         expect(await pathExists(path.join(commandsPath, file)), `${providerName}: missing mirrored command ${file}`).toBe(true);
+      }
+      if (providerName === 'devin') {
+        expect((await fs.readdir(path.join(projectDir, prov.commandDir))).filter(file => file.endsWith('.md'))).toEqual([]);
+        expect(await pathExists(path.join(projectDir, '.windsurf/workflows'))).toBe(false);
       }
     });
 
