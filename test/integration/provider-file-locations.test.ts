@@ -18,7 +18,7 @@ import { mkdtempSync } from '../helpers/temp-dir.js';
  * - Cursor:   .cursor/agents/, .cursor/commands/, .cursor/skills/, .cursor/rules/
  * - OpenCode: .opencode/skill/, .opencode/rule/ (agents/commands not file-based)
  * - Warp:     .warp/skills/ (native) + WARP.md (aggregated agents/commands/rules)
- * - Devin Desktop: .windsurf/workflows/, .windsurf/skills/, .windsurf/rules/, .agents/skills/ + AGENTS.md (aggregated agents), .windsurfrules (deprecated stub)
+ * - Devin Desktop: .devin/agents/, .devin/skills/, .devin/.aiwg/skills/, .devin/rules/, .agents/skills/ + AGENTS.md, .windsurfrules (deprecated stub)
  */
 
 import { describe, it, expect, beforeAll, beforeEach, afterAll, afterEach } from 'vitest';
@@ -185,7 +185,7 @@ describe.skipIf(!GIT_INIT_AVAILABLE)('Provider File Locations', () => {
       cursor: ['.cursor'],
       opencode: ['.opencode', '.agents'], // PUW-012 #1113
       warp: ['.warp', '.agents'],  // Discrete files + WARP.md aggregated + .agents/skills/ cross-agent compat (#771)
-      devin: ['.windsurf', '.windsurfrules', '.agents'],  // .agents/skills/ cross-agent compat (#576)
+      devin: ['.devin', '.windsurfrules', '.agents'],  // .agents/skills/ cross-agent compat (#576)
     };
 
     it.each(Object.entries(providerDirs))('%s creates only its own directories', async (provider, expectedDirs) => {

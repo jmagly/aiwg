@@ -21,7 +21,7 @@ AIWG ships **480+ skills** across its frameworks. Agentic platforms (Claude Code
 
 Starting in 2026.5.0, AIWG splits its skill surface into two tiers, with discovery + on-demand fetch closing the loop:
 
-- **Kernel skills** — always-loaded into the platform's flat skill listing. 26 kernel skills total: 10 quickrefs (one per installed framework/addon family + utils), the `aiwg-language-map` for addons + extensions, the `steward-quickref` feature-domain routing anchor (expansion/persona/project, #1623), and 14 self-maintenance ops, including the plan-first context firewall.
+- **Kernel skills** — always-loaded into the platform's flat skill listing. 27 kernel skills total: 10 quickrefs (one per installed framework/addon family + utils, including `cicd-quickref`), the `aiwg-language-map` for addons + extensions, the `steward-quickref` feature-domain routing anchor (expansion/persona/project, #1623), and 15 operational skills, including dataset intelligence and the plan-first context firewall.
 - **Standard skills** — the other ~460 skills. Stay at `$AIWG_ROOT` and are **not copied per-project** by default (#1217). Reachable via `aiwg discover` (find) and `aiwg show` (fetch).
 - **Project quickref** — an optional, generated kernel skill synthesized from
   discovered project-local bundles. Operators can curate managed discovery with

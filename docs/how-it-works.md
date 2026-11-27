@@ -122,4 +122,4 @@ The [research reading list](overview/reading-list.md) supplies design background
 other systems are not AIWG evaluations. For a practical adoption check, use the [executive brief's
 pilot](overview/executive-brief.md#a-practical-pilot).
 
-The canonical inventory contains 26 kernel skills for routing, quick references, and self-maintenance.
+The canonical inventory contains 27 kernel skills for routing, quick references, and self-maintenance.
