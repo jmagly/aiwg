@@ -62,6 +62,9 @@ export async function collectWrapperEnforcement({ projectDir, config, packageRoo
         checks.push({ name: 'Wrapper enforcement', status: 'info', provider, wrapper: wrapper.name,
           file: file ? path.relative(projectDir, file) : null, modelEnforcement: state.model, effortEnforcement: state.effort,
           message: `${provider} ${wrapper.name}: ${wrapperEnforcementReport(provider, artifact)}` });
+        // Without native wrapper controls, an unobserved session model is a support
+        // limitation (reported above), not an unresolved pin on each wrapper.
+        if (!controls.model && state.effectiveModel === undefined) continue;
         for (const id of wrapperModelRisks(provider, artifact)) {
           const remediation = `aiwg models resolve --agent ${wrapper.name} --provider ${provider} --tier standard`;
           const reason = id === 'delegation.flagship-inheritance'

@@ -6,7 +6,7 @@
   "factory": { "state": "pinned", "model": "model", "effort": "reasoningEffort" },
   "opencode": { "state": "pinned", "model": "model" },
   "omp": { "state": "inherited", "model": "model", "effort": "thinkingLevel" },
-  "antigravity": { "state": "inherited" },
+  "antigravity": { "state": "global-only" },
   "grok-build": { "state": "inherited" },
   "openclaw": { "state": "inherited" },
   "openhuman": { "state": "inherited" },

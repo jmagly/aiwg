@@ -15,12 +15,13 @@ const NATIVE_CONTROLS: Record<string, WrapperControls> = {
   opencode: { model: 'model' }, omp: { model: 'model', effort: 'thinkingLevel' },
 };
 export const GLOBAL_WRAPPER_SETTINGS: Record<string, string> = {
+  antigravity: 'Antigravity agy --model selects the session model',
   hermes: 'Hermes config.yaml: delegation.model / delegation.effort',
   warp: 'Warp agent run --model <MODEL_ID> (run/profile-wide); effort: unavailable',
   muse: 'Muse --model / --reasoning-effort; $XDG_CONFIG_HOME/muse/settings.json model supplies the model fallback',
   grokbot: 'Grok Bot model: unavailable; effort: unavailable (no verified native setting in the provider catalog)',
 };
-const GLOBAL_ONLY = new Set(['warp', 'hermes', 'grokbot', 'muse']);
+const GLOBAL_ONLY = new Set(['antigravity', 'warp', 'hermes', 'grokbot', 'muse']);
 
 export function wrapperControls(provider: string): WrapperControls {
   return NATIVE_CONTROLS[provider] ?? {};
@@ -119,7 +120,7 @@ export function wrapperEnforcementReport(provider: string, artifact?: DeployedWr
     'grok-build': 'Grok Build 1.0.77: frontmatter model is ignored; agents inherit the session model. Select worker models with CLI -m; role/tier intent is informational.',
     openclaw: 'Markdown wrapper mirrors do not set native subagents.model or per-spawn overrides.',
     openhuman: 'User harness wrappers carry semantic model hints; project wrappers omit model. Neither is an exact pin.',
-    antigravity: 'Wrapper mirrors do not project native CLI model/effort flags.',
+    antigravity: 'Wrapper mirrors do not select a session model or effort; per-skill model controls are unsupported. An unknown session model does not establish per-artifact flagship inheritance.',
     devin: 'Portable wrapper model selection is unsupported; the main UI session controls selection.',
     pi: 'Agents are reference skills; CLI model/thinking flags are separate from deployed wrappers.',
     'deepseek-harness': 'Agent references do not pin the configured Harness route.',
