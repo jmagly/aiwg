@@ -126,6 +126,17 @@ describe('policy-boundary-aware issue composition (#2072)', () => {
     } finally { warn.mockRestore(); }
   });
 
+  it('honors a draft template and lets an explicit option override it and feature inference', () => {
+    const read = kind => readFileSync(new URL(`../../../agentic/code/addons/aiwg-utils/templates/issues/${kind}.md`, import.meta.url), 'utf8');
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      planIssueDraft({ title: 'Plain title', body: read('feature-request'), template: 'feature-request' });
+      planIssueDraft({ title: 'feat(issues): example', labels: ['enhancement'], template: 'feature-request', body: read('bug-report') },
+        { template: 'bug-report' });
+      expect(warn).not.toHaveBeenCalled();
+    } finally { warn.mockRestore(); }
+  });
+
   it('keeps skill CLI warnings on stderr and JSON output usable without stdin', () => {
     const root = mkdtempSync(path.join(os.tmpdir(), 'aiwg-template-compose-'));
     const repo = fileURLToPath(new URL('../../../', import.meta.url));

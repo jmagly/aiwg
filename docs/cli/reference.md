@@ -1597,8 +1597,8 @@ tracker and its verified actor; `--provider local` selects local storage.
 
 ```bash
 aiwg issue init [--prefix KEY] [--padding N]
-aiwg issue plan --title "..." [--body "..."|--body-file path] [--json]
-aiwg issues create|new --title "..." [--body-file path] [--authorize-policy DIGEST]
+aiwg issue plan --title "..." [--body "..."|--body-file path] [--template <kind|path>] [--json]
+aiwg issues create|new --title "..." [--body-file path] [--template <kind|path>] [--authorize-policy DIGEST]
   [--label bug,docs --label triage] [--assignee alice,bob --assignee carol] [--milestone <title|id>]
 aiwg issues edit <number> [--milestone <title|id|none>]
   [--add-label bug,docs --add-label triage] [--remove-label stale --remove-label duplicate]
@@ -1614,6 +1614,13 @@ in order with duplicates removed. Other flags may only appear once. `plan` accep
 the same labels, assignees, and milestone as create; include them when reviewing
 a digest for authorization. Milestones accept an exact open or closed title,
 a Gitea milestone id, or a GitHub milestone number. Unknown titles fail before creation.
+
+`plan`, `new`, and `create` accept `--template bug-report|feature-request|tester-report|imported-report|path`.
+An explicit template overrides inference; unknown names or unreadable paths fail clearly.
+Without it, feature type, a `feat(...)`, `feat:` or breaking `feat!:` title, or an `enhancement`
+label selects `feature-request`; other issues use `bug-report`. Missing required sections
+produce advisory warnings. Comments (including close reasons) skip issue-template checks
+and still pass through the composition policy.
 
 Create/new and comment evaluate the same composition policy used by `issue plan`
 before posting. Review a comment with `aiwg issue plan --title comment --body-file path`.

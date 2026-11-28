@@ -4,7 +4,7 @@ import type { LiveIssueClient } from './live.js';
 import { csvFlag, stringFlag, type ParsedArgs } from './args.js';
 import type { IssueCompositionModule } from './cli.js';
 
-export type IssueComposition = (draft?: Record<string, unknown>) => Promise<{
+export type IssueComposition = (draft?: Record<string, unknown>, options?: { checkTemplate?: boolean }) => Promise<{
   plan: Record<string, any>; composer: IssueCompositionModule;
 }>;
 

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -168,14 +169,28 @@ function segmentRejectedDraft(draft, config, originDigest) {
   });
 }
 
+// Select the issue template independently of the policy assessment and plan digest.
+function issueTemplatePath(draft, options) {
+  const feature = draft.type === 'feature' || /^feat(?:\(|!?:)/i.test(draft.title.trim())
+    || (draft.labels ?? []).some(label => String(label).trim().toLowerCase() === 'enhancement');
+  const template = options.template ?? draft.template ?? (feature ? 'feature-request' : 'bug-report');
+  const kinds = ['bug-report', 'feature-request', 'tester-report', 'imported-report'];
+  if (kinds.includes(template)) return `agentic/code/addons/aiwg-utils/templates/issues/${template}.md`;
+  if (typeof template !== 'string' || !template.trim()) throw new Error('Issue template requires a non-empty name or path');
+  const templatePath = path.resolve(options.cwd ?? process.cwd(), template);
+  try {
+    readFileSync(templatePath, 'utf8');
+  } catch {
+    throw new Error(`Unknown or unreadable issue template '${template}'; expected ${kinds.join(', ')}, or a readable file path`);
+  }
+  return templatePath;
+}
+
 export function planIssueDraft(draft, options = {}) {
   if (!draft || typeof draft.title !== 'string' || !draft.title.trim()) {
     throw new Error('Issue draft requires a non-empty title');
   }
-  const template = options.template ?? draft.template ?? (draft.type === 'feature' ? 'feature-request' : 'bug-report');
-  const templatePath = ['bug-report', 'feature-request', 'tester-report', 'imported-report'].includes(template)
-    ? `agentic/code/addons/aiwg-utils/templates/issues/${template}.md` : path.resolve(template);
-  warnTemplateSections(String(draft.body ?? ''), templatePath);
+  if (options.checkTemplate !== false) warnTemplateSections(String(draft.body ?? ''), issueTemplatePath(draft, options));
   const normalized = {
     title: draft.title.trim(),
     body: String(draft.body ?? '').trim(),

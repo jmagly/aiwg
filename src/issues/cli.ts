@@ -36,7 +36,7 @@ export async function main(args: string[], cwd = process.cwd()): Promise<void> {
   if (parsed.flags.has('backend')) {
     throw new Error('aiwg issue commands use the local issue provider; --backend is not supported');
   }
-  if (await externalIssues(parsed, cwd, async (draft) => ({ plan: await buildIssuePlan(parsed, cwd, draft), composer: await loadIssueComposer() }))) return;
+  if (await externalIssues(parsed, cwd, async (draft, options) => ({ plan: await buildIssuePlan(parsed, cwd, draft, options), composer: await loadIssueComposer() }))) return;
   if (subcommand === 'edit') throw new Error('aiwg issues edit requires a configured external tracker; local issue edits are not supported');
   const provider = stringFlag(parsed, 'provider');
   if (provider && provider !== 'local') {
@@ -112,7 +112,7 @@ async function loadIssueComposer(): Promise<IssueCompositionModule> {
   return import(pathToFileURL(modulePath).href) as Promise<IssueCompositionModule>;
 }
 
-async function buildIssuePlan(args: ParsedArgs, cwd: string, draft: Record<string, unknown> = {}): Promise<Record<string, any>> {
+async function buildIssuePlan(args: ParsedArgs, cwd: string, draft: Record<string, unknown> = {}, options: { checkTemplate?: boolean } = {}): Promise<Record<string, any>> {
   const title = draft.title ?? stringFlag(args, 'title') ?? args.positional[1];
   if (!title) throw new Error('Usage: aiwg issue plan --title <title> [--body <text>|--body-file <path>]');
   const body = typeof draft.body === 'string' ? draft.body : await readBody(args);
@@ -128,7 +128,7 @@ async function buildIssuePlan(args: ParsedArgs, cwd: string, draft: Record<strin
     author: stringFlag(args, 'author'),
     milestone: stringFlag(args, 'milestone'),
     ...draft,
-  }, { threatAssessment: config?.security?.threatAssessment });
+  }, { threatAssessment: config?.security?.threatAssessment, template: stringFlag(args, 'template'), cwd, ...options });
 }
 
 async function handlePlan(args: ParsedArgs, cwd: string): Promise<void> {
@@ -324,7 +324,7 @@ async function handleComment(issues: LocalIssueProviderCore, rest: string[], arg
   const id = rest[0];
   if (!id) throw new Error('Usage: aiwg issue comment <id> --body <text>|--body-file <path>');
   const body = await readBody(args);
-  const plan = await buildIssuePlan(args, args.cwd!, { title: 'comment', body });
+  const plan = await buildIssuePlan(args, args.cwd!, { title: 'comment', body }, { checkTemplate: false });
   requireIssuePlanAuthorization(plan, stringFlag(args, 'authorize-policy'), true);
   const event = await issues.commentIssue(id, body, { author: stringFlag(args, 'author') });
   printJsonOrText(args, event, `Commented on ${id}`);
@@ -396,14 +396,14 @@ function printJsonOrText(args: ParsedArgs, value: unknown, text: string): void {
 
 export function printUsage(): void {
   console.log(`Usage:
-  aiwg issues create|new --title "..." --body-file path [--label a,b --label c] [--assignee a,b --assignee c] [--milestone <title|id>] [--authorize-policy DIGEST]
+  aiwg issues create|new --title "..." --body-file path [--template <kind|path>] [--label a,b --label c] [--assignee a,b --assignee c] [--milestone <title|id>] [--authorize-policy DIGEST]
   aiwg issues edit <number> [--milestone <title|id|none>] [--add-label a,b] [--remove-label c]
     [--title "..."] [--body-file path] [--authorize-policy DIGEST]  (external tracker only)
   aiwg issues comment|close <number> [--body-file path] [--authorize-policy DIGEST]  (configured external tracker)
   Use --provider local for local writes when an external tracker is configured.
   aiwg issue init [--prefix KEY] [--padding N]
-  aiwg issue plan --title "..." [--body "..."] [--body-file path] [--label a,b --label c] [--assignee a,b --assignee c] [--milestone <title|id>] [--json]
-  aiwg issue new --title "..." [--body "..."] [--body-file path] [--authorize-policy DIGEST]
+  aiwg issue plan --title "..." [--body "..."] [--body-file path] [--template <kind|path>] [--label a,b --label c] [--assignee a,b --assignee c] [--milestone <title|id>] [--json]
+  aiwg issue new --title "..." [--body "..."] [--body-file path] [--template <kind|path>] [--authorize-policy DIGEST]
   aiwg issues list --provider local [--status open] [--label bug] [--search text] [--limit 20] [--json]
   aiwg issue show <KEY> [--comments last:10|all]
   aiwg issue import --from gitea|github --snapshot-file path [--json]
@@ -426,6 +426,9 @@ Notes:
     values combine in order without duplicates. Other flags may only be specified once.
   Milestones resolve open and closed titles, or accept Gitea ids / GitHub numbers.
   Edit accepts issue or PR numbers; --milestone none clears the milestone.
+  Templates: bug-report, feature-request, tester-report, imported-report, or a file path.
+  Without --template, feature type, feat titles or an enhancement label select feature-request;
+    other issues use bug-report. Comments skip issue-template checks.
   --authorize-policy DIGEST authorizes a reviewed create/new or comment plan; no policy prompts.
   For comments, review aiwg issue plan --title comment --body-file path.
 

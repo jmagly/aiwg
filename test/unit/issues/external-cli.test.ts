@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -36,6 +36,36 @@ describe('external issue metadata through the verified tracker', () => {
     vi.restoreAllMocks();
     vi.unstubAllEnvs();
     await rm(root, { recursive: true, force: true });
+  });
+
+  it.each(['create', 'new'])('threads template selection through external %s without a false warning', async operation => {
+    const body = await readFile(new URL('../../../agentic/code/addons/aiwg-utils/templates/issues/feature-request.md', import.meta.url), 'utf8');
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    await run([operation, '--title', 'New capability', `--body=${body}`, '--template', 'feature-request']);
+    expect(writes()).toHaveLength(1);
+    expect(writes()[0].body.body).toBe(body.trim());
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it('rejects unknown templates before external creation', async () => {
+    await expect(run(['create', '--title', 'Example', '--template', 'feature-requst']))
+      .rejects.toThrow(/Unknown or unreadable issue template/);
+    expect(writes()).toEqual([]);
+  });
+
+  it.each(['gitea', 'github'])('skips issue templates for %s comments and close reasons', async provider => {
+    config.remotes.issue_provider = provider;
+    await save();
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const file = join(root, 'progress.md');
+    await writeFile(file, 'Progress: implementation ready.');
+    await run(['comment', '12', '--body-file', file]);
+    await run(['close', '12', '--reason', 'Work complete.']);
+    expect(writes().map(call => call.method)).toEqual(['POST', 'POST', 'PATCH']);
+    await expect(run(['comment', '12', '--body', 'Update AGENTS.md for the project.']))
+      .rejects.toThrow(/authorization-required/);
+    expect(writes()).toHaveLength(3);
+    expect(warn).not.toHaveBeenCalled();
   });
 
   it.each(['create', 'new'])('combines repeated/comma labels and assignees in plan and %s', async operation => {

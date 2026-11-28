@@ -56,7 +56,7 @@ export async function externalIssues(args: ExternalArgs, cwd: string,
     const body = value('body-file') ? await readFile(value('body-file')!, 'utf8') : value('body') ?? value('reason');
     if (operation === 'comment' && !body) throw new Error('comment requires --body or --body-file');
     if (body) {
-      const { plan } = await composition({ title: 'comment', body });
+      const { plan } = await composition({ title: 'comment', body }, { checkTemplate: false });
       requireIssuePlanAuthorization(plan, value('authorize-policy'), true);
     }
     if (body) result = await client.repositoryRequest('POST', `/issues/${number}/comments`, { body });
