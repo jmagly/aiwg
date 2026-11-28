@@ -202,6 +202,7 @@
     "references/REF-003-agentic-development-antipatterns",
     "references/REF-066-mcp-specification-2025",
     "releases",
+    "releases/v2026.11.10-announcement",
     "releases/v2026.11.9-announcement",
     "releases/v2026.11.8-announcement",
     "releases/v2026.11.7-announcement",
@@ -1752,6 +1753,13 @@
       "title": "Releases",
       "summary": "Release notes and changelog",
       "collapsed": true
+    },
+    {
+      "id": "releases/v2026.11.10-announcement",
+      "title": "v2026.11.10 — Plan Pipelines and Roll Out Features",
+      "summary": "Opt-in CI/CD pipeline design and maintenance, optional SDLC feature-flag planning and a LaunchDarkly addon, plus tool setup, issue, PR Steward and worker selection updates.",
+      "file": "releases/v2026.11.10-announcement.md",
+      "parent": "releases"
     },
     {
       "id": "releases/v2026.11.9-announcement",

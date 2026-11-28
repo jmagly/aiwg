@@ -1,6 +1,6 @@
 {
   "name": "cicd-complete",
-  "version": "2026.11.9",
+  "version": "2026.11.10",
   "description": "End-user CI/CD framework: design, build, operate and evolve your own CI/CD pipelines with agents, skills, templates and extensible YAML pipelines",
   "author": {
     "name": "AIWG Contributors",
