@@ -64,7 +64,7 @@ describe('OpenClaw project startup context (#4264)', () => {
     expect(f.read(f.target, 'SOUL.md')).toContain('Use aiwg discover.');
     const original = f.read(f.target, 'AGENTS.md');
     // Simulate an older bootstrap and a newer identity template.
-    fs.writeFileSync(path.join(f.target, 'AGENTS.md'), original.replace('On a new task, first run discovery for the request', 'Old discovery instruction'));
+    fs.writeFileSync(path.join(f.target, 'AGENTS.md'), original.replace('before any other tool call or answer', 'Old discovery instruction'));
     fs.writeFileSync(path.join(f.templates, 'SOUL.md.aiwg-template'), '<!-- AIWG Steward Identity -->\nUpdated: use aiwg discover.\n');
     f.deploy();
     const agents = f.read(f.target, 'AGENTS.md'), soul = f.read(f.target, 'SOUL.md');

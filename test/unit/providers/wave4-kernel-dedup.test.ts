@@ -70,6 +70,22 @@ describe('Wave 4 compact kernel and startup deduplication (#2944)', () => {
     }
   });
 
+  it.each(['without running any tools', "don't run anything", 'answer from what you already have'])(
+    'suspends discovery only for an explicit current-turn prohibition: %s (#4514)', prompt => {
+      for (const suffix of ['', '-guidance']) {
+        const text = read(path.join(source, 'rules', `skill-discovery${suffix}.md`));
+        expect(text).toContain(prompt);
+        expect(text).toContain('current turn');
+        expect(text).toContain('for that turn');
+        expect(text).toContain('Answer from loaded context');
+        expect(text).toContain('I did not run discovery because you asked me not to use tools.');
+        expect(text).toContain('even when asked to decline without checking');
+      }
+      const guidance = read(path.join(source, 'rules/skill-discovery-guidance.md'));
+      expect(guidance).toContain('"if not, just say so" still requires discovery');
+      expect(guidance).toContain('Do not carry the exception into later turns');
+    });
+
   it('regenerated CLAUDE.md, AIWG.md and quickref contain no duplicated rule text', async () => {
     const project = path.join(root, 'regenerate');
     fs.mkdirSync(path.join(project, '.aiwg'), { recursive: true });

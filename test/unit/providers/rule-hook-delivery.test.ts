@@ -11,6 +11,7 @@ import { inlineStartup, projectStartup } from '../../../tools/agents/providers/r
 const repo = path.resolve(__dirname, '../../..');
 const roots: string[] = [];
 const read = (file: string) => fs.readFileSync(file, 'utf8');
+const noToolsException = ' Except no-tools.';
 const factoryInstructions = " On every new request, your first tool call must be the shell command `aiwg discover --stdin <<'AIWG_REQUEST'` "
   + "with the request text on the next lines and `AIWG_REQUEST` on the last line; never put request text in quotes on a command line. Answer from its result. "
   + "Answering or declining without running it violates the skill-discovery rule. Use the `aiwg` CLI, not droid's built-in Skill tool. "
@@ -64,7 +65,7 @@ describe('per-harness rule hooks (#3740)', () => {
         await generate({ projectPath: target, provider: 'codex', sections: [], detectExistingFiles: true });
       }
       const content = read(path.join(target, 'AGENTS.md'));
-      expect(content).toContain('On a new task, first run discovery for the request');
+      expect(content).toMatch(/(?:On a new task, first run discovery for the request|New task: run)/);
       expect(content).toContain('before any other tool call or answer');
       expect(content.indexOf('aiwg discover --stdin')).toBeLessThan(content.indexOf('[WORKSPACE.md]'));
       expect(content).toContain('After discovery, read and follow [WORKSPACE.md]');
@@ -97,7 +98,8 @@ describe('per-harness rule hooks (#3740)', () => {
       const hook = read(file).split(`<!-- AIWG:rule-hook-${provider}:start -->\n`)[1].split(`\n<!-- AIWG:rule-hook-${provider}:end -->`)[0];
       if (['codex', 'muse', 'antigravity'].includes(provider)) assertRuleStartupHook(read(file), provider, location);
       else if (['copilot', 'grok-build'].includes(provider)) expect(hook.startsWith(original)).toBe(true);
-      else expect(hook).toBe(original + (provider === 'factory' ? factoryInstructions : ''));
+      else expect(hook).toBe(original + (provider === 'factory' ? factoryInstructions : '') + noToolsException);
+      expect(hook).toContain(noToolsException.trim());
       if (provider === 'factory') {
         expect(hook).toContain("aiwg discover --stdin <<'AIWG_REQUEST'");
         expect(hook).toContain('never put request text in quotes on a command line');
@@ -146,7 +148,7 @@ describe('per-harness rule hooks (#3740)', () => {
     for (const { provider, report } of reports) readRuleDeliveryContext(report, provider);
     const content = read(bridge);
     expect(content.split('<!-- AIWG:rule-hook-factory:start -->\n')[1].split('\n<!-- AIWG:rule-hook-factory:end -->')[0]).toBe(
-      'factory: Before every task and subagent task, read and follow `.factory/rules/RULES-INDEX.md`; read every listed kernel file and fetch matching full rules before governed work.' + factoryInstructions);
+      'factory: Before every task and subagent task, read and follow `.factory/rules/RULES-INDEX.md`; read every listed kernel file and fetch matching full rules before governed work.' + factoryInstructions + noToolsException);
     expect(content).toContain('# Operator before'); expect(content).toContain('Operator after');
     expect(content).not.toContain('STALE_KERNEL'); expect(content).not.toContain('old generated');
     expect(content).not.toContain('FIXTURE_KERNEL_BODY');

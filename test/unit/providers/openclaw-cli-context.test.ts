@@ -33,7 +33,7 @@ describe('built OpenClaw CLI startup context (#4264)', () => {
     const { home, project, deploy } = fixture();
     deploy();
     // Emulate stale managed content without changing the packaged templates.
-    for (const [file, current] of [['AGENTS.md', 'On a new task, first run discovery for the request'],
+    for (const [file, current] of [['AGENTS.md', 'before any other tool call or answer'],
       ['SOUL.md', 'You are the **AIWG Steward**']] as const) {
       const target = path.join(project, file);
       if (fs.existsSync(target)) fs.writeFileSync(target,
