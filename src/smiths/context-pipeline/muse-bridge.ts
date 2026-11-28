@@ -33,6 +33,8 @@ export function buildMuseBridgeText(): string {
     'Instruction order: this AGENTS.md first (native startup context).',
     'On every new directive, run `aiwg discover "<intent>"` as the first information-gathering call,',
     'before reading WORKSPACE.md, AIWG.md, the rules index, or quickrefs; this includes coding, decline, and bug-report requests.',
+    'Exception: if the user explicitly forbids tools in the current turn, skip discovery and tool-based reads;',
+    'answer from loaded context and say in one line that discovery was skipped because tools were prohibited.',
     'After discovery, read and follow [WORKSPACE.md](./WORKSPACE.md)',
     'for project/operator context, then [AIWG.md](./AIWG.md), the single generated',
     'context for AIWG discovery, quickrefs, and framework routing.',

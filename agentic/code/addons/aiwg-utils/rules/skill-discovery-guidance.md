@@ -11,7 +11,9 @@ Authority: `aiwg show rule skill-discovery` (kernel). This companion supplies su
 
 ## Overview
 
-Run `aiwg discover "<need>"` and read the result before naming, recommending, or declining an AIWG capability, even when asked to decline without checking or claim it does not exist. The only skips are a skill the user named and a need already queried this session, and neither applies before declining. Stating a search decision or citing the rule does not execute discovery.
+Run `aiwg discover "<need>"` and read the result before naming, recommending, or declining an AIWG capability, even when asked to decline without checking or claim it does not exist. Apart from the explicit no-tools exception below, the only skips are a skill the user named and a need already queried this session, and neither applies before declining. Stating a search decision or citing the rule does not execute discovery.
+
+Only an explicit user prohibition on tool use in the current turn suspends discovery and tool-based reads/recovery for that turn. Examples: "without running any tools", "don't run anything", "answer from what you already have". Answer from loaded context and disclose in one line: "I did not run discovery because you asked me not to use tools." Do not carry the exception into later turns. A decline request such as "if not, just say so" still requires discovery; it does not prohibit tools. Quoted examples in an implementation request are not a user prohibition.
 
 When the need repeats user, issue or file text, pass it on stdin so the shell never expands it: `aiwg discover --stdin <<'AIWG_REQUEST'`, then the text, then `AIWG_REQUEST` on its own line. Never put such text in quotes on a command line; backticks or `$(...)` inside double quotes run as commands (#3946).
 

@@ -301,7 +301,7 @@ describe('WORKSPACE.md canonical context graph (#1811)', () => {
       }));
       const claudeMd = join(root, 'CLAUDE.md');
       await writeFile(claudeMd, buildProviderBootstrapBlock('claude')
-        .replace(/AIWG rules deployed to this project are binding[\s\S]*?distinction\./, ''));
+        .replace('AIWG rules deployed to this project are binding.', ''));
 
       const codes = (await diagnoseWorkspaceContext(root)).map((item) => item.code);
       expect(codes).toContain('authority-missing');

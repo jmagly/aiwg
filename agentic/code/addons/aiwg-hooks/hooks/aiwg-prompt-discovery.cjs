@@ -45,12 +45,18 @@ function shouldDiscover(prompt) {
   return words.length >= 4 || imperative.test(prompt);
 }
 
+// Match direct instructions, not quoted examples or narrower bans on writes/network.
+function prohibitsTools(prompt) {
+  return /(?:^|[.!?;\n]\s*)(?:please\s+)?(?:no\s+tools|without\s+(?:(?:running|using|calling|invoking)\s+)?(?:any\s+)?tools|(?:do not|don't|don’t)\s+(?:(?:run|use|call|invoke)\s+(?:any\s+)?tools|run\s+anything)|answer\s+from\s+what\s+you\s+already\s+have)(?:\s+(?:this turn|please))?(?=\s*(?:[:,.!?;\n]|$))/i.test(prompt.replace(/```[\s\S]*?```|~~~[\s\S]*?~~~/g, ''));
+}
+
 function contextFor(envelope, prompt) {
   const clean = (value, max) => typeof value === 'string'
     ? value.replace(/[\x00-\x1f\x7f]/g, ' ').replace(/[*_]/g, '').replace(/\s+/g, ' ').trim().slice(0, max) : '';
   const prefix = 'AIWG candidates:\n';
   const next = '\nFirst call: aiwg show <type> <name> (best fit) -> rules (--rules --with-rule-bodies; --body) -> apply.'
-    + '\nIf none fit, run aiwg discover; never decline without it.';
+    + '\nIf none fit, run aiwg discover; never decline without it.'
+    + '\nIf user forbids tools this turn: skip; disclose.';
   let candidates = (Array.isArray(envelope?.results) ? envelope.results : [])
     .filter(r => typeof r?.score === 'number' && Number.isFinite(r.score) && r.score >= 0.20
       && /^[a-z][a-z-]{0,19}$/.test(r.type) && /^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,69}$/.test(r.name))
@@ -70,7 +76,7 @@ function contextFor(envelope, prompt) {
     // The request goes through a quoted heredoc so the shell never expands it (#3946).
     // One line: multi-line wording lowered first-call compliance in harness UAT.
     let need = prompt.replace(/[\x00-\x1f\x7f]/g, ' ').replace(/AIWG_REQUEST/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 220);
-    const instruction = () => `Before any other tool call or answer, run: aiwg discover --stdin${type ? ` --type ${type}` : ''} <<'AIWG_REQUEST' with the request on the next line and AIWG_REQUEST on the last line (never put request text in quotes on a command line), then answer from its result. Answering or declining without running it violates the skill-discovery rule. Request: ${need}${templateHint}`;
+    const instruction = () => `Before any other tool call or answer, run: aiwg discover --stdin${type ? ` --type ${type}` : ''} <<'AIWG_REQUEST' with the request on the next line; last line AIWG_REQUEST alone; then answer from its result. Required even for declines. Exception: explicit user no-tools instruction this turn: skip discovery/reads, answer from loaded context, disclose why in one line. Request: ${need}${templateHint}`;
     while (instruction().length > 599 && need.length) need = need.slice(0, -1);
     return instruction();
   }
@@ -106,7 +112,13 @@ async function main() {
     || /^(system|notification|tool[_-]result)$/.test(event.type || '')) return finish();
   const text = antigravity ? event.lastUserInput : hermes ? event.extra?.user_message : event.prompt;
   const prompt = typeof text === 'string' ? text.trim() : '';
+  const emit = context => process.stdout.write(JSON.stringify(antigravity ? {
+    injectSteps: [{ systemMessage: { systemMessage: context } }],
+  } : cursor ? { continue: true, additional_context: context } : hermes ? { context } : {
+    hookSpecificOutput: { hookEventName: 'UserPromptSubmit', additionalContext: context },
+  }) + '\n', finish);
   if (!shouldDiscover(prompt)) return finish();
+  if (prohibitsTools(prompt)) return emit('The user explicitly prohibited tools in this turn. Skip discovery and tool-based reads for this turn; answer from loaded context and say in one line: I did not run discovery because you asked me not to use tools.');
   let cwd = hermes && typeof event.cwd === 'string' ? event.cwd : process.cwd();
   let dedup;
   if (antigravity) {
@@ -150,11 +162,7 @@ async function main() {
         fs.closeSync(fs.openSync(dedup, 'wx', 0o600));
       } catch { return finish(); }
     }
-    if (context) process.stdout.write(JSON.stringify(antigravity ? {
-      injectSteps: [{ systemMessage: { systemMessage: context } }],
-    } : cursor ? { continue: true, additional_context: context } : hermes ? { context } : {
-      hookSpecificOutput: { hookEventName: 'UserPromptSubmit', additionalContext: context },
-    }) + '\n', finish);
+    if (context) emit(context);
     else finish();
   });
   worker.on('error', finish);

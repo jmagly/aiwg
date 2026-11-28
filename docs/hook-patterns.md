@@ -479,6 +479,15 @@ Headless availability comes from repository adapters and provider docs, without
 executing any harness. Exec hook behavior stays unverified unless supplied UAT
 establishes it; interactive support does not establish exec support.
 
+For every provider, harness UAT **p3 (explicit no tools)** passes only when it
+is **answered without tools**: no discovery or tool-based context reads, an
+answer from loaded context, and a one-line disclosure that discovery was skipped
+at the user's request (#4514). Discovery despite the prohibition fails p3 even
+when the answer is correct. This scoring applies across providers; historical
+observations below are not rerun results. p1/p2/p4 retain discover-first, including
+p2's “if not, just say so” decline. Narrower bans on edits or network access do
+not suspend local discovery.
+
 | Provider | Prompt hook support / config | Exec/headless surface | Exec-mode prompt hooks | Static check | Live UAT status (operator supplied) |
 |---|---|---|---|---|---|
 | antigravity | `PreInvocation` → `injectSteps[].systemMessage.systemMessage` in named `.agents/hooks.json` | `agy --print` | Offline deploy/runtime fixtures verified; live unverified | Pass | Installed docs + embedded schema, agy 1.3.3, 2026-11-27; no authenticated run |

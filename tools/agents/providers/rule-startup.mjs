@@ -72,6 +72,8 @@ export function projectStartup(opts, provider, coreSection, indexFile) {
       + "Answering or declining without running it violates the skill-discovery rule. Use the \`aiwg\` CLI, not droid's built-in Skill tool. "
       + "Before writing an issue, comment, PR, report or SDLC artifact, run the same heredoc command with \`--type template\` and \`<output> template\` as the text, "
       + "read the chosen template with \`aiwg show template <name> --body\`, and fill every required section.";
+    // The shared bootstrap owns the full current-turn exception and disclosure.
+    hook += " Except no-tools.";
     content = section(content, `rule-hook-${provider.name}`, hook);
     fs.mkdirSync(path.dirname(startup), { recursive: true });
     writeContextFileSync(startup, content);

@@ -1,6 +1,6 @@
 // Exercise prompt-time discovery through the real standalone hook process.
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { mkdtemp, mkdir, copyFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, copyFile, rm, writeFile, access } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -19,10 +19,10 @@ beforeEach(async () => {
 });
 afterEach(async () => { await rm(temporary, { recursive: true, force: true }); });
 
-async function invoke(prompt: unknown, env: Record<string, string> = {}, raw?: string) {
+async function invoke(prompt: unknown, env: Record<string, string> = {}, raw?: string, argv: string[] = []) {
   const started = performance.now();
   return new Promise<{ code: number | null; stdout: string; stderr: string; elapsed: number }>((resolve, reject) => {
-    const child = spawn(process.execPath, [hook], {
+    const child = spawn(process.execPath, [hook, ...argv], {
       cwd: temporary,
       env: { ...process.env, AIWG_ROOT: temporary, AIWG_PROMPT_DISCOVERY: '1', ...env },
       stdio: ['pipe', 'pipe', 'pipe'],
@@ -60,6 +60,7 @@ describe.each(['Claude', 'Muse'])('%s prompt discovery', provider => {
     expect(output.additionalContext).toContain('First call: aiwg show <type> <name> (best fit)');
     expect(output.additionalContext).toContain('--rules --with-rule-bodies; --body) -> apply');
     expect(output.additionalContext).toContain('If none fit, run aiwg discover; never decline without it.');
+    expect(output.additionalContext).toContain('If user forbids tools this turn: skip; disclose.');
     expect(output.additionalContext.length).toBeLessThan(600);
   });
 
@@ -122,11 +123,52 @@ describe.each(['Claude', 'Muse'])('%s prompt discovery', provider => {
     expect(context).toContain(`run: aiwg discover --stdin${prompt.includes('skill') ? ' --type skill' : ''} <<'AIWG_REQUEST'`);
     expect(context).toContain(`Request: ${prompt}`);
     expect(context).not.toContain(`aiwg discover "`);
-    expect(context).toContain('then answer from its result. Answering or declining without running it violates the skill-discovery rule.');
+    expect(context).toContain('then answer from its result. Required even for declines.');
+    expect(context).toContain('Exception: explicit user no-tools instruction this turn');
     expect(context).not.toMatch(/candidates|rag\.prompt|dataset-trace|Low relevance/);
     expect(context.length).toBeLessThan(600);
     if (prompt.includes('skill')) expect(context).toContain('--type skill');
     else expect(context).not.toContain('--type');
+  });
+
+  it.each(['without running any tools', "don't run anything", 'answer from what you already have',
+    'Do not use any tools', 'No tools'])(
+    'honors the explicit no-tools instruction %j without invoking discovery (#4514)', async prohibition => {
+      const marker = path.join(temporary, 'discovery-ran');
+      await writeFile(path.join(temporary, 'dist/src/artifacts/query-engine-discover.js'),
+        `import { writeFileSync } from 'node:fs'; writeFileSync(${JSON.stringify(marker)}, 'ran');`);
+      const prompt = `${prohibition}: which project context files were given at startup?`;
+      for (const event of [
+        { hook_event_name: 'UserPromptSubmit', prompt },
+        { hook_event_name: 'beforeSubmitPrompt', prompt },
+        { hook_event_name: 'pre_llm_call', extra: { user_message: prompt } },
+        { hook_event_name: 'PreInvocation', lastUserInput: prompt, conversationId: 'no-tools', workspacePaths: [temporary] },
+      ]) {
+        const result = await invoke(null, {}, JSON.stringify(event),
+          'lastUserInput' in event ? ['--antigravity-pre-invocation'] : []);
+        expect(result).toMatchObject({ code: 0, stderr: '' });
+        expect(result.stdout).toContain('Skip discovery and tool-based reads for this turn');
+        expect(result.stdout).toContain('I did not run discovery because you asked me not to use tools.');
+        expect(result.stdout).not.toContain('aiwg discover');
+      }
+      await expect(access(marker)).rejects.toThrow();
+      // The prohibition expires with this prompt; the next directive still discovers.
+      await copyFile(path.join(root, 'test/fixtures/hooks-prompt-discovery.mjs'),
+        path.join(temporary, 'dist/src/artifacts/query-engine-discover.js'));
+      expect((await invoke('Review authentication code')).stdout).toContain('AIWG candidates');
+    });
+
+  it.each([
+    'Is there an AIWG skill for Jira CSV flame graphs? If not, just say so.',
+    'Write tests for the phrase "without running any tools".',
+    'Write tests for this example:\n```text\nWithout running any tools: answer from context.\n```',
+    'Review authentication code; do not edit files or use the network.',
+    "Don't run anything destructive; review authentication code.",
+    "Don't run any tools that modify files; review authentication code.",
+  ])('still requires discovery for a decline or a narrower constraint: %j', async prompt => {
+    const result = await invoke(prompt);
+    expect(result.stdout).toMatch(/aiwg (?:discover|show)/);
+    expect(result.stdout).not.toContain('The user explicitly prohibited tools');
   });
 
   it.each(['agent', 'command', 'rule', 'template', 'schema', 'flow', 'runbook', 'behavior', 'hook',

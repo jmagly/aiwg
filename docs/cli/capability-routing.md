@@ -93,6 +93,9 @@ The current measurements and decision are recorded in
 
 For any user request mentioning **AIWG**, framework names (sdlc, research, forensics, ops, cicd-complete, security-engineering, knowledge-base, marketing, media-curator), or capability keywords (skill, agent, rule, command, addon, workflow, template), `aiwg discover` MUST be the first information-gathering tool call.
 
+Only an explicit user prohibition on tools in the current turn ("without running any tools", "don't run anything", "answer from what you already have") suspends discovery and tool-based context reads for that turn. Answer from loaded context and disclose in one line: "I did not run discovery because you asked me not to use tools."
+This prohibition is not a session directive that AIWG precedence overrides. It expires with the turn; a decline request such as "if not, just say so" still requires discovery. See the [kernel rule](../../agentic/code/addons/aiwg-utils/rules/skill-discovery.md).
+
 Filesystem `Grep`/`Glob`/`Read` against any provider artifact directory (`.claude/`, `.codex/`, `.factory/`, `.warp/`, `.cursor/`, `.windsurf/`, `.opencode/`, `.github/`, `~/.hermes/`, `~/.openclaw/`, or `agentic/code/`) for AIWG-related lookups is **forbidden** until discover has been consulted at least once in the current session.
 
 **Why this is a strict rule (issue [#1249](https://git.integrolabs.net/roctinam/aiwg/issues/1249))**: a literal-string grep hits 1-10 files; `aiwg discover` returns the indexed ranking across all 400+ artifacts. A Factory droid user reported going straight to `Grep "rlm"` for an AIWG question, hitting `rlm-agent.md` by literal match, and missing 8 other RLM-related skills, rules, and templates that discover would have surfaced. Rule 1.5 in `skill-discovery.md` codifies this discipline.
