@@ -44,9 +44,10 @@ describe.each(adapters)('release-note context files: $name (#4289)', ({ assess }
 
 describe('release-note classification boundaries (#4289)', () => {
   it.each(THREAT_SURFACES.filter(surface => !['release-note', 'outbound-maintainer-comment'].includes(surface)))(
-    'preserves conservative fallback on %s', surface => {
+    'keeps generated behavior informational on %s (#4515)', surface => {
       const report = assessThreat({ surface, content: generatedBehavior[0] });
-      expect(report.findings[0]).toMatchObject({ context: 'requested', suppressed: false });
+      expect(report.findings[0]).toMatchObject({ context: 'descriptive', suppressed: true });
+      expect(report.decision.action).toBe('proceed');
     },
   );
 

@@ -20,6 +20,9 @@ const DEFENSIVE_REPORTS = JSON.parse(readFileSync(new URL(
 const ENV_VAR_DRAFTS = JSON.parse(readFileSync(new URL(
   '../../fixtures/issues/env-vars-policy.json', import.meta.url,
 ), 'utf8'));
+const SENSITIVE_FILE_DRAFTS = JSON.parse(readFileSync(new URL(
+  '../../fixtures/issues/sensitive-file-policy.json', import.meta.url,
+), 'utf8'));
 
 function adapter(route, options = {}) {
   const issues = [];
@@ -53,6 +56,13 @@ function adapter(route, options = {}) {
 }
 
 describe('policy-boundary-aware issue composition (#2072)', () => {
+  it.each(SENSITIVE_FILE_DRAFTS)('plans sensitive file fixture $id (#4515)', ({ body, action }) => {
+    const plan = planIssueDraft({ title: 'UAT result', body });
+    expect(plan.originalAssessment.decision.action).toBe(action);
+    expect(plan.authorizationRequired).toBe(action !== 'proceed');
+    expect(plan.disposition).toBe(action === 'proceed' ? 'single' : 'authorization-required');
+  });
+
   it.each(ENV_VAR_DRAFTS)('plans env variable fixture $id (#4450)', ({ body, action }) => {
     const plan = planIssueDraft({ title: 'comment', body });
     expect(plan.originalAssessment.decision.action).toBe(action);

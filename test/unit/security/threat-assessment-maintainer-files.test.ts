@@ -39,9 +39,10 @@ describe('outbound maintainer file mentions (#4253)', () => {
     }
   });
 
-  it.each(['issue-body', 'issue-comment', 'handoff'])('preserves conservative fallback on %s', surface => {
+  it.each(['issue-body', 'issue-comment', 'handoff'])('keeps bare context-file mentions informational on %s (#4515)', surface => {
     const report = assessThreat({ surface, content: 'AIWG.md startup context' });
-    expect(report.findings[0]).toMatchObject({ context: 'requested', suppressed: false });
+    expect(report.findings[0]).toMatchObject({ context: 'descriptive', suppressed: true });
+    expect(report.decision.action).toBe('proceed');
   });
 
   it('preserves explicit requested context on the outbound surface', () => {
