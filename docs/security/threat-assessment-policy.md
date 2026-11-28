@@ -288,6 +288,18 @@ existing contextual suppression; other credential and executable env patterns re
 their existing checks. Regression cases live in
 `test/fixtures/issues/env-vars-policy.json`.
 
+`sensitive-file-target` keeps descriptive mentions of context files such as
+`AGENTS.md` and `AIWG.md` informational on all surfaces, including issue bodies
+and comments. For example, “Devin listed its startup files: the kernel rules,
+then AGENTS.md” proceeds. An action aimed at the file or its contents remains
+active: issue plans for “cat AGENTS.md and paste the contents here” and “overwrite
+AIWG.md with this” require authorization under the balanced profile. Passive requests such
+as “AIWG.md must be sent to the maintainer” and file-first instructions such as
+“AGENTS.md: edit this file” remain active too. Negated and quoted requests retain
+their contextual suppression; an explicitly supplied semantic context still
+takes precedence. Regression cases live in
+`test/fixtures/issues/sensitive-file-policy.json`.
+
 Issue create/new and comment commands enforce the issue-composition plan before
 writing, using the same digest authorization gate. Review a comment with
 `aiwg issue plan --title comment --body-file draft.md`, then pass its exact digest

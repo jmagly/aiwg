@@ -24,6 +24,24 @@ const ENV_VALUE_REQUEST = new RegExp([
   String.raw`(?:(?:values?|contents?|data)\s+(?:of|from|in|for)\s+(?:(?:the|all|my|your|our|these|those|current)\s+)*)?[\x60"'*]*$`,
 ].join(''), 'i');
 const ENV_PASSIVE_REQUEST = /^\s*[`"'*]*(?:\s+(?:values?|contents?))?\s+(?:(?:must|should|need to|have to)\s+be\s+|(?:to\s+be\s+))?(?:printed|dumped|echoed|read|shown|revealed|disclosed|sent|uploaded|posted|exported|pasted|shared|displayed|extracted)\b/i;
+const FILE_ACTION = [
+  'read|cat|print|paste|send|upload|dump|echo|show|reveal|disclose|share|extract|inspect|attach|post|include|provide|display|output|return|download|fetch|retrieve|collect|transmit|forward|leak|exfiltrate',
+  'delete|overwrite|edit|update|modify|change|rewrite|replace|remove|open|write|append|add|insert|copy|move|configure|set|use|load|source|run|execute|invoke|install|export|enable|disable|migrate|commit|push|apply|ignore|treat',
+  'rm|cp|mv|head|tail|less|more|tee|truncate|touch|sed|awk|perl|grep|rg',
+].join('|');
+const FILE_ACTION_LEAD = new RegExp(String.raw`^(?:please\s+|now\s+|just\s+|also\s+)*(?:${FILE_ACTION})\b`, 'i');
+// The action must address the file, its contents, or a coordinated file list.
+// "Print the report about AGENTS.md" does not address AGENTS.md itself.
+const FILE_TARGET_REQUEST = new RegExp([
+  String.raw`\b(?:${FILE_ACTION})\s+`,
+  String.raw`(?:(?:[\w-]+\s+){1,12}(?:in|inside|within|from|of|to|into)\s+)?`,
+  String.raw`(?:(?:out|over|me|us|with me|with us|to|into|from|of|in|the|an?|all|my|your|our|these|those|current|raw|full|entire|actual|file|files|contents?|data|text|instructions?|credentials|generated)\s+)*`,
+  String.raw`(?:--?\S+\s+)*`,
+  String.raw`(?:[\x60"'*]*(?:[\w.~/-]+\.(?:md|ya?ml))[\x60"'*]*\s*(?:,\s*(?:and\s+)?|and\s+))*`,
+  String.raw`[\x60"'*]*(?:[\w.~/-]+/)*$`,
+].join(''), 'i');
+const FILE_SHELL_REQUEST = /\b(?:sed|awk|perl|grep|rg)\s+[^;\n|]*\s+[\x60"']*(?:[\w.~/-]+\/)*$/i;
+const FILE_PASSIVE_REQUEST = /^[\s`"'*:]*(?:\s+(?:contents?|file|it))?\s+(?:(?:must|should|needs?\s+to|has\s+to|have\s+to|will)\s+be\s+|(?:is\s+)?to\s+be\s+)(?:read|opened|printed|pasted|sent|uploaded|deleted|overwritten|edited|modified|changed|rewritten|replaced|removed|updated|shared|copied|disclosed)\b/i;
 
 /**
  * Locate the sentence that contains a match. Markdown line breaks, list
@@ -95,7 +113,7 @@ export function inferContext(text, index, explicit, length = 0, ruleId = '', sur
   if (ruleId === 'sensitive-file-target' && /^(?:(?:see|refer to)\s+(?:the\s+)?)?`?AIWG\.md`?(?:\s+parallelism\s+section)?\.?$/i.test(
     text.slice(lineStart, text.indexOf('\n', index) < 0 ? text.length : text.indexOf('\n', index)).replace(SENTENCE_LEAD_MARKERS, '').trim(),
   )) return 'descriptive';
-  const localPrefix = requestPrefix(`${clause.before} ${clause.match}`).toLowerCase();
+  const localPrefix = requestPrefix(ruleId === 'sensitive-file-target' ? clause.before : `${clause.before} ${clause.match}`).toLowerCase();
   if (/(?:must not|do not|don't|never|avoid|prevent|forbid|out[- ]of[- ]scope|warning against|without)\b[^.!?\n]{0,100}$/i.test(localPrefix)
     || /\bno\s+(?:[\w-]+\s+){0,3}$/i.test(localPrefix)) {
     // "no model credentials needed", "no secret was accessed": a bare "no"
@@ -107,16 +125,19 @@ export function inferContext(text, index, explicit, length = 0, ruleId = '', sur
     return 'descriptive';
   }
   const leading = requestPrefix(clause.before).replace(SENTENCE_LEAD_MARKERS, '').trimStart();
-  if (IMPERATIVE_LEAD.test(`${leading}${clause.match}`) || REQUEST_CUE.test(leading)) return 'requested';
-  if (ruleId === 'sensitive-file-target' && ['outbound-maintainer-comment', 'release-note'].includes(surface)) {
-    // Maintainer reports and release notes name files as subjects. Require a request rather than
-    // treating an unrecognized reporting verb ("loaded", "reached") as intent.
-    const indirect = /\b(?:(?:can|could|would|will)\s+you|(?:the\s+fix\s+is|you\s+need|i\s+want\s+you)\s+to)\s+(.+)$/i.exec(leading);
+  if (ruleId === 'sensitive-file-target') {
+    const direct = FILE_TARGET_REQUEST.test(leading) || FILE_SHELL_REQUEST.test(leading);
     const trailing = requestPrefix(sentence.trailing).replace(/^[\s`"'*:,]*(?:and\s+)?/i, '');
-    if ((indirect && IMPERATIVE_LEAD.test(indirect[1])) || IMPERATIVE_LEAD.test(trailing)
-      || /\b(?:must|should|needs?\s+to|has\s+to)\s+be\s+(?:read|opened|edited|modified|changed|sent|uploaded|deleted|removed|updated)\b/i.test(trailing)) return 'requested';
-    return 'descriptive';
+    const indirect = /\b(?:(?:can|could|would|will)\s+you|(?:the\s+fix\s+is|you\s+need|i\s+want\s+you)\s+to)\s+(.+)$/i.exec(leading);
+    if (FILE_PASSIVE_REQUEST.test(sentence.trailing) || FILE_ACTION_LEAD.test(trailing)) return 'requested';
+    if (!direct) return 'descriptive';
+    if (FILE_ACTION_LEAD.test(leading) || REQUEST_CUE.test(leading)
+      || (indirect && FILE_ACTION_LEAD.test(indirect[1]))) return 'requested';
+    // Reports on these surfaces need an affirmative request even for ambiguous
+    // verbs such as "read" that can also describe a completed action.
+    if (['outbound-maintainer-comment', 'release-note'].includes(surface)) return 'descriptive';
   }
+  if (IMPERATIVE_LEAD.test(`${leading}${clause.match}`) || REQUEST_CUE.test(leading)) return 'requested';
   if (DESCRIPTIVE_CUE.test(sentence.text)) return 'descriptive';
   return 'requested';
 }
