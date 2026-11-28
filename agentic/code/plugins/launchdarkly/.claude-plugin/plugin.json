@@ -1,6 +1,6 @@
 {
   "name": "launchdarkly",
-  "version": "2026.11.9",
+  "version": "2026.11.10",
   "description": "Governed LaunchDarkly onboarding, SDK integration, staged releases, experiments, lifecycle cleanup and read-only governance.",
   "author": {
     "name": "AIWG Contributors",

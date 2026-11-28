@@ -1,6 +1,6 @@
 {
   "name": "aiwg-dev",
-  "version": "2026.11.9",
+  "version": "2026.11.10",
   "description": "Tools for developing and extending AIWG: dev mode (run AIWG from a local checkout), scaffolding, validation and source-structure checks. For AIWG contributors and for users who customize AIWG from their own checkout. Not part of `aiwg use all`; install explicitly with `aiwg use aiwg-dev`.",
   "author": {
     "name": "AIWG Contributors",

@@ -7,6 +7,64 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
 
 ## [Unreleased]
 
+## [2026.11.10] - 2026-11-28
+
+### Added
+
+- **New opt-in `cicd-complete` framework for designing and maintaining CI/CD pipelines.** Run `aiwg use cicd-complete`, then ask "design a ci pipeline". It brings lifecycle content (phase guides, intake, templates, gate checklists), a vendor-neutral CI capability library with gate packs, five agents and twelve skills, and governed `CIPipeline` / `CIEnvironment` schemas that provider extensions can extend. First-wave provider extensions render pipelines for Gitea Actions and GitHub Actions. Guide: `docs/frameworks/cicd-complete/` (overview, quickstart, CI schema contracts) (#4421, #4441, #4442, #4458, #4486, #4449).
+- **Feature-flag planning in the SDLC framework (optional, vendor-neutral).** sdlc-complete already listed feature flags as checklist items. It now suggests flags only when the work warrants them: a new `feature-flag-fit` rule recommends, offers, or stays silent at intake, architecture, iteration planning and deployment strategy, and names cases where a flag is the wrong tool (secrets, static config, very small changes). Declines are recorded and not raised again. Ask "should this be behind a flag?" or "plan feature flags" to run the new `feature-flag-plan` skill. The existing feature-toggle card now carries the flag's kind, value type, owner, default value, rollout and rollback plan, test set (current state, upcoming state, default path), a removal task, and an optional review-by date. The intake form gains a Release & Rollout section, and the solution profile records `feature_flags.provider` and `policy` so provider addons and CI/CD pipelines can plug in. Implementer, architecture, test, release, ops-readiness and retrospective guidance cover flags end to end, with sources cited in the guide `docs/frameworks/sdlc-complete/feature-flags.md` (#4431, #4432, #4433, #4434, #4435, #4503).
+- **New opt-in `launchdarkly` addon.** Run `aiwg use launchdarkly`, then ask "set up LaunchDarkly":
+  - The `launchdarkly-concierge` guides you from account setup through connecting LaunchDarkly's hosted MCP server (or the local server for EU and federal accounts) to a first flag evaluated in your app.
+  - It checks which kind of key you have before use, and never repeats key values from tool output, a gap the live test account showed was real.
+  - For day-to-day work, ask in plain language ("create a LaunchDarkly flag", "roll out a LaunchDarkly flag to 10 percent", "set up a LaunchDarkly experiment", "clean up stale LaunchDarkly flags"). Skills cover SDK integration and testing, targeting and segments, progressive and guarded rollouts, migration flags, approvals, experiments, AgentControl, flag-debt audits, code references, Terraform and Relay Proxy.
+  - Every production change pauses for your approval with the exact change shown.
+  - Experiment and AgentControl skills warn first about LaunchDarkly behaviour seen in testing: experiments can't be deleted and pin their flag and metric; new agent configs serve in production.
+  - A read-only governance auditor reports on roles, ownership and flag debt.
+
+  Guide: `docs/addons/launchdarkly/user-guide.md` (#4436–#4440, #4495, #4510, #4511).
+- **LaunchDarkly implementations of the CI/CD flag checks.** The five vendor-neutral cicd-complete capabilities (`flag-check`, `flag-states-test`, `progressive-rollout`, `flag-coderefs-scan`, `flag-cleanup-handoff`) resolve to the launchdarkly addon when `feature_flags.provider` is `launchdarkly`:
+  - Guarded rollouts are capped at 50% per stage.
+  - Flags linked to an experiment are refused, and so are migration flags for guarded rollouts.
+  - Long guarded rollouts hand off to LaunchDarkly's own monitoring with a rollout reference.
+  - Cleanup reports flags that can only be archived (#4424, #4439, #4440, #4510).
+- **Opt-in PR Steward guidance for Claude Code.** Claude Code's built-in `/steward` reads `.claude/skills/steward/SKILL.md` as a project's PR instructions. With `delivery.pr_steward_guidance: true`, AIWG writes that file from the repository's delivery policy (committer and signing, force push, delivery mode, declared checks, protected paths). An operator's own file is never overwritten, and turning the option off removes only the managed file (#4403).
+- **Right-sized worker selection.** `defaults.workerSelection` gains an optional `strategy` (`cost-effective`, `balanced`, `quality`) and a named automatic-tier ceiling. A project can narrow a user ceiling but never silently widen it, and with neither set, resolution is unchanged (#4407). Delegate-by-default becomes the rule baseline with an always-emitted delegation rubric (#4469); mission, MC, flow, Ralph and team workers route through the same tier policy (#4468); legacy router defaults resolve through `workerSelection` (#4472).
+- **Issue commands:** repeatable `--label` and `--milestone` with verified issue edits (#4484), and `--template` for `aiwg issue plan|new` and `aiwg issues create` (#4517).
+- Session import reads Grok Build native file text, cancellation, resume and fork (#4409), and compressed Codex rollouts, with scoped Claude discovery (#4398).
+- Worker qualification checks structured-artifact acceptance against field evidence (#4404).
+- Discovery research: experimental offline graph retrieval (#4391) with an offline evaluation and budget (#4456); selective Jev routing now auto-disables on a breach, with a preregistered study contract (#4467).
+- Evaluation tooling: offline H1/H2 composition pilot (#4396), skill-metadata retention pilot and report (#4395, #4462), criterion-level rubric calibration on frozen pilot outputs (#4405), blinded judge-vote collection with CLI judges (#4415, #4444), and calibration authority with a frozen split and an insufficient-evidence verdict (#4455).
+
+### Changed
+
+- **Devin uses its native paths.** `aiwg use --provider devin` writes Devin Desktop's own `.devin/` locations; `windsurf` stays an alias, and older `.windsurf/` installs are migrated (#4448).
+- **Antigravity:** project MCP servers are written as a native plugin (`.agents/plugins/aiwg/plugin.json` and `mcp_config.json`) with the canonical `url` key, and an existing flat `.agents/mcp_config.json` is carried over and kept unchanged with a warning (#4507). Antigravity now gets the discovery-first startup and a native `PreInvocation` prompt hook in `.agents/hooks.json` (#4506). Its provider contract, reload policy, firewall rule paths and tool map match agy 1.5.17 (#4507).
+- **An explicit "no tools" request is respected.** When your turn explicitly says "without running any tools", "don't run anything" or "answer from what you already have", the skill-discovery rule, startup text and prompt hook let the agent answer from loaded context and say in one line that it skipped discovery. Asking whether a capability exists still requires discovery (#4519).
+- **Claude Code built-in names:** AIWG's steward skill deploys to Claude as `aiwg-steward-routing` (`steward` remains a discover/show alias), and the `steward` and `babysit` folders are reserved for Claude's PR Steward (#4384). `schedule` and `run` deploy as `aiwg-schedule` and `aiwg-run`, and a catalog check compares AIWG names with Claude Code's built-ins (#4445).
+- aiwg-dev devkit creation skills alias the canonical utilities (#4491), and `aiwg use dev` is no longer misrouted (#4414).
+- Jev decision offload keeps its 0.8 confidence threshold, with a documented caveat that confidence may not transfer to reworded questions (#4401, #4463).
+
+### Fixed
+
+- The issue policy no longer requires authorization for text that only describes env vars or names context files such as `AGENTS.md`; real requests to print secrets or read, paste or overwrite those files stay gated (#4513, #4518). `aiwg issues comment` and `create` now enforce the policy plan with `--authorize-policy`, like `aiwg issue new` (#4513), and stop warning about bug-report sections on feature requests and comments (#4517).
+- Doctor no longer flags every Antigravity skill for flagship inheritance (#4505), honors the flagship allowlist for model wrappers (#4452), and audits deployed delegation flagship inheritance (#4389).
+- Cursor workers can read the desktop login, and qualification fails clearly when they can't (#4446); incomplete Cursor qualification is reported accurately (#4388).
+- Worker routing skips an account that hit its usage limit (#4400), records Muse runtime evidence and explains unaccepted models (#4411), and explains refused delivery checks that embed their arguments (#4410). Ralph launches providers that have no tier catalog (#4490).
+- Environment drift after qualification is reported precisely, ignoring the D-Bus guid (#4466); model refresh JSON is bounded (#4399).
+- Grok Build native capabilities bind to captured contracts (#4406); Codex adopts settled legacy prompts (#4393); discovery shadow runs keep failure receipts and served models (#4392).
+- Packaging: raw report JSON stays out of the package and the corpus digest, and the index budget is raised (#4461, #4464, #4488). New docs pages are registered and `docs:collect --check` guards the composition pilot section (#4412, #4489).
+
+### Security
+
+- Dev-only vite moves to 8.3.8 for GHSA-p4f5-76q4-ffq7 (not in published tarballs) (#4379).
+
+### Testing and CI
+
+- Each test file gets its own HOME, so user-scope deploys stop contending for one lock (#4377); quarantine and doctor-fixture isolation (#4385, #4387).
+- The OMP conformance workflow builds the CLI before the native MCP gate, and its team runs have an explicit tier (#4470, #4485); the T-OG-13 pack includes the routing test (#4471).
+- Release-slow expectations cover native Devin paths and 27 kernel skills (#4504); corpus and discovery snapshots count cicd-complete and launchdarkly (#4457, #4497); Antigravity MCP and UAT coverage (#4508, #4509); Grok CI tree checks no longer spawn ripgrep (#4492).
+- Memory-update controls research notes (#4397, #4451).
+
 ## [2026.11.9] - 2026-11-22
 
 ### Changed
