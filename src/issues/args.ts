@@ -21,6 +21,9 @@ export function parseArgs(args: string[]): ParsedArgs {
     if (flags.has(key) && !repeatable.has(key)) throw new Error(`--${key} may only be specified once`);
     const next = args[i + 1];
     const value = inline !== undefined ? inline : next !== undefined && !next.startsWith('--') ? args[++i] : true;
+    if (key === 'template' && (typeof value !== 'string' || !value.trim())) {
+      throw new Error('--template requires a non-empty name or path');
+    }
     if (repeatable.has(key)) {
       if (typeof value !== 'string' || !value.split(',').some(item => item.trim())) {
         throw new Error(`--${key} requires a non-empty value`);
